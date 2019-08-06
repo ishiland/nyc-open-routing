@@ -1,0 +1,10 @@
+*.zip
+*.gdb/
+venv/
+.idea/
+data/
+node_modules/
+*.log
+db/pgdata/
+db/lion/
+__pycache__/

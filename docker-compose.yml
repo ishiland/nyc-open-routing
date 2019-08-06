@@ -1,0 +1,43 @@
+version: '3.5'
+
+services:
+
+  # Database
+  postgis:
+    build:
+      context: ./db/
+      args:
+        LION: 19b
+    ports:
+      - 5432:5432
+    env_file:
+      - .env
+    volumes:
+      - ./db/pgdata:/var/lib/postgresql/data
+      - ./db/lion:/lion # downloaded lion data
+      - ./db/scripts:/scripts
+
+  # Flask API
+  api:
+    build:
+      context: ./api/
+    ports:
+      - 5000:5000
+    env_file:
+      - .env
+    depends_on:
+      - postgis
+
+  # Frontend
+  client:
+    build:
+      context: ./client/
+    ports:
+      - 3000:3000
+    depends_on:
+      - api
+    volumes:
+      - ./client:/app
+
+#volumes:
+#     pgdata:
