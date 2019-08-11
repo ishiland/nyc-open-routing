@@ -17,7 +17,7 @@ Requires: Docker and docker-compose
 
 1. Clone this repo
 
-    `$ git clone https://github.com/ishiland/nyc-open-routing.git && cd nyc-open-routing`
+    `$ git clone https://github.com/ishiland/nyc-open-routing.git`
 
     and cd into it
 
