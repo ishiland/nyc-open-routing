@@ -13,6 +13,8 @@ ADD . /app
 #EXPOSE 3000
 #EXPOSE 35729
 
-ENTRYPOINT ["yarn"]
+ENTRYPOINT ["yarn", "start"]
 #ENTRYPOINT ["/bin/bash", "/app/run.sh"]
-CMD ["start"]
+#CMD ["start"]
+
+# CMD /run.sh

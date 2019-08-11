@@ -1,19 +1,17 @@
-#!/usr/bin/env bash
-set -eo pipefail
+#!/bin/sh
+set -e
 
-case $1 in
-  start)
-    # The '| cat' is to trick Node that this is an non-TTY terminal
-    # then react-scripts won't clear the console.
-    yarn start | cat
-    ;;
-  build)
-    yarn build
-    ;;
-  test)
-    yarn test $@
-    ;;
-  *)
-    exec "$@"
-    ;;
-esac
+host=postgis
+port=5432
+
+echo -n "waiting for TCP connection to ${host}:${port}..."
+
+while ! nc -w 1 ${host} ${port} 2>/dev/null
+do
+  echo -n .
+  sleep 5
+done
+
+echo 'postgres ready'
+
+npm run start

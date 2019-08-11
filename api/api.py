@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 import os
 from flask import Flask
 from flask_restful import Resource, Api, reqparse, marshal_with, fields
@@ -7,10 +8,14 @@ from shapely import wkb, geometry
 user = os.getenv('POSTGRES_USER')
 password = os.getenv('POSTGRES_PASSWORD')
 database = os.getenv('POSTGRES_DB')
+port = '5432'
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://{}:{}@{}/{}".format(user, password, 'postgis', database)
+# app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://{}:{}@{}/{}".format(user, password, 'postgis', database)
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://{}:{}@{}:{}/{}".format(user, password, 'postgis', port, database)
+
+
 
 api = Api(app, prefix='/api')
 db = SQLAlchemy(app)

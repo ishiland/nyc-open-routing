@@ -9,11 +9,12 @@ services:
       args:
         LION: 19b
     ports:
-      - 5432:5432
+      - ${POSTGRES_PORT}:5432
     env_file:
       - .env
     volumes:
-      - ./db/pgdata:/var/lib/postgresql/data
+      - postgresql:/var/lib/postgresql
+      - postgresql_data:/var/lib/postgresql/data
       - ./db/lion:/lion # downloaded lion data
       - ./db/scripts:/scripts
 
@@ -34,10 +35,12 @@ services:
       context: ./client/
     ports:
       - 3000:3000
+#    command: bash -c 'while !</dev/tcp/postgis/5432; do echo waiting for postgres && sleep 10; done; yarn start'
     depends_on:
       - api
     volumes:
       - ./client:/app
 
-#volumes:
-#     pgdata:
+volumes:
+    postgresql:
+    postgresql_data:

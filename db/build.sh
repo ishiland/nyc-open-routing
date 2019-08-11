@@ -11,7 +11,8 @@ if [ ! -f $FILE_NAME ]; then
 fi
 
 # Use ogr2ogr to load lion.gdb data
-CNX="user=$POSTGRES_USER dbname=$POSTGRES_DB password=$POSTGRES_PASSWORD port=$POSTGRES_PORT"
+CNX="user=$POSTGRES_USER dbname=$POSTGRES_DB password=$POSTGRES_PASSWORD port=5432"
+echo $CNX
 GDB=lion/lion.gdb
 
 # load only required fields and rows for routing

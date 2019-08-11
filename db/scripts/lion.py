@@ -9,7 +9,7 @@ dir_path = os.path.dirname(os.path.realpath(__file__))
 user = os.getenv('POSTGRES_USER')
 password = os.getenv('POSTGRES_PASSWORD')
 database = os.getenv('POSTGRES_DB')
-port = os.getenv('POSTGRES_PORT', 5432)
+port = '5432'
 GDB = os.getenv('GDB')
 
 connection_string = "user={} dbname={} password={} port={}".format(
@@ -58,10 +58,11 @@ def create_topology():
             tolerance, x, x + interval))
         conn.commit()
         percent = round(100 * float(x) / float(total), 0)
-        sys.stdout.write("\r{}%".format(percent))
-        sys.stdout.flush()
-    sys.stdout.write("\r{}%".format(100))
-    sys.stdout.flush()
+        # sys.stdout.write("\r{}%".format(percent))
+        # sys.stdout.flush()
+        print("{}%".format(percent))
+    # sys.stdout.write("\r{}%".format(100))
+    # sys.stdout.flush()
 
 
 def error_check():
@@ -120,8 +121,9 @@ def find_turn_restrictions():
                         conn.commit()
 
         percent = round(100 * float(idx) / float(total), 0)
-        sys.stdout.write("\r{}%".format(percent))
-        sys.stdout.flush()
+        print("{}%".format(percent))
+        # sys.stdout.write("\r{}%".format(percent))
+        # sys.stdout.flush()
 
 
 def create_functions():
