@@ -38,6 +38,8 @@ services:
 #    command: bash -c 'while !</dev/tcp/postgis/5432; do echo waiting for postgres && sleep 10; done; yarn start'
     depends_on:
       - api
+    environment:
+      - CHOKIDAR_USEPOLLING=true
     volumes:
       - ./client:/app
 
