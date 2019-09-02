@@ -1,5 +1,5 @@
 {
-  "name": "NYC-Open-Routing",
+  "name": "nyc-open-routing",
   "version": "0.0.1",
   "private": true,
   "proxy": "http://api:5000/",
@@ -24,7 +24,7 @@
     "build": "react-scripts build",
     "test": "react-scripts test",
     "eject": "react-scripts eject",
-    "lint": "eslint './src/**/*.{js,jsx}'"
+    "lint": "eslint **/*.js"
   },
   "eslintConfig": {
     "extends": "react-app"

@@ -28,6 +28,8 @@ services:
       - .env
     depends_on:
       - postgis
+    volumes:
+     - ./api:/api
 
   # Frontend
   client:

@@ -3,8 +3,9 @@
 venv/
 .idea/
 data/
-node_modules/
+client/node_modules/
 *.log
 db/pgdata/
 db/lion/
+api/geosupport
 __pycache__/

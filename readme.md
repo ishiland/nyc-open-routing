@@ -1,14 +1,14 @@
 # NYC Open Routing
-An open source approach to routing using authoritative NYC data. This project is currently a proof of concept and not intended for real world routing scenarios.
+Routing in NYC with [pgRouting](https://pgrouting.org/) and authoritative NYC data. This project is currently a proof of concept and not intended for real world routing scenarios.
 
 ![image](./screen.png)
 
 ## Features
 - Driving, Walking and Biking routes using DCP's [LION](https://www1.nyc.gov/site/planning/data-maps/open-data/dwn-lion.page) data
-- DCP's [Geosearch API](https://geosearch.planninglabs.nyc/) for easy address searching
-- Routing capabilities using PostgreSQL + [PostGIS](https://postgis.net/) + [pgRouting](https://pgrouting.org/)
+- Address searching using [Geosupport](https://www1.nyc.gov/site/planning/data-maps/open-data/dwn-gde-home.page) and [geosupport-suggest](https://github.com/ishiland/geosupport-suggest) 
+- Routing capabilities using [pgRouting](https://pgrouting.org/)
 - Web API using [Flask RESTful](https://flask-restful.readthedocs.io/en/latest/)
-- Frontend built with [React](https://reactjs.org/) and [Mapbox GL JS](https://docs.mapbox.com/mapbox-gl-js/api/)
+- Frontend using [React JS](https://reactjs.org/) and [Mapbox GL JS](https://docs.mapbox.com/mapbox-gl-js/api/)
 - Containerized with [Docker](https://docs.docker.com/engine/docker-overview/)
 
 ## Getting Started

@@ -4,6 +4,11 @@ from flask import Flask
 from flask_restful import Resource, Api, reqparse, marshal_with, fields
 from flask_sqlalchemy import SQLAlchemy
 from shapely import wkb, geometry
+from geosupport import Geosupport
+from suggest import GeosupportSuggest
+
+g = Geosupport()
+s = GeosupportSuggest(g)
 
 user = os.getenv('POSTGRES_USER')
 password = os.getenv('POSTGRES_PASSWORD')
@@ -12,19 +17,18 @@ port = '5432'
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-# app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://{}:{}@{}/{}".format(user, password, 'postgis', database)
 app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://{}:{}@{}:{}/{}".format(user, password, 'postgis', port, database)
-
-
 
 api = Api(app, prefix='/api')
 db = SQLAlchemy(app)
+
 
 def dump_geo(data):
     if data is None:
         return None
     p = wkb.loads(data, hex=True)
     return geometry.mapping(p)
+
 
 resource_fields = {
     'properties': {
@@ -37,11 +41,12 @@ resource_fields = {
     'geometry': fields.Raw(attribute=lambda x: dump_geo(x.geom))
 }
 
+
 class GeoRouter(Resource):
     @marshal_with(resource_fields, envelope='features')
     def get(self):
         parser = reqparse.RequestParser()
-        parser.add_argument('orig', type=str, trim=True,required=True)
+        parser.add_argument('orig', type=str, trim=True, required=True)
         parser.add_argument('dest', type=str, trim=True, required=True)
         parser.add_argument('mode', type=str, trim=True, required=True)
         args = parser.parse_args()
@@ -56,7 +61,19 @@ class GeoRouter(Resource):
             return route_result.fetchall()
         return '', 204
 
+
 api.add_resource(GeoRouter, '/route', endpoint='route')
+
+
+class AddressSearch(Resource):
+    def get(self):
+        parser = reqparse.RequestParser()
+        parser.add_argument('address', type=str, trim=True, required=True)
+        args = parser.parse_args()
+        return s.suggestions(args['address'])
+
+
+api.add_resource(AddressSearch, '/search', endpoint='search')
 
 if __name__ == '__main__':
     app.run(debug=True, host="0.0.0.0")

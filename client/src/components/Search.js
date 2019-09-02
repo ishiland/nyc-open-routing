@@ -1,4 +1,4 @@
-import React from "react";
+import React, {useContext, useState} from "react";
 import Autosuggest from "react-autosuggest";
 import match from "autosuggest-highlight/match";
 import parse from "autosuggest-highlight/parse";
@@ -7,7 +7,9 @@ import Paper from "@material-ui/core/Paper";
 import MenuItem from "@material-ui/core/MenuItem";
 import Popper from "@material-ui/core/Popper";
 import {makeStyles} from "@material-ui/core/styles";
-import {GEOSEARCH_API} from "../config";
+import {getAddressLabel} from '../utils/search'
+import {AddressContext} from '../contexts/AddressContext';
+
 
 const useStyles = makeStyles(theme => ({
     root: {
@@ -48,8 +50,6 @@ const useStyles = makeStyles(theme => ({
 function renderInputComponent(inputProps) {
     const {
         classes,
-        // inputRef = () => {},
-        // ref,
         ...other
     } = inputProps;
 
@@ -57,7 +57,6 @@ function renderInputComponent(inputProps) {
         <TextField
             fullWidth
             InputProps={{
-                // inputRef: node => {ref(node); inputRef(node); },
                 classes: {
                     input: classes.input,
                 },
@@ -68,8 +67,8 @@ function renderInputComponent(inputProps) {
 }
 
 function renderSuggestion(suggestion, {query, isHighlighted}) {
-    const matches = match(`${suggestion.properties.name}, ${suggestion.properties.borough}`, query);
-    const parts = parse(`${suggestion.properties.name}, ${suggestion.properties.borough}`, matches);
+    const matches = match(getAddressLabel(suggestion), query);
+    const parts = parse(getAddressLabel(suggestion), matches);
     return (
         <MenuItem selected={isHighlighted} component="div" style={{fontSize: '14px'}}>
             <div>
@@ -86,21 +85,21 @@ function renderSuggestion(suggestion, {query, isHighlighted}) {
 }
 
 function getSuggestionValue(suggestion) {
-    return `${suggestion.properties.name}, ${suggestion.properties.borough}`;
+    return getAddressLabel(suggestion);
 }
 
-function Search(props) {
+function Search({type}) {
+    const {setAddress, startAddressInput, endAddressInput, setAddressInput, isInputEnabled} = useContext(AddressContext);
+
     const classes = useStyles();
-    const [anchorEl, setAnchorEl] = React.useState(null);
-    const [state, setState] = React.useState({
-        single: '',
-        popper: '',
-    });
-    const [stateSuggestions, setSuggestions] = React.useState([]);
+
+    const [anchorEl, setAnchorEl] = useState(null);
+
+    const [stateSuggestions, setSuggestions] = useState([]);
 
     const handleSuggestionsFetchRequested = ({value}) => {
         // Use Geosearch API to get suggestions
-        fetch(GEOSEARCH_API + value)
+        fetch(`/api/search?address=${value}`)
             .then(response => {
                 if (response.status >= 400) {
                     throw new Error("Bad response from server");
@@ -108,20 +107,16 @@ function Search(props) {
                 return response.json();
             })
             .then(data => {
-                setSuggestions(data.features);
+                setSuggestions(data);
             });
     };
 
     const handleSuggestionsClearRequested = () => {
-        console.log('clear requested');  // eslint-disable-line no-console
         setSuggestions([]);
     };
 
     const handleChange = name => (event, {newValue}) => {
-        setState({
-            ...state,
-            [name]: newValue,
-        });
+        setAddressInput(newValue, type);
     };
 
     const autosuggestProps = {
@@ -133,31 +128,27 @@ function Search(props) {
         renderSuggestion,
     };
 
-    // const onBlur = () => {
-    //     // props.toggleFocus(false)
-    // }
 
-    // const onFocus = () => {
-    //     props.toggleFocus(true)
-    // }
-
-    const {onLocationSelect, type} = props;
+    const suggestionSelected = (event, {suggestion}) => {
+        setAddress(suggestion, type)
+    };
 
     return (
         <div className={classes.root}>
             <Autosuggest
                 {...autosuggestProps}
-                onSuggestionSelected={onLocationSelect}
+                onSuggestionSelected={suggestionSelected}
                 inputProps={{
                     classes,
                     id: 'react-autosuggest-popper',
                     label: `${type} Address`,
-                    placeholder: 'Type an address', // or click the map',
-                    value: state.popper,
+                    placeholder: 'Type an address',
+                    value: type === 'Start' ? startAddressInput : endAddressInput,
                     onChange: handleChange('popper'),
-                    inputRef: node => { setAnchorEl(node); },
-                    // onBlur: () => onBlur(),
-                    // onFocus: () => onFocus(),
+                    disabled: !isInputEnabled,
+                    inputRef: node => {
+                        setAnchorEl(node);
+                    },
                 }}
                 theme={{
                     suggestionsList: classes.suggestionsList,
@@ -165,11 +156,12 @@ function Search(props) {
                 }}
                 renderSuggestionsContainer={options => (
                     <Popper anchorEl={anchorEl}
-                            placement="top"
+                            placement="bottom"
+                            transition
                             disablePortal
                             modifiers={{
                                 flip: {
-                                    enabled: true,
+                                    enabled: false,
                                 },
                                 hide: {
                                     enabled: false

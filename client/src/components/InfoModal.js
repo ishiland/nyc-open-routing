@@ -1,9 +1,9 @@
-import React from "react";
-import {makeStyles} from "@material-ui/core/styles";
+import React, { useState } from "react";
 import Typography from "@material-ui/core/Typography";
 import Modal from "@material-ui/core/Modal";
 import Button from "@material-ui/core/Button";
-import {InfoOutlined} from "@material-ui/icons";
+import {useStyles} from '../utils/style'
+import { InfoOutlined } from "@material-ui/icons";
 
 
 function getModalStyle() {
@@ -15,36 +15,10 @@ function getModalStyle() {
     };
 }
 
-const useStyles = makeStyles(theme => ({
-    paper: {
-        position: 'absolute',
-        width: 400,
-        backgroundColor: theme.palette.background.paper,
-        boxShadow: theme.shadows[5],
-        padding: theme.spacing(4),
-        outline: 'none',
-    },
-    icon: {
-        color: '#f5f5f5',
-        fontSize: 20
-    },
-    container: {
-        margin: 'auto',
-        marginRight: '0'
-    },
-    modalText: {
-        fontSize: "14px"
-    },
-    infoButon:{
-        padding: theme.spacing(1),
-        minWidth:'40px'
-    }
-}));
-
 function InfoModal() {
-    const [open, setOpen] = React.useState(true);
+    const [open, setOpen] = useState(true);
     // getModalStyle is not a pure function, we roll the style only on the first render
-    const [modalStyle] = React.useState(getModalStyle);
+    const [modalStyle] = useState(getModalStyle);
 
     const handleOpen = () => {
         setOpen(true);
@@ -61,7 +35,7 @@ function InfoModal() {
                 onClick={handleOpen}
                 className={classes.infoButon}
             >
-                <InfoOutlined className={classes.icon}/>
+                <InfoOutlined className={classes.icon} />
             </Button>
             <Modal
                 aria-labelledby="simple-modal-title"
@@ -74,11 +48,11 @@ function InfoModal() {
                         NYC Open Routing
                     </Typography>
                     <Typography variant="subtitle1" id="simple-modal-description" className={classes.modalText}>
-                        This project is a proof-of-concept and not intended for real world routing scenarios.
-                        <p>For more information or if you would like to contribute, please visit the <a
-                            href="https://github.com/ishiland/nyc-open-routing">github repository</a>.</p>
+                        This project is a Proof of Concept and not intended for real world routing scenarios.
+                        <p>For more information or if you would like to contribute, please visit the <a target="_blank"
+                            href="https://github.com/ishiland/nyc-open-routing" rel="noopener noreferrer">github repository</a>.</p>
                     </Typography>
-                    <Button onClick={handleClose}>ok</Button>
+                    <Button variant="contained" onClick={handleClose}>ok</Button>
                 </div>
             </Modal>
         </div>

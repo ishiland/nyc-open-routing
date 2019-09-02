@@ -1,16 +1,16 @@
-import React from "react";
+import React, { useContext } from "react";
 import PropTypes from "prop-types";
 import clsx from "clsx";
 import CheckCircleIcon from "@material-ui/icons/CheckCircle";
 import ErrorIcon from "@material-ui/icons/Error";
 import InfoIcon from "@material-ui/icons/Info";
 import CloseIcon from "@material-ui/icons/Close";
-import {amber, green} from "@material-ui/core/colors";
 import IconButton from "@material-ui/core/IconButton";
 import Snackbar from "@material-ui/core/Snackbar";
 import SnackbarContent from "@material-ui/core/SnackbarContent";
 import WarningIcon from "@material-ui/icons/Warning";
-import {makeStyles} from "@material-ui/core/styles";
+import { MessageContext } from '../contexts/MessageContext';
+import {useStyles} from '../utils/style'
 
 const variantIcon = {
     success: CheckCircleIcon,
@@ -19,35 +19,9 @@ const variantIcon = {
     info: InfoIcon,
 };
 
-const useStyles1 = makeStyles(theme => ({
-    success: {
-        backgroundColor: green[600],
-    },
-    error: {
-        backgroundColor: theme.palette.error.dark,
-    },
-    info: {
-        backgroundColor: theme.palette.primary.dark,
-    },
-    warning: {
-        backgroundColor: amber[700],
-    },
-    icon: {
-        fontSize: 20,
-    },
-    iconVariant: {
-        opacity: 0.9,
-        marginRight: theme.spacing(1),
-    },
-    message: {
-        display: 'flex',
-        alignItems: 'center',
-    },
-}));
-
 function MySnackbarContentWrapper(props) {
-    const classes = useStyles1();
-    const {className, message, onClose, variant, ...other} = props;
+    const classes = useStyles();
+    const { className, message, onClose, variant, ...other } = props;
     const Icon = variantIcon[variant];
 
     return (
@@ -56,13 +30,13 @@ function MySnackbarContentWrapper(props) {
             aria-describedby="client-snackbar"
             message={
                 <span id="client-snackbar" className={classes.message}>
-          <Icon className={clsx(classes.icon, classes.iconVariant)}/>
+                    <Icon className={clsx(classes.mesageIcon, classes.iconVariant)} />
                     {message}
-        </span>
+                </span>
             }
             action={[
                 <IconButton key="close" aria-label="Close" color="inherit" onClick={onClose}>
-                    <CloseIcon className={classes.icon}/>
+                    <CloseIcon className={classes.mesageIcon} />
                 </IconButton>,
             ]}
             {...other}
@@ -74,16 +48,12 @@ MySnackbarContentWrapper.propTypes = {
     variant: PropTypes.oneOf(['success', 'warning', 'error', 'info']).isRequired,
 };
 
-const useStyles2 = makeStyles(theme => ({
-    margin: {
-        margin: theme.spacing(1),
-    },
-}));
 
-export default function Message(props) {
-    const classes = useStyles2();
+export default function Message() {
 
-    const {handleClose, text, level, isOpen} = props;
+    const classes = useStyles();
+
+    const { closeMessage, messageText, messageLevel, messageOpen } = useContext(MessageContext);
 
     return (
         <div>
@@ -92,18 +62,17 @@ export default function Message(props) {
                     vertical: 'bottom',
                     horizontal: 'center',
                 }}
-                open={isOpen}
+                open={messageOpen}
                 autoHideDuration={6000}
-                onClose={handleClose}
+                onClose={closeMessage}
             >
                 <MySnackbarContentWrapper
-                    onClose={handleClose}
+                    onClose={closeMessage}
                     className={classes.margin}
-                    message={text}
-                    variant={level}
+                    message={messageText}
+                    variant={messageLevel}
                 />
             </Snackbar>
-
         </div>
     );
 }

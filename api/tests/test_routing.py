@@ -1,12 +1,10 @@
-from ..api import app
+from api import api
 from unittest import TestCase
 import json
 import sys
 
 
 class TestDrivingRoutes(TestCase):
-    def setUp(self):
-        self.app = app.test_client()
 
     def test_driving_oneway(self):
         coord_from = '-73.998048,40.683115'
