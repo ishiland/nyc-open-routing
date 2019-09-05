@@ -25,18 +25,18 @@ WHERE trafdir = UPPER(TRIM(('W')));
 
 -- map new values for biking directionality
 UPDATE public.edges
-SET one_way = 'B'
+SET one_way_bike = 'B'
 WHERE bike_trafdir = UPPER(TRIM(('TW')));
 UPDATE public.edges
-SET one_way = 'TF'
+SET one_way_bike = 'TF'
 WHERE bike_trafdir = UPPER(TRIM(('TF')));
 UPDATE public.edges
-SET one_way = 'FT'
+SET one_way_bike = 'FT'
 WHERE bike_trafdir = UPPER(TRIM(('FT')));
 UPDATE public.edges
 -- follow car direction if not specified
-SET bike_trafdir = trafdir
-WHERE bike_trafdir IS NULL;
+SET one_way_bike = one_way
+WHERE bike_trafdir IS NULL OR TRIM(bike_trafdir) = '';
 
 -- add route restrictions for different travel modes
 UPDATE public.edges

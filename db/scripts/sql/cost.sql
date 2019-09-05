@@ -5,100 +5,69 @@
 UPDATE edges
 SET cost_drive = time_drive,
   rcost_drive  = time_drive
-WHERE trafdir IN ('T');
-
+WHERE one_way = 'B';
 -- WITH traffic direction
 UPDATE edges
 SET cost_drive = time_drive,
   rcost_drive  = time_drive * 100
-WHERE trafdir IN ('W');
-
+WHERE one_way = 'FT';
 -- AGAINST traffic direction
 UPDATE edges
 SET cost_drive = time_drive * 100,
   rcost_drive  = time_drive
-WHERE trafdir IN ('A');
-
+WHERE one_way = 'TF';
 
 ----------------------------------------------
 --              biking costs
 ----------------------------------------------
--- set BIKE cost with traffic
+--  BOTH direction
+UPDATE edges
+SET rcost_bike = time_drive,
+  cost_bike    = time_drive
+WHERE one_way_bike = 'B';
+-- WITH traffic direction
 UPDATE edges
 SET rcost_bike = time_bike * 100,
   cost_bike    = time_bike
-WHERE bike_trafdir = 'FT';
-
--- set BIKE cost against traffic
+WHERE one_way_bike = 'FT';
+-- AGAINST traffic direction
 UPDATE edges
 SET cost_bike = time_bike * 100,
   rcost_bike  = time_bike
-WHERE bike_trafdir = 'TF';
-
--- set BIKE cost two way or pedstrian
+WHERE one_way_bike = 'TF';
+-- update any null values
 UPDATE edges
 SET cost_bike = time_bike,
   rcost_bike  = time_bike
 WHERE cost_bike IS NULL AND bikeable = TRUE;
-
--- set BIKE cost pedestrian path
+-- set BIKE cost for pedestrian path
 UPDATE edges
 SET cost_bike = time_bike,
   rcost_bike  = time_bike
-WHERE bike_trafdir = 'P';
+WHERE trafdir = 'P';
 
--- set BIKE cost empty values
+-- prioritize biking directionality vs driving directionality
 UPDATE edges
-SET cost_bike = time_bike * 10,
-  rcost_bike  = time_bike * 10
+SET cost_bike = cost_bike * 10,
+  rcost_bike  = rcost_bike * 10
 WHERE bike_trafdir IS NULL OR TRIM(bike_trafdir) = '';
 
--- update BIKE cost with pedestrian and vehicle accessible restrictions
+-- increased cost for bike lanes with stairs and empty values.
 UPDATE edges
 SET cost_bike = (
   SELECT CASE
-         WHEN nonped = 'V' -- vehicle only
-           THEN cost_bike * 100
-         WHEN nonped = 'D' -- DOE exclusion for pupils
+         WHEN TRIM(bikelane) = '' -- not designated bike lane
            THEN cost_bike * 10
+         WHEN bikelane is NULL -- not designated bike lane
+           THEN cost_bike * 10
+         WHEN TRIM(bikelane) = '7' -- Stairs: Includes step streets, bridge stairs, etc.
+           THEN cost_bike * 100
+         ELSE cost_bike
          END
 );
 
--- bike lanes
+----------------------------------------------
+--              walking costs
+----------------------------------------------
 UPDATE edges
-SET cost_bike = (
-  SELECT CASE
-         WHEN TRIM(bikelane) NOT IN ('', '7')
-           THEN cost_bike
-         ELSE time_bike * 10
-         END
-);
-
--- add extra cost for non-bike lane streets
-UPDATE edges
-SET rcost_bike = time_bike * 2,
-  cost_bike    = time_bike * 2
-WHERE bikeable = TRUE AND cost_bike IS NULL;
-
--- pedestrian lanes
-UPDATE edges
-SET
-  cost_bike  = time_bike,
-  rcost_bike = time_bike
-WHERE trafdir = 'P' AND cost_bike IS NULL;
-
--- update WALK cost with pedestrian and vehicle accessible restrictions
-UPDATE edges
-SET cost_walk = (
-  SELECT CASE
-         WHEN nonped = 'V' -- vehicle only
-           THEN time_walk * 100
-         WHEN nonped = 'D' -- DOE exclusion for pupils
-           THEN time_walk * 10
-         ELSE time_walk
-         END
-);
-
-UPDATE edges
-SET cost_walk = time_walk
-WHERE cost_walk IS NULL AND walkable = TRUE;
+SET cost_walk = time_walk;

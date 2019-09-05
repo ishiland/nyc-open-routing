@@ -74,7 +74,7 @@ BEGIN
     e.join_id              AS id,
     e.street,
     e.featuretyp           AS feature_type,
-    e.one_way              AS directionality,
+    e.one_way_bike         AS directionality,
     sum(e.time_bike)       AS travel_time,
     sum(e.length_feet)     AS distance,
     ST_Collect(e.the_geom) AS geom
