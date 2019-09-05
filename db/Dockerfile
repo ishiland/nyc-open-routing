@@ -21,7 +21,7 @@ RUN apt-get install -y binutils libproj-dev gdal-bin
 # pip 3
 RUN apt-get install -y python3-pip
 
-RUN pip3 install psycopg2-binary==2.8.3
+RUN pip3 install -r ./scripts/requirements.txt
 
 # download directory
 RUN mkdir lion

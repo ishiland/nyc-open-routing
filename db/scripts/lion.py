@@ -28,19 +28,26 @@ tolerance = '0.00001'
 
 
 def create_edges():
-    print('\nCreating edges table and calculating network costs...')
 
     # fixes some data issues in LION first
-    data_fixes_sql = open(os.path.join(dir_path, 'sql', 'data_fixes.sql'), 'r')
+    print('\nApplying data corrections...')
+    data_fixes_sql = open(os.path.join(dir_path, 'sql', 'fixes.sql'), 'r')
     cur.execute(data_fixes_sql.read())
 
     # create edges table from LION
-    create_edges_sql = open(os.path.join(dir_path, 'sql', 'create_edges.sql'), 'r')
+    print('\nCreating edges table...')
+    create_edges_sql = open(os.path.join(dir_path, 'sql', 'edges.sql'), 'r')
     cur.execute(create_edges_sql.read())
 
+    # calculate segment travel times
+    print('\nCalculating travel times...')
+    time_sql = open(os.path.join(dir_path, 'sql', 'travel_time.sql'), 'r')
+    cur.execute(time_sql.read())
+
     # calculate segment costs
-    calc_costs_sql = open(os.path.join(dir_path, 'sql', 'calculate_costs.sql'), 'r')
-    cur.execute(calc_costs_sql.read())
+    print('\nCalculating costs...')
+    costs_sql = open(os.path.join(dir_path, 'sql', 'cost.sql'), 'r')
+    cur.execute(costs_sql.read())
 
 
 def create_topology():
@@ -58,11 +65,7 @@ def create_topology():
             tolerance, x, x + interval))
         conn.commit()
         percent = round(100 * float(x) / float(total), 0)
-        # sys.stdout.write("\r{}%".format(percent))
-        # sys.stdout.flush()
         print("{}%".format(percent))
-    # sys.stdout.write("\r{}%".format(100))
-    # sys.stdout.flush()
 
 
 def error_check():
@@ -140,7 +143,7 @@ if __name__ == '__main__':
     except Exception as e:
         print(e)
         pass
-    create_edges()
+    # create_edges()
     create_topology()
     error_check()
     # find_turn_restrictions()
