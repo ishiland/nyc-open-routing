@@ -1,6 +1,5 @@
 #!/bin/bash
 set -e
-#set -x # echo commands being executed
 
 # download and load lion into database if not already downloaded
 FILE_NAME=nyclion_${LION}.zip
@@ -10,16 +9,11 @@ if [ ! -f $FILE_NAME ]; then
     unzip ${FILE_NAME}
 fi
 
-# Use ogr2ogr to load lion.gdb data
 CNX="user=$POSTGRES_USER dbname=$POSTGRES_DB password=$POSTGRES_PASSWORD port=5432"
 GDB=lion/lion.gdb
 
-# load only required fields and rows for routing
+# load only required fields
 FIELDS="join_id,street,trafdir,nodelevelf,nodelevelt,posted_speed,number_travel_lanes,featuretyp,bikelane,bike_trafdir,nonped,segmenttyp,rw_type"
-
-# remove SQL to enable fast feature count. This allows for progress flag.
-# SQL="featuretyp IN ('0', 'A', '6', 'W', 'F') AND segmenttyp NOT IN ('G', 'F')"
-# -where "$SQL"
 
 echo "Loading lion data...this may take several minutes."
 ogr2ogr -progress  \
