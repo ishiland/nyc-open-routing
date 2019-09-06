@@ -53,7 +53,7 @@ def create_edges():
 def create_topology():
     # Generates topology for newly created `edges` table.
 
-    cur.execute("SELECT MIN(id), MAX(id) FROM edges;")
+    cur.execute("SELECT MIN(objectid), MAX(objectid) FROM edges;")
 
     min_id, max_id = cur.fetchone()
     total = max_id - min_id + 1
@@ -61,7 +61,7 @@ def create_topology():
     print("\nCreating Topology for {} edges...".format(total))
     interval = 10000
     for x in range(min_id, max_id + 1, interval):
-        cur.execute("select pgr_createTopology('edges', {}, 'the_geom', 'id', rows_where:='id>={} and id<{}');".format(
+        cur.execute("select pgr_createTopology('edges', {}, 'the_geom', 'objectid', rows_where:='objectid>={} and objectid<{}');".format(
             tolerance, x, x + interval))
         conn.commit()
         percent = round(100 * float(x) / float(total), 0)
@@ -143,11 +143,39 @@ if __name__ == '__main__':
     except Exception as e:
         print(e)
         pass
-    # create_edges()
-    create_topology()
-    error_check()
-    # find_turn_restrictions()
-    create_functions()
+
+    try:
+        create_edges()
+    except Exception as e:
+        print(e)
+        pass
+    try:
+        create_topology()
+    except Exception as e:
+        print(e)
+        pass
+    try:
+        error_check()
+    except Exception as e:
+        print(e)
+        pass
+
+    try:
+        create_functions()
+    except Exception as e:
+        print(e)
+        pass
     conn.commit()
     delta = datetime.now() - startTime
     print("\nFinished in {}".format(delta))
+    #
+    # try:
+    #     cur.execute('CREATE EXTENSION pgrouting;')
+    #     create_edges()
+    #     create_topology()
+    #     error_check()
+    #     # find_turn_restrictions()
+    #     create_functions()
+    # except Exception as e:
+    #     print(e)
+    #     pass
