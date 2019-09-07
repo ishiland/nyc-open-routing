@@ -45,7 +45,7 @@ done
 #echo "loading node_stname..."
 #ogr2ogr --config PG_USE_COPY YES -overwrite -skipfailures -f 'PostgreSQL' PG:"$CNX" $GDB "node_stname"
 
-# run script to load data
+# run script to create routing network
 cd ..
 cd scripts
 python3 lion.py
