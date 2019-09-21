@@ -1,6 +1,5 @@
 import psycopg2
 import os
-import sys
 import string
 from datetime import datetime
 
@@ -28,7 +27,6 @@ tolerance = '0.00001'
 
 
 def create_edges():
-
     # fixes some data issues in LION first
     print('\nApplying data corrections...')
     data_fixes_sql = open(os.path.join(dir_path, 'sql', 'fixes.sql'), 'r')
@@ -51,9 +49,11 @@ def create_edges():
 
 
 def create_topology():
-    # Generates topology for newly created `edges` table.
+    """
+    A memory efficient way to create topology.
+    """
 
-    cur.execute("SELECT MIN(objectid), MAX(objectid) FROM edges;")
+    cur.execute("SELECT MIN(id), MAX(id) FROM edges;")
 
     min_id, max_id = cur.fetchone()
     total = max_id - min_id + 1
@@ -61,7 +61,7 @@ def create_topology():
     print("\nCreating Topology for {} edges...".format(total))
     interval = 10000
     for x in range(min_id, max_id + 1, interval):
-        cur.execute("select pgr_createTopology('edges', {}, 'the_geom', 'objectid', rows_where:='objectid>={} and objectid<{}');".format(
+        cur.execute("select pgr_createTopology('edges', {}, 'the_geom', 'id', rows_where:='id>={} and id<{}');".format(
             tolerance, x, x + interval))
         conn.commit()
         percent = round(100 * float(x) / float(total), 0)
@@ -82,11 +82,19 @@ def error_check():
 
 
 def find_turn_restrictions():
-    # TODO
-    '''
+    """
+    TODO
     Creates a turn restrictions table for grade-separation intersections.
-    '''
+    This problem may be better off addressed by merging geometry where turns are restricted.
+    """
     print('\nFinding Grade Separation Turn Restrictions...')
+
+    # convert node levels to numeric
+    for c in string.ascii_uppercase:
+        idx = 1 + string.ascii_uppercase.index(c)
+        cur.execute("UPDATE public.edges SET level_from={} where nodelevelf='{}';".format(idx, c))
+        cur.execute("UPDATE public.edges SET level_to={} where nodelevelt='{}';".format(idx, c))
+
     restrictions_sql = open(os.path.join(dir_path, 'sql', 'restrictions.sql'), 'r')
     cur.execute(restrictions_sql.read())
 
@@ -125,8 +133,6 @@ def find_turn_restrictions():
 
         percent = round(100 * float(idx) / float(total), 0)
         print("{}%".format(percent))
-        # sys.stdout.write("\r{}%".format(percent))
-        # sys.stdout.flush()
 
 
 def create_functions():
@@ -138,44 +144,16 @@ def create_functions():
 
 if __name__ == '__main__':
     startTime = datetime.now()
+    delta = datetime.now() - startTime
     try:
         cur.execute('CREATE EXTENSION pgrouting;')
     except Exception as e:
         print(e)
         pass
-
-    try:
-        create_edges()
-    except Exception as e:
-        print(e)
-        pass
-    try:
-        create_topology()
-    except Exception as e:
-        print(e)
-        pass
-    try:
-        error_check()
-    except Exception as e:
-        print(e)
-        pass
-
-    try:
-        create_functions()
-    except Exception as e:
-        print(e)
-        pass
+    create_edges()
+    create_topology()
+    error_check()
+    # find_turn_restrictions()
+    create_functions()
     conn.commit()
-    delta = datetime.now() - startTime
     print("\nFinished in {}".format(delta))
-    #
-    # try:
-    #     cur.execute('CREATE EXTENSION pgrouting;')
-    #     create_edges()
-    #     create_topology()
-    #     error_check()
-    #     # find_turn_restrictions()
-    #     create_functions()
-    # except Exception as e:
-    #     print(e)
-    #     pass

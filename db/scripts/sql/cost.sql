@@ -17,6 +17,10 @@ SET cost_drive = time_drive * 100,
   rcost_drive  = time_drive
 WHERE one_way = 'TF';
 
+UPDATE edges
+SET cost_drive = time_drive
+WHERE cost_drive is NULL and driveable=TRUE;
+
 ----------------------------------------------
 --              biking costs
 ----------------------------------------------

@@ -32,4 +32,6 @@ RUN mkdir lion
 WORKDIR /lion
 
 # copy build script
-COPY ./build.sh /docker-entrypoint-initdb.d/x_build.sh
+COPY ./download.sh /docker-entrypoint-initdb.d/x_build.sh
+COPY ./ogr.sh /docker-entrypoint-initdb.d/y_build.sh
+COPY ./process.sh /docker-entrypoint-initdb.d/z_build.sh

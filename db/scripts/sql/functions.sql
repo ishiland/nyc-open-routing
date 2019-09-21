@@ -23,10 +23,10 @@ $func$ LANGUAGE plpgsql;
 DROP FUNCTION IF EXISTS getdrivingroute(double precision,double precision,double precision,double precision);
 CREATE FUNCTION getdrivingroute(_start_lat FLOAT, _start_lon FLOAT, _end_lat FLOAT, _end_lon FLOAT)
   RETURNS TABLE(seq            INT,
-                id             VARCHAR,
+                 id             VARCHAR,
                 street         VARCHAR,
-                feature_type   VARCHAR,
-                directionality VARCHAR,
+--                 feature_type   VARCHAR,
+--                 directionality VARCHAR,
                 travel_time    FLOAT,
                 distance       FLOAT,
                 geom           GEOMETRY) AS
@@ -37,8 +37,8 @@ BEGIN
     min(r.seq)             AS seq,
     e.join_id              AS id,
     e.street,
-    e.featuretyp           AS feature_type,
-    e.one_way              AS directionality,
+--     e.featuretyp           AS feature_type,
+--    e.one_way              AS directionality,
     sum(e.time_drive)      AS travel_time,
     sum(e.length_feet)     AS distance,
     ST_Collect(e.the_geom) AS geom
@@ -49,7 +49,11 @@ BEGIN
            directed := TRUE) AS r,
     edges AS e
   WHERE r.edge = e.id
-  GROUP BY e.join_id, e.street, e.featuretyp, e.one_way
+  GROUP BY
+  e.join_id,
+  e.street
+--   e.featuretyp
+--  e.one_way
   ORDER BY seq;
 END
 $func$ LANGUAGE plpgsql;
@@ -61,8 +65,8 @@ CREATE FUNCTION getbikingroute(_start_lat FLOAT, _start_lon FLOAT, _end_lat FLOA
   RETURNS TABLE(seq          INT,
                 id           VARCHAR,
                 street       VARCHAR,
-                directionality VARCHAR,
-                feature_type VARCHAR,
+--                directionality VARCHAR,
+--                feature_type VARCHAR,
                 travel_time  FLOAT,
                 distance     FLOAT,
                 geom         GEOMETRY) AS
@@ -73,8 +77,8 @@ BEGIN
     min(r.seq)             AS seq,
     e.join_id              AS id,
     e.street,
-    e.featuretyp           AS feature_type,
-    e.one_way_bike         AS directionality,
+--    e.featuretyp           AS feature_type,
+--    e.one_way_bike         AS directionality,
     sum(e.time_bike)       AS travel_time,
     sum(e.length_feet)     AS distance,
     ST_Collect(e.the_geom) AS geom
@@ -85,7 +89,11 @@ BEGIN
            directed := TRUE) AS r,
     edges AS e
   WHERE r.edge = e.id
-  GROUP BY e.join_id, e.street, e.featuretyp, e.one_way
+  GROUP BY
+  e.join_id,
+  e.street
+--  e.featuretyp,
+--  e.one_way_bike
   ORDER BY seq;
 END
 $func$ LANGUAGE plpgsql;
@@ -97,8 +105,8 @@ CREATE FUNCTION getwalkingroute(_start_lat FLOAT, _start_lon FLOAT, _end_lat FLO
   RETURNS TABLE(seq          INT,
                 id           VARCHAR,
                 street       VARCHAR,
-                directionality VARCHAR,
-                feature_type VARCHAR,
+--                directionality VARCHAR,
+--                feature_type VARCHAR,
                 travel_time  FLOAT,
                 distance     FLOAT,
                 geom         GEOMETRY) AS
@@ -109,8 +117,8 @@ BEGIN
     min(r.seq)             AS seq,
     e.join_id              AS id,
     e.street,
-    e.featuretyp           AS feature_type,
-    e.one_way              AS directionality,
+--    e.featuretyp           AS feature_type,
+--    e.one_way              AS directionality,
     sum(e.time_walk)       AS travel_time,
     sum(e.length_feet)     AS distance,
     ST_Collect(e.the_geom) AS geom
@@ -120,7 +128,11 @@ BEGIN
                     directed := FALSE) AS r,
     edges AS e
   WHERE r.edge = e.id
-  GROUP BY e.join_id, e.street, e.one_way, e.featuretyp
+  GROUP BY
+  e.join_id,
+  e.street
+--  e.one_way,
+--  e.featuretyp
   ORDER BY seq;
 END
 $func$ LANGUAGE plpgsql;

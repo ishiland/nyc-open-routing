@@ -6,7 +6,6 @@ DROP TABLE IF EXISTS public.edges;
 DROP TABLE IF EXISTS public.edges_vertices_pgr;
 
 SELECT
-  MAX(objectid) as objectid,
   join_id,
   street,
   trafdir,
@@ -20,28 +19,27 @@ SELECT
   nonped,
   segmenttyp,
   rw_type,
-  st_linemerge(ST_Union(the_geom)) as the_geom
+  the_geom
+  -- (ST_Dump(st_linemerge(ST_Union(the_geom)))).geom as the_geom -- dissolve all geometry to LineStrings. No Multi's.
 INTO public.edges
 FROM lion
-WHERE featuretyp IN ('0', 'A', '6', 'W', 'F') AND segmenttyp NOT IN ('G', 'F')
-GROUP BY
-  join_id,
-  street,
-  trafdir,
-  nodelevelf,
-  nodelevelt,
-  posted_speed,
-  number_travel_lanes,
-  featuretyp,
-  bikelane,
-  bike_trafdir,
-  nonped,
-  segmenttyp,
-  rw_type;
+WHERE featuretyp IN ('0', 'A', '6', 'W', 'F') AND segmenttyp NOT IN ('G', 'F');
+--GROUP BY
+--  join_id,
+--  street,
+--  trafdir,
+--  nodelevelf,
+--  nodelevelt,
+--  posted_speed,
+--  number_travel_lanes,
+--  featuretyp,
+--  bikelane,
+--  bike_trafdir,
+--  nonped,
+--  segmenttyp,
+--  rw_type;
 
 -- create indexes
-CREATE UNIQUE INDEX IF NOT EXISTS edges_uniq_idx
-  ON public.edges (objectid);
 CREATE INDEX IF NOT EXISTS edges_join_id_idx
   ON public.edges (join_id);
 CREATE INDEX IF NOT EXISTS edges_geom_idx
@@ -52,6 +50,9 @@ ALTER TABLE public.edges
   ADD COLUMN id SERIAL PRIMARY KEY,
   ADD COLUMN source INTEGER,
   ADD COLUMN target INTEGER,
+
+--  ADD COLUMN level_from INTEGER,
+--  ADD COLUMN level_to INTEGER,
 
   ADD COLUMN one_way VARCHAR(2),
   ADD COLUMN time_drive DOUBLE PRECISION,
@@ -89,3 +90,4 @@ SET x1        = st_x(st_startpoint(the_geom)),
   x2          = st_x(st_endpoint(the_geom)),
   y2          = st_y(st_endpoint(the_geom)),
   length_feet = ST_Length(ST_Transform(the_geom, 2263));
+
