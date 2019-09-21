@@ -14,4 +14,4 @@ WORKDIR /api
 
 RUN pip3 install --no-cache-dir -r requirements.txt
 
-ENTRYPOINT ["./entry.sh"]
+ENTRYPOINT ["./entrypoint.sh"]
