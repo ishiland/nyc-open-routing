@@ -1,0 +1,50 @@
+version: '3.5'
+
+services:
+
+  # Database
+  postgis:
+    build:
+      context: ./db/
+      args:
+        LION: 19b
+    ports:
+      - ${POSTGRES_PORT}:5432
+    env_file:
+      - .env
+    volumes:
+      - postgresql:/var/lib/postgresql
+      - postgresql_data:/var/lib/postgresql/data
+      - ./db/lion:/lion # downloaded lion data
+      - ./db/scripts:/scripts
+
+  # Flask API
+  api:
+    build:
+      context: ./api/
+    ports:
+      - 5000:5000
+    env_file:
+      - .env
+    environment:
+      - FLASK_ENV=production
+    depends_on:
+      - postgis
+    volumes:
+     - ./api:/api
+
+  # Frontend
+  client:
+    build:
+      context: ./client/
+      dockerfile: Dockerfile-prod
+    env_file:
+      - .env
+    ports:
+      - '80:80'
+    depends_on:
+      - api
+
+volumes:
+    postgresql:
+    postgresql_data:

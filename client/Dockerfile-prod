@@ -1,0 +1,18 @@
+# build environment
+FROM node:12.2.0-alpine as build
+
+ADD package.json /package.json
+
+ENV NODE_PATH=/node_modules
+ENV PATH=$PATH:/node_modules/.bin
+
+RUN npm install --silent
+
+WORKDIR /app
+ADD . /app
+RUN npm run build
+
+# production environment
+FROM nginx:1.16.0-alpine
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
