@@ -37,13 +37,14 @@ services:
       context: ./client/
     ports:
       - 3000:3000
-#    command: bash -c 'while !</dev/tcp/postgis/5432; do echo waiting for postgres && sleep 10; done; yarn start'
     depends_on:
       - api
     environment:
+      - NODE_ENV=development
       - CHOKIDAR_USEPOLLING=true
     volumes:
-      - ./client:/app
+      - '.:/app'
+      - '/app/node_modules'
 
 volumes:
     postgresql:

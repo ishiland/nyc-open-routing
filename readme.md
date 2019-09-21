@@ -57,7 +57,6 @@ response:
                 "street": "3 AVENUE",
                 "distance": 260.679437746423,  // distance of segment in feet
                 "travel_time": 0.0987422112675845,  // travel time of segment in minutes 
-                "feature_type": "0"  // 'FeatureTyp' field from LION
             },
             "geometry": {
                 "type": "GeometryCollection",

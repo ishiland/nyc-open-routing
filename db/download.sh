@@ -25,13 +25,13 @@ ogr2ogr -progress  \
         -select $FIELDS \
         -f 'PostgreSQL' PG:"$CNX" \
         -nlt CONVERT_TO_LINEAR $GDB "lion" &
-        pid=$!
+        export OGR_PID=$!
 
 # If this script is killed, kill `ogr2ogr'.
-trap "kill $pid 2> /dev/null" EXIT
+trap "kill ${OGR_PID} 2> /dev/null" EXIT
 
 # While ogr2ogr is running...
-while kill -0 $pid 2> /dev/null; do
+while kill -0 ${OGR_PID} 2> /dev/null; do
     echo " "
     sleep 10
 done

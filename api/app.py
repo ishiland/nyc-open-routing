@@ -13,7 +13,12 @@ s = GeosupportSuggest(g)
 user = os.getenv('POSTGRES_USER')
 password = os.getenv('POSTGRES_PASSWORD')
 database = os.getenv('POSTGRES_DB')
+flask_env = os.getenv('FLASK_ENV')
 port = '5432'
+
+flask_debug = True
+if flask_env == 'production':
+    flask_debug = False
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -36,7 +41,7 @@ resource_fields = {
         'street': fields.String,
         'distance': fields.Float,  # feet
         'travel_time': fields.Float,
-        'feature_type': fields.String,
+        # 'feature_type': fields.String,
     },
     'geometry': fields.Raw(attribute=lambda x: dump_geo(x.geom))
 }
@@ -76,4 +81,4 @@ class AddressSearch(Resource):
 api.add_resource(AddressSearch, '/search', endpoint='search')
 
 if __name__ == '__main__':
-    app.run(debug=True, host="0.0.0.0")
+    app.run(debug=flask_debug, host="0.0.0.0", port=5000)
