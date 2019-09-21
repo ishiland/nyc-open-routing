@@ -1,7 +1,8 @@
 FROM osgeo/gdal:alpine-normal-latest
 ENV PYTHONUNBUFFERED 1
 
-RUN apk update && apk add \
+RUN apk update && apk upgrade && \
+    apk --no-cache add \
     --virtual build-deps gcc python-dev musl-dev \
     postgresql-dev \
     libpq \
