@@ -144,7 +144,6 @@ def create_functions():
 
 if __name__ == '__main__':
     startTime = datetime.now()
-    delta = datetime.now() - startTime
     try:
         cur.execute('CREATE EXTENSION pgrouting;')
     except Exception as e:
@@ -156,4 +155,5 @@ if __name__ == '__main__':
     # find_turn_restrictions()
     create_functions()
     conn.commit()
+    delta = datetime.now() - startTime
     print("\nFinished in {}".format(delta))
