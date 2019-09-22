@@ -3,9 +3,6 @@ set -e
 
 GEOSUPPORT_DIRECTORY=version-19b_19.2
 
-pwd
-ls
-
 if [ -d /api/geosupport ]; then
     echo "Geosupport directory detected, not downloading.";
 else
