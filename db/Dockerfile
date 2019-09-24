@@ -21,9 +21,6 @@ RUN apt-get install -y binutils libproj-dev gdal-bin
 # pip 3
 RUN apt-get install -y python3-pip
 
-RUN pwd
-RUN ls
-
 COPY ./requirements.txt ./requirements.txt
 RUN pip3 install -r ./requirements.txt
 
