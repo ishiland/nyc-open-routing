@@ -26,9 +26,6 @@ Requires: Docker and docker-compose
     
     `$ docker-compose up`
     
-    Specify a different version of LION: 
-    
-    `$ docker-compose up --build-arg LION=19c`
 3. The initial container building and data loading will take some time. It is helpful if you can allocate more memory and cpu to the docker engine to expedite this process.
 4. When build is complete, navigate to http://localhost:3000. 
 

@@ -6,8 +6,6 @@ services:
   postgis:
     build:
       context: ./db/
-      args:
-        LION: 19b
     ports:
       - ${POSTGRES_PORT}:5432
     env_file:
