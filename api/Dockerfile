@@ -1,13 +1,5 @@
-FROM osgeo/gdal:alpine-normal-latest
+FROM thinkwhere/gdal-python:3.7-shippable
 ENV PYTHONUNBUFFERED 1
-
-RUN apk update && apk upgrade && \
-    apk --no-cache add \
-    --virtual build-deps gcc python-dev musl-dev \
-    postgresql-dev \
-    libpq \
-    python3-dev \
-    curl
 
 RUN mkdir api
 COPY . /api/
