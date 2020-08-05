@@ -22,12 +22,13 @@ Requires: Docker and docker-compose
     and cd into it
 
     `$ cd nyc-open-routing`
-2. Build and start the containers. Default version of LION is 19b:
+    
+2. Review the .env file to change the LION version or other params.  
+3. Build and start the containers.
     
     `$ docker-compose up`
     
-3. The initial container building and data loading will take some time. It is helpful if you can allocate more memory and cpu to the docker engine to expedite this process.
-4. When build is complete, navigate to http://localhost:3000. 
+4. The build process will take some time. When its complete, navigate to http://localhost:3000. 
 
 ## db
 Once loaded into the `postgis` container, Lion data will persist in the `postgresql_data` volume. Any subsequent re-build will ignore data loading scripts unless the `postgresql_data` volume is removed. See [Docker Postgres](https://docs.docker.com/samples/library/postgres/) for additional information.
