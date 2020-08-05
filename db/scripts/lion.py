@@ -27,11 +27,6 @@ tolerance = '0.00001'
 
 
 def create_edges():
-    # fixes some data issues in LION first
-    print('\nApplying data corrections...')
-    data_fixes_sql = open(os.path.join(dir_path, 'sql', 'fixes.sql'), 'r')
-    cur.execute(data_fixes_sql.read())
-
     # create edges table from LION
     print('\nCreating edges table...')
     create_edges_sql = open(os.path.join(dir_path, 'sql', 'edges.sql'), 'r')
