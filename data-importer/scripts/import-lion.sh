@@ -1,14 +1,13 @@
 #!/bin/bash
 set -e
 
-if [ "$#" -ne 1 ]; then
-  LION=$1
-else
+if [ "$#" -eq "0" ]; then
   LION=$DEFAULT_LION
+else
+  LION=$1
 fi
 
 echo "Attempting to import LION $LION"
-psql --command="DROP TABLE IF EXISTS lion;" postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST/$POSTGRES_DB
 
 #================================
 # Download Lion
@@ -21,10 +20,14 @@ curl -o /data-imports/data/lion_"${LION}"/lion.zip https://www1.nyc.gov/assets/p
   unzip /data-imports/data/lion_"${LION}"/lion.zip -d /data-imports/data/lion_"${LION}" &&
   rm /data-imports/data//lion_"${LION}"/lion.zip
 
+
 ## ================================
 ## load Lion data with ogr2ogr
 ## ================================
 ./scripts/wait-for-it.sh "$POSTGRES_HOST":5432 -- echo "database is up"
+
+# ogr2ogr has issues if lion table exists, so lets drop it first
+psql --command="DROP TABLE IF EXISTS lion;" postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST/$POSTGRES_DB
 
 CNX="user=$POSTGRES_USER host=$POSTGRES_HOST dbname=$POSTGRES_DB password=$POSTGRES_PASSWORD port=5432"
 GDB=/data-imports/data/lion_${LION}/lion/lion.gdb
@@ -44,5 +47,3 @@ ogr2ogr -progress \
 ## create routing network
 ## ================================
 python3 ./scripts/create_network.py
-
-#fi
