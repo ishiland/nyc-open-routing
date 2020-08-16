@@ -6,12 +6,12 @@ UPDATE edges
 SET cost_drive = time_drive,
   rcost_drive  = time_drive
 WHERE one_way = 'B';
--- WITH traffic direction
+-- WITH traffic-importer direction
 UPDATE edges
 SET cost_drive = time_drive,
   rcost_drive  = time_drive * 100
 WHERE one_way = 'FT';
--- AGAINST traffic direction
+-- AGAINST traffic-importer direction
 UPDATE edges
 SET cost_drive = time_drive * 100,
   rcost_drive  = time_drive
@@ -29,12 +29,12 @@ UPDATE edges
 SET rcost_bike = time_drive,
   cost_bike    = time_drive
 WHERE one_way_bike = 'B';
--- WITH traffic direction
+-- WITH traffic-importer direction
 UPDATE edges
 SET rcost_bike = time_bike * 100,
   cost_bike    = time_bike
 WHERE one_way_bike = 'FT';
--- AGAINST traffic direction
+-- AGAINST traffic-importer direction
 UPDATE edges
 SET cost_bike = time_bike * 100,
   rcost_bike  = time_bike

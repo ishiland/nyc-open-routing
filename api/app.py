@@ -13,12 +13,12 @@ s = GeosupportSuggest(g)
 user = os.getenv('POSTGRES_USER')
 password = os.getenv('POSTGRES_PASSWORD')
 database = os.getenv('POSTGRES_DB')
+host = os.getenv('POSTGRES_HOST')
 flask_env = os.getenv('FLASK_ENV')
-port = '5432'
 
 app = Flask(__name__)
 app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://{}:{}@{}:{}/{}".format(user, password, 'postgis', port, database)
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://{}:{}@{}:{}/{}".format(user, password, host, '5432', database)
 
 api = Api(app, prefix='/api')
 db = SQLAlchemy(app)

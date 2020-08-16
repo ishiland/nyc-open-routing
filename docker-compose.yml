@@ -2,48 +2,52 @@ version: '3.5'
 
 services:
 
-  # Database
-  postgis:
-    build:
-      context: ./db/
+  db:
+    image: pgrouting/pgrouting:12-3.0-master
     ports:
-      - ${POSTGRES_PORT}:5432
+      - 5433:5432
     env_file:
-      - .env
+      - ./docker/dev/.env
     volumes:
       - postgresql:/var/lib/postgresql
       - postgresql_data:/var/lib/postgresql/data
-      - ./db/lion:/lion # downloaded lion data
-      - ./db/scripts:/scripts
 
-  # Flask API
+  data-importer:
+    build:
+      context: ./data-importer/
+      dockerfile: ../docker/dev/data-importer.Dockerfile
+    env_file:
+      - ./docker/dev/.env
+    volumes:
+      - ./data-importer:/data-imports
+    depends_on:
+      - db
+
   api:
     build:
       context: ./api/
+      dockerfile: ../docker/dev/api.Dockerfile
+      args:
+        - GEOSUPPORT=20c
     ports:
-      - 5000:5000
+      - 5001:5000
     env_file:
-      - .env
-    environment:
-      - FLASK_ENV=development
+      - ./docker/dev/.env
     depends_on:
-      - postgis
+      - db
     volumes:
      - ./api:/api
 
-  # Frontend
   client:
     build:
       context: ./client/
+      dockerfile: ../docker/dev/client.Dockerfile
     env_file:
-      - .env
+      - ./docker/dev/.env
     ports:
-      - 3000:3000
+      - 3001:3000
     depends_on:
       - api
-    environment:
-      - NODE_ENV=development
-      - CHOKIDAR_USEPOLLING=true
     volumes:
       - ./client:/app
 

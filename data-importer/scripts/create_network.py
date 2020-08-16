@@ -1,18 +1,19 @@
-import psycopg2
 import os
 import string
 from datetime import datetime
+import psycopg2
 
 dir_path = os.path.dirname(os.path.realpath(__file__))
 
 user = os.getenv('POSTGRES_USER')
 password = os.getenv('POSTGRES_PASSWORD')
 database = os.getenv('POSTGRES_DB')
+host = os.getenv('POSTGRES_HOST')
 port = '5432'
-GDB = os.getenv('GDB')
 
-connection_string = "user={} dbname={} password={} port={}".format(
+connection_string = "user={} host={} dbname={} password={} port={}".format(
     user,
+    host,
     database,
     password,
     port
@@ -31,21 +32,29 @@ def create_edges():
     print('\nCreating edges table...')
     create_edges_sql = open(os.path.join(dir_path, 'sql', 'edges.sql'), 'r')
     cur.execute(create_edges_sql.read())
+    conn.commit()
 
+
+def calculate_travel_times():
     # calculate segment travel times
     print('\nCalculating travel times...')
     time_sql = open(os.path.join(dir_path, 'sql', 'travel_time.sql'), 'r')
     cur.execute(time_sql.read())
+    conn.commit()
 
+
+def calculate_segment_costs():
     # calculate segment costs
-    print('\nCalculating costs...')
+    print('\nCalculating segment costs...')
     costs_sql = open(os.path.join(dir_path, 'sql', 'cost.sql'), 'r')
     cur.execute(costs_sql.read())
+    conn.commit()
 
 
 def create_topology():
     """
     A memory efficient way to create topology.
+    see https://gis.stackexchange.com/a/277161/29863
     """
 
     cur.execute("SELECT MIN(id), MAX(id) FROM edges;")
@@ -56,8 +65,8 @@ def create_topology():
     print("\nCreating Topology for {} edges...".format(total))
     interval = 10000
     for x in range(min_id, max_id + 1, interval):
-        cur.execute("select pgr_createTopology('edges', {}, 'the_geom', 'id', rows_where:='id>={} and id<{}');".format(
-            tolerance, x, x + interval))
+        cur.execute("select pgr_createTopology('edges'::text, 0.000001, 'the_geom', 'id', rows_where:='id>={} and id<{}');".format(
+            x, x + interval))
         conn.commit()
         percent = round(100 * float(x) / float(total), 0)
         print("{}%".format(percent))
@@ -137,18 +146,39 @@ def create_functions():
     cur.execute(functions_sql.read())
 
 
-if __name__ == '__main__':
-    startTime = datetime.now()
+def enable_db_extensions():
+    # enable required exetnsion
     try:
-        cur.execute('CREATE EXTENSION pgrouting;')
+        cur.execute('CREATE EXTENSION postgis;')
+        print('created extension postgis.')
     except Exception as e:
         print(e)
+        cur.execute('ROLLBACK')
         pass
+
+    try:
+        cur.execute('CREATE EXTENSION pgrouting;')
+        print('created extension pgrouting.')
+    except Exception as e:
+        print(e)
+        cur.execute('ROLLBACK')
+        pass
+
+
+if __name__ == '__main__':
+    startTime = datetime.now()
+
+    enable_db_extensions()
+    conn.commit()
+
     create_edges()
+    calculate_travel_times()
+    calculate_segment_costs()
     create_topology()
     error_check()
     # find_turn_restrictions()
     create_functions()
     conn.commit()
+
     delta = datetime.now() - startTime
     print("\nFinished in {}".format(delta))

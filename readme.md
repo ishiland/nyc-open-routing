@@ -15,24 +15,30 @@ Routing in NYC with [pgRouting](https://pgrouting.org/) and authoritative NYC da
 
 Requires: Docker and docker-compose
 
-1. Clone this repo
+1. Clone this repo and `cd` into it:
 
-    `$ git clone https://github.com/ishiland/nyc-open-routing.git`
-
-    and cd into it
-
-    `$ cd nyc-open-routing`
-    
-2. Review the .env file to change the LION version or other params.  
-3. Build and start the containers.
-    
-    `$ docker-compose up`
-    
-4. The build process will take some time. When its complete, navigate to http://localhost:3000. 
-
-## db
-Once loaded into the `postgis` container, Lion data will persist in the `postgresql_data` volume. Any subsequent re-build will ignore data loading scripts unless the `postgresql_data` volume is removed. See [Docker Postgres](https://docs.docker.com/samples/library/postgres/) for additional information.
+    `git clone https://github.com/ishiland/nyc-open-routing.git && cd nyc-open-routing`
  
+    
+2. Build the project.
+
+     `docker-compose build`
+      
+3. Start the project.
+    
+    `docker-compose up -d`
+    
+4. Import the Lion data using the `data-importer` service:
+
+    `docker-compose exec data-importer sh scripts/import-lion.sh`
+    
+    You can also specify a version of Lion:
+    
+    `docker-compose exec data-importer sh scripts/import-lion.sh 20b`
+    
+5. When its complete navigate to [http://localhost:3001](http://localhost:3001) 
+
+
 ## api
 Use the flask api to query routes directly. All successful requests return GeoJSON w/MultiLineString geometries. You can comment out the `client` container in the docker-compose.yml if all you require is the api. 
 
@@ -43,7 +49,7 @@ Parameters:
 - `mode`: Travel mode. Can be `drive`, `walk` or `bike`
 
 Example request:
-http://localhost:5000/api/route?orig=-74.0117,40.649221&dest=-73.951458,40.797061&mode=drive
+http://localhost:5001/api/route?orig=-74.0117,40.649221&dest=-73.951458,40.797061&mode=drive
 
 response:
 ```js

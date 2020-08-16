@@ -1,11 +1,5 @@
-*.zip
-*.gdb/
-venv/
 .idea/
-data/
 client/node_modules/
 *.log
-db/pgdata/
-db/lion/
-api/geosupport
 __pycache__/
+.DS_Store

@@ -12,5 +12,5 @@ Shapely==1.6.4.post2
 six==1.12.0
 SQLAlchemy==1.3.4
 Werkzeug==0.15.5
-geosupport-suggest>=0.0.2
+geosupport-suggest==0.0.2
 gunicorn==19.9.0
