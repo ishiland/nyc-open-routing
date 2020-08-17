@@ -13,7 +13,7 @@ Routing in NYC with [pgRouting](https://pgrouting.org/) and authoritative NYC da
 
 ## Getting Started
 
-Requires: Docker and docker-compose
+This projected is orchestrated with docker-compose. 
 
 1. Clone this repo and `cd` into it:
 
@@ -27,6 +27,8 @@ Requires: Docker and docker-compose
 3. Start the project.
     
     `docker-compose up -d`
+    
+    If this is the first time starting, the `api` container will download and install geosupport. You can upgrade geosupport by specifying a different version in the .env file.
     
 4. Import the Lion data using the `data-importer` service:
 

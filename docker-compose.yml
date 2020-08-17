@@ -27,16 +27,15 @@ services:
     build:
       context: ./api/
       dockerfile: ../docker/dev/api.Dockerfile
-      args:
-        - GEOSUPPORT=20c
     ports:
       - 5001:5000
     env_file:
       - ./docker/dev/.env
+    volumes:
+      - ./api:/api
     depends_on:
       - db
-    volumes:
-     - ./api:/api
+
 
   client:
     build:

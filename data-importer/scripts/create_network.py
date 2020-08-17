@@ -146,30 +146,8 @@ def create_functions():
     cur.execute(functions_sql.read())
 
 
-def enable_db_extensions():
-    # enable required exetnsion
-    try:
-        cur.execute('CREATE EXTENSION postgis;')
-        print('created extension postgis.')
-    except Exception as e:
-        print(e)
-        cur.execute('ROLLBACK')
-        pass
-
-    try:
-        cur.execute('CREATE EXTENSION pgrouting;')
-        print('created extension pgrouting.')
-    except Exception as e:
-        print(e)
-        cur.execute('ROLLBACK')
-        pass
-
-
 if __name__ == '__main__':
     startTime = datetime.now()
-
-    enable_db_extensions()
-    conn.commit()
 
     create_edges()
     calculate_travel_times()

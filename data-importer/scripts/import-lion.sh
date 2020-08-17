@@ -1,5 +1,4 @@
 #!/bin/bash
-set -e
 
 if [ "$#" -eq "0" ]; then
   LION=$DEFAULT_LION
@@ -12,22 +11,24 @@ echo "Attempting to import LION $LION"
 #================================
 # Download Lion
 #================================
-if [ -d "/data-imports/data/lion_${LION}" ]; then
-  rm -r "/data-imports/data/lion_${LION}"
-fi
-mkdir "/data-imports/data/lion_${LION}"
-curl -o /data-imports/data/lion_"${LION}"/lion.zip https://www1.nyc.gov/assets/planning/download/zip/data-maps/open-data/nyclion_"${LION}".zip &&
-  unzip /data-imports/data/lion_"${LION}"/lion.zip -d /data-imports/data/lion_"${LION}" &&
-  rm /data-imports/data//lion_"${LION}"/lion.zip
+# only download if directory doesnt exists
+if [ ! -d "/data-imports/data/lion_${LION}" ]; then
 
+  mkdir "/data-imports/data/lion_${LION}"
+
+  curl -o /data-imports/data/lion_"${LION}"/lion.zip https://www1.nyc.gov/assets/planning/download/zip/data-maps/open-data/nyclion_"${LION}".zip &&
+    unzip /data-imports/data/lion_"${LION}"/lion.zip -d /data-imports/data/lion_"${LION}" &&
+    rm /data-imports/data//lion_"${LION}"/lion.zip
+fi
 
 ## ================================
 ## load Lion data with ogr2ogr
 ## ================================
 ./scripts/wait-for-it.sh "$POSTGRES_HOST":5432 -- echo "database is up"
 
-# ogr2ogr has issues if lion table exists, so lets drop it first
-psql --command="DROP TABLE IF EXISTS lion;" postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST/$POSTGRES_DB
+# need to create extensions on first go
+psql --command="create extension postgis;" postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST/$POSTGRES_DB
+psql --command="create extension pgrouting;" postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST/$POSTGRES_DB
 
 CNX="user=$POSTGRES_USER host=$POSTGRES_HOST dbname=$POSTGRES_DB password=$POSTGRES_PASSWORD port=5432"
 GDB=/data-imports/data/lion_${LION}/lion/lion.gdb
