@@ -17,8 +17,7 @@ This projected is orchestrated with docker-compose.
 
 1. Clone this repo and `cd` into it:
 
-    `git clone https://github.com/ishiland/nyc-open-routing.git && cd nyc-open-routing`
- 
+    `git clone https://github.com/ishiland/nyc-open-routing.git`
     
 2. Build the project.
 
@@ -28,9 +27,9 @@ This projected is orchestrated with docker-compose.
     
     `docker-compose up -d`
     
-    If this is the first time starting, the `api` container will download and install geosupport. You can upgrade geosupport by specifying a different version in the .env file.
+    If this is the first time starting, the `api` container will download and install geosupport. You can upgrade geosupport by specifying a different version in the .env file and restarting the service.
     
-4. Import the Lion data using the `data-importer` service:
+4. Import the Lion data using the following `data-importer` command:
 
     `docker-compose exec data-importer sh scripts/import-lion.sh`
     
@@ -38,7 +37,7 @@ This projected is orchestrated with docker-compose.
     
     `docker-compose exec data-importer sh scripts/import-lion.sh 20b`
     
-5. When its complete navigate to [http://localhost:3001](http://localhost:3001) 
+5. When its complete navigate to [http://localhost:3001](http://localhost:3001)
 
 
 ## api
