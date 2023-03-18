@@ -3,4 +3,3 @@ client/node_modules/
 *.log
 __pycache__/
 .DS_Store
-api/geosupport
