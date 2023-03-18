@@ -31,7 +31,7 @@ This projected is orchestrated with docker-compose.
     
 4. Import the Lion data using the following command:
 
-    `docker-compose exec api sh scripts/import-lion.sh`
+    `docker-compose exec api sh /data-imports/scripts/import-lion.sh`
     
     You can also specify a version of Lion:
     
