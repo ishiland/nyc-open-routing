@@ -1,4 +1,5 @@
 #!/bin/bash
+set -e
 
 if [ "$#" -eq "0" ]; then
   LION=$DEFAULT_LION
@@ -15,8 +16,8 @@ echo "Attempting to import LION $LION"
 if [ ! -d "/data-imports/data/lion_${LION}" ]; then
 
   mkdir "/data-imports/data/lion_${LION}"
-
-  curl -o /data-imports/data/lion_"${LION}"/lion.zip https://www1.nyc.gov/assets/planning/download/zip/data-maps/open-data/nyclion_"${LION}".zip &&
+  # example url: https://s-media.nyc.gov/agencies/dcp/assets/files/zip/data-tools/bytes/nyclion_23a.zip
+  curl -o /data-imports/data/lion_"${LION}"/lion.zip https://s-media.nyc.gov/agencies/dcp/assets/files/zip/data-tools/bytes/nyclion_"${LION}".zip &&
     unzip /data-imports/data/lion_"${LION}"/lion.zip -d /data-imports/data/lion_"${LION}" &&
     rm /data-imports/data//lion_"${LION}"/lion.zip
 fi
@@ -24,11 +25,11 @@ fi
 ## ================================
 ## load Lion data with ogr2ogr
 ## ================================
-./scripts/wait-for-it.sh "$POSTGRES_HOST":5432 -- echo "database is up"
+# ./scripts/wait-for-it.sh "$POSTGRES_HOST":5432 -- echo "database is up"
 
 # need to create extensions on first go
-psql --command="create extension postgis;" postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST/$POSTGRES_DB
-psql --command="create extension pgrouting;" postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST/$POSTGRES_DB
+psql --command="create extension if not exists postgis;" postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST/$POSTGRES_DB
+psql --command="create extension if not exists pgrouting;" postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST/$POSTGRES_DB
 
 CNX="user=$POSTGRES_USER host=$POSTGRES_HOST dbname=$POSTGRES_DB password=$POSTGRES_PASSWORD port=5432"
 GDB=/data-imports/data/lion_${LION}/lion/lion.gdb
@@ -47,4 +48,4 @@ ogr2ogr -progress \
 ## ================================
 ## create routing network
 ## ================================
-python3 ./scripts/create_network.py
+python3 /data-imports/scripts/create_network.py
