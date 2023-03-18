@@ -29,13 +29,13 @@ This projected is orchestrated with docker-compose.
     
     If this is the first time starting, the `api` container will download and install geosupport. You can upgrade geosupport by specifying a different version in the .env file and restarting the service.
     
-4. Import the Lion data using the following `data-importer` command:
+4. Import the Lion data using the following command:
 
-    `docker-compose exec data-importer sh scripts/import-lion.sh`
+    `docker-compose exec api sh scripts/import-lion.sh`
     
     You can also specify a version of Lion:
     
-    `docker-compose exec data-importer sh scripts/import-lion.sh 20b`
+    `docker-compose exec api sh /data-imports/scripts/import-lion.sh 23a`
     
 5. When its complete navigate to [http://localhost:3001](http://localhost:3001)
 
