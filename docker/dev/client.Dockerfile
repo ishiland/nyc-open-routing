@@ -1,5 +1,5 @@
 # base image
-FROM node:16.16.0-alpine
+FROM node:16.17-alpine
 
 ADD package.json /package.json
 
