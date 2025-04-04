@@ -1,27 +1,33 @@
+// App.tsx
 import React from "react";
 import Sidebar from "./components/Sidebar";
-import MapboxGLMap from "./components/MapboxGLMap";
+import MapLibreGLMap from "./components/MapLibreGLMap";
 import AddressContextProvider from "./contexts/AddressContext";
 import RouteContextProvider from "./contexts/RouteContext";
 import MessageContextProvider from "./contexts/MessageContext";
 import TravelModeContextProvider from "./contexts/TravelModeContext";
 
-function App() {
+const App: React.FC = () => {
     return (
-        <div className="App">
+        <div
+            style={{
+                height: '100vh',
+                overflow: 'hidden',
+                display: 'flex',
+            }}
+        >
             <MessageContextProvider>
                 <RouteContextProvider>
                     <AddressContextProvider>
                         <TravelModeContextProvider>
                             <Sidebar />
-                            <MapboxGLMap />
+                            <MapLibreGLMap />
                         </TravelModeContextProvider>
                     </AddressContextProvider>
                 </RouteContextProvider>
             </MessageContextProvider>
-
         </div>
     );
-}
+};
 
 export default App;

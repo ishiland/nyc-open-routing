@@ -1,57 +1,54 @@
 import React, { useContext, useState, useEffect, useCallback } from "react";
-import Button from "@material-ui/core/Button";
-import { Directions } from "@material-ui/icons";
-import CircularProgress from '@material-ui/core/CircularProgress';
+import Button from "@mui/material/Button";
+import { Directions } from "@mui/icons-material";
+import CircularProgress from '@mui/material/CircularProgress';
+import Box from '@mui/material/Box';
 
-import {useStyles} from '../utils/style'
 import { AddressContext } from '../contexts/AddressContext';
 import { RouteContext } from '../contexts/RouteContext';
 import { TravelModeContext } from '../contexts/TravelModeContext';
 import { MessageContext } from '../contexts/MessageContext';
+import { AddressContextType, RouteContextType, TravelModeContextType, MessageContextType } from "../types/interfaces";
 
+export const ButtonControls: React.FC = () => {
+    const [isFetching, setFetching] = useState<boolean>(false);
 
-export const ButtonControls = () => {
-    const classes = useStyles();
+    const { clearAddresses, startAddress, endAddress } = useContext<AddressContextType>(AddressContext);
 
-    const [isFetching, setFetching] = useState(false);
+    const { setRoute } = useContext<RouteContextType>(RouteContext);
 
-    const { clearAddresses, startAddress, endAddress } = useContext(AddressContext);
+    const { displayMessage } = useContext<MessageContextType>(MessageContext);
 
-    const { setRoute } = useContext(RouteContext);
-
-    const { displayMessage } = useContext(MessageContext);
-
-    const { mode } = useContext(TravelModeContext);
+    const { mode } = useContext<TravelModeContextType>(TravelModeContext);
 
     const routeButtonEnabled = startAddress.geometry && endAddress.geometry;
 
-    const reset = () => {
+    const reset = (): void => {
         clearAddresses();
-        setRoute({})
+        setRoute({});
     };
 
-
     const fetchRouteCallback = useCallback(
-        () => {
-            setFetching(()=>true);
-            const startPointCoords = startAddress.geometry.coordinates.toString();
-            const endPointCoords = endAddress.geometry.coordinates.toString();
+        (): void => {
+            setFetching(() => true);
+            const startPointCoords = startAddress.geometry?.coordinates.toString() || '';
+            const endPointCoords = endAddress.geometry?.coordinates.toString() || '';
             fetch(`/api/route?orig=${startPointCoords}&dest=${endPointCoords}&mode=${mode}`)
                 .then(response => {
                     if (response.status >= 400) {
-                        displayMessage(()=>`${response.status}: ${response.statusText}`, 'error');
-                        setFetching(()=>false);
+                        displayMessage(`${response.status}: ${response.statusText}`, 'error');
+                        setFetching(() => false);
                         return null;
                     }
                     return response.json();
                 })
                 .then(data => {
-                    if (data && data.features.length) {
+                    if (data && data.features && data.features.length) {
                         setRoute(data);
-                    } else if (data && !data.features.length) {
+                    } else if (data && (!data.features || !data.features.length)) {
                         displayMessage('Could Not Calculate a Route', 'warning');
                     }
-                    setFetching(()=>false);
+                    setFetching(() => false);
                 });
         },
         [setFetching, setRoute, displayMessage, startAddress, endAddress, mode],
@@ -60,18 +57,18 @@ export const ButtonControls = () => {
     // execute route when mode changes
     useEffect(() => {
         if (routeButtonEnabled) {
-            fetchRouteCallback()
+            fetchRouteCallback();
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [mode, startAddress, endAddress, routeButtonEnabled]);
 
     return (
-        <div>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 2, mb: 2 }}>
             <Button
                 onClick={reset}
                 variant="contained"
                 disabled={isFetching}
-                className={classes.button}>
+            >
                 clear
             </Button>
             <Button
@@ -79,11 +76,11 @@ export const ButtonControls = () => {
                 variant="contained"
                 color="primary"
                 disabled={isFetching || !routeButtonEnabled}
-                className={classes.button}
+                startIcon={<Directions />}
             >
-                <Directions className={classes.buttonIcon} />Route
+                Route
             </Button>
-            {isFetching && <CircularProgress className={classes.progress} size={20} />}
-        </div>
-    )
-};
+            {isFetching && <CircularProgress size={20} sx={{ ml: 1 }} />}
+        </Box>
+    );
+}; 

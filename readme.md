@@ -7,7 +7,7 @@ Routing in NYC with [pgRouting](https://pgrouting.org/) and authoritative NYC da
 - Driving, Walking and Biking routes using DCP's [LION](https://www1.nyc.gov/site/planning/data-maps/open-data/dwn-lion.page) data
 - Address searching using [Geosupport](https://www1.nyc.gov/site/planning/data-maps/open-data/dwn-gde-home.page) and [geosupport-suggest](https://github.com/ishiland/geosupport-suggest) 
 - Routing capabilities using [pgRouting](https://pgrouting.org/)
-- Web API using [Flask RESTful](https://flask-restful.readthedocs.io/en/latest/)
+- Web API using [Fast API](https://fastapi.tiangolo.com/)
 - Frontend using [React JS](https://reactjs.org/) and [Mapbox GL JS](https://docs.mapbox.com/mapbox-gl-js/api/)
 - Containerized with [Docker](https://docs.docker.com/engine/docker-overview/)
 
@@ -31,11 +31,11 @@ This projected is orchestrated with docker-compose.
     
 4. Import the Lion data using the following command:
 
-    `docker-compose exec api sh /data-imports/scripts/import-lion.sh`
+    `docker compose exec api sh /data-imports/scripts/import-lion.sh`
     
     You can also specify a version of Lion:
     
-    `docker-compose exec api sh /data-imports/scripts/import-lion.sh 23a`
+    `docker compose exec api sh /data-imports/scripts/import-lion.sh 25a`
     
 5. When its complete navigate to [http://localhost:3001](http://localhost:3001)
 

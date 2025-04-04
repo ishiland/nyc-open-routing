@@ -51,8 +51,8 @@ ALTER TABLE public.edges
   ADD COLUMN source INTEGER,
   ADD COLUMN target INTEGER,
 
---  ADD COLUMN level_from INTEGER,
---  ADD COLUMN level_to INTEGER,
+  ADD COLUMN level_from INTEGER,
+  ADD COLUMN level_to INTEGER,
 
   ADD COLUMN one_way VARCHAR(2),
   ADD COLUMN time_drive DOUBLE PRECISION,

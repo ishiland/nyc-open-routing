@@ -1,5 +1,8 @@
 .idea/
 client/node_modules/
+client/build/
 *.log
 __pycache__/
 .DS_Store
+/api/gde
+*.csv
