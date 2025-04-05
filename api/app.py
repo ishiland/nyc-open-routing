@@ -1,5 +1,6 @@
 import os
 import logging
+from datetime import datetime
 from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel
 from typing import List, Any, Dict, Optional
@@ -42,6 +43,13 @@ class Properties(BaseModel):
     street: Optional[str] = None
     distance: Optional[float] = None  # in feet
     travel_time: Optional[float] = None
+    traffic_factor: Optional[float] = None  # traffic impact factor
+
+    # 1.0 = No traffic impact (free flow/default) or no data available
+    # 1.2 = Light traffic (20% slowdown)
+    # 1.5 = Medium traffic (50% slowdown)
+    # 2.0 = Heavy traffic (doubles travel time)
+    # 3.0 = Very heavy traffic (triples travel time)
 
 class Feature(BaseModel):
     properties: Properties
@@ -58,32 +66,89 @@ def get_route(
     """
     mode = mode.lower()
     if mode == 'drive':
-        sql = text("SELECT * FROM getdrivingroute(:orig, :dest)")
-    elif mode == 'bike':
-        sql = text("SELECT * FROM getbikingroute(:orig, :dest)")
-    elif mode == 'walk':
-        sql = text("SELECT * FROM getwalkingroute(:orig, :dest)")
+        """
+                    CREATE FUNCTION getdrivingroute_with_traffic(
+                _start_lon FLOAT, _start_lat FLOAT, 
+                _end_lon FLOAT, _end_lat FLOAT,
+                _hour INTEGER, _day_of_week INTEGER)
+            RETURNS TABLE(
+                seq INT,
+                id VARCHAR,
+                street VARCHAR,
+                travel_time FLOAT,
+                distance FLOAT,
+                traffic_factor FLOAT,
+                geom GEOMETRY
+            )
+        """
+        hour = datetime.now().hour
+        day_of_week = datetime.now().weekday()
+        
+        # Parse coordinates from orig and dest strings
+        try:
+            orig_lon, orig_lat = map(float, orig.split(','))
+            dest_lon, dest_lat = map(float, dest.split(','))
+            sql = text("SELECT * FROM getdrivingroute_with_traffic(:orig_lon, :orig_lat, :dest_lon, :dest_lat, :hour, :day_of_week)")
+        except ValueError:
+            raise HTTPException(status_code=400, detail="Invalid coordinate format. Expected 'longitude,latitude'")
+    # elif mode == 'bike':
+    #     sql = text("SELECT * FROM getbikingroute(:orig, :dest)")
+    # elif mode == 'walk':
+    #     sql = text("SELECT * FROM getwalkingroute(:orig, :dest)")
     else:
         raise HTTPException(status_code=400, detail="Invalid mode specified. Choose 'drive', 'bike', or 'walk'.")
     
     try:
         with engine.connect() as conn:
-            result = conn.execute(sql, {"orig": orig, "dest": dest})
+            result = conn.execute(sql, {
+                "orig_lon": orig_lon, 
+                "orig_lat": orig_lat, 
+                "dest_lon": dest_lon, 
+                "dest_lat": dest_lat, 
+                "hour": hour, 
+                "day_of_week": day_of_week
+            })
             rows = result.fetchall()
+            logger.info(f"Rows: {rows}")
     except Exception as e:
         logger.error(f"Error executing route query: {e}")
         raise HTTPException(status_code=500, detail="Error processing route request.")
     
     features = []
     for row in rows:
-        # Convert row to dict if not already a mapping.
-        row_dict = dict(row)
+        # Convert row to dict if not already a mapping, handling different row formats
+        try:
+            if hasattr(row, '_asdict'):  # namedtuple-like object
+                row_dict = row._asdict()
+            elif hasattr(row, '_mapping'):  # SQLAlchemy 1.4+ Row object
+                row_dict = dict(row._mapping)
+            elif hasattr(row, 'keys'):  # dictionary-like
+                row_dict = {key: row[key] for key in row.keys()}
+            else:
+                # Fallback - assume positions match column names from result description
+                row_dict = {}
+                if hasattr(result, 'keys'):
+                    keys = result.keys()
+                    for i, key in enumerate(keys):
+                        if i < len(row):
+                            row_dict[key] = row[i]
+        except Exception as e:
+            logger.warning(f"Error converting row to dict: {e}, using empty dict")
+            row_dict = {}
+            
+        # Ensure all expected fields exist with safe defaults
+        expected_fields = ['seq', 'street', 'distance', 'travel_time', 'traffic_factor', 'geom']
+        for field in expected_fields:
+            if field not in row_dict:
+                row_dict[field] = None
+                
         feature = Feature(
             properties=Properties(
-                seq=row_dict.get('seq'),
+                seq=row_dict.get('seq', 0),
                 street=row_dict.get('street'),
                 distance=row_dict.get('distance'),
-                travel_time=row_dict.get('travel_time')
+                travel_time=row_dict.get('travel_time'),
+                traffic_factor=row_dict.get('traffic_factor', 1.0)  # Default to 1.0 (no traffic) if missing
             ),
             geometry=dump_geo(row_dict.get('geom'))
         )
@@ -101,4 +166,4 @@ def address_search(address: str = Query(..., description="Address to search for 
     except Exception as e:
         logger.error(f"Error during address search: {e}")
         raise HTTPException(status_code=500, detail="Error processing address search.")
-    return suggestions
+    return s.to_geojson(suggestions)

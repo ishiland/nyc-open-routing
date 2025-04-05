@@ -33,6 +33,7 @@ else
     case "$1" in
       --download-traffic)
         DOWNLOAD_TRAFFIC=true
+        TRAFFIC_DATA="$TRAFFIC_DATA_PATH"
         shift
         ;;
       --traffic-file)
@@ -62,14 +63,13 @@ echo "Attempting to import LION $LION"
 
 # Handle traffic data
 if [ "$DOWNLOAD_TRAFFIC" = true ]; then
-  TRAFFIC_DATA="$TRAFFIC_DATA_PATH"
-  
   # Check if traffic data file already exists
   if [ -f "$TRAFFIC_DATA" ]; then
     echo "Traffic data file already exists at $TRAFFIC_DATA"
     echo "Using existing traffic data file"
   else
     echo "Downloading traffic data from NYC Open Data..."
+    mkdir -p "$(dirname "$TRAFFIC_DATA")"
     curl -o "$TRAFFIC_DATA" "$TRAFFIC_DATA_URL"
     if [ $? -ne 0 ]; then
       echo "Error downloading traffic data"
@@ -111,8 +111,8 @@ psql --command="create extension if not exists pgrouting;" postgresql://$POSTGRE
 CNX="user=$POSTGRES_USER host=$POSTGRES_HOST dbname=$POSTGRES_DB password=$POSTGRES_PASSWORD port=5432"
 GDB=/data-imports/data/lion_${LION}/lion/lion.gdb
 # load only required fields
-FIELDS="join_id,street,trafdir,nodelevelf,nodelevelt,posted_speed,number_travel_lanes,featuretyp,bikelane,bike_trafdir,nonped,segmenttyp,segmentid,rw_type"
-echo "Loading lion data...this may take several minutes."
+FIELDS="segmentid,join_id,street,trafdir,nodelevelf,nodelevelt,posted_speed,number_travel_lanes,featuretyp,bikelane,bike_trafdir,nonped,segmenttyp,segmentid,rw_type"
+echo "Importing lion data..."
 ogr2ogr -progress \
   --config PG_USE_COPY YES \
   -lco GEOMETRY_NAME=the_geom \
@@ -126,9 +126,11 @@ ogr2ogr -progress \
 ## ================================
 # Export traffic data path if provided
 if [ -n "$TRAFFIC_DATA" ]; then
+  echo "Setting TRAFFIC_DATA_FILE environment variable to: $TRAFFIC_DATA"
   export TRAFFIC_DATA_FILE="$TRAFFIC_DATA"
 fi
 
+echo "Running create_network.py..."
 python3 /data-imports/scripts/create_network.py
 
 # Cleanup env var
