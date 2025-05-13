@@ -1,0 +1,74 @@
+import os
+import logging
+from typing import List
+from pydantic import Field, PostgresDsn
+from pydantic_settings import BaseSettings
+
+class Settings(BaseSettings):
+    # API Settings
+    API_TITLE: str = "NYC Open Routing API"
+    API_DESCRIPTION: str = "Routing in NYC with pgRouting and authoritative NYC data"
+    API_VERSION: str = "0.1.0"
+    
+    # Logging Configuration
+    LOG_LEVEL: str = Field(default="INFO")
+    
+    # Database Configuration
+    POSTGRES_USER: str = Field(default="postgres")
+    POSTGRES_PASSWORD: str = Field(default="postgres")
+    POSTGRES_DB: str = Field(default="routing")
+    POSTGRES_HOST: str = Field(default="db")
+    POSTGRES_PORT: str = Field(default="5432")
+    
+    # Constructed properties
+    @property
+    def DATABASE_URI(self) -> str:
+        """SQLAlchemy database connection string"""
+        return f"postgresql+psycopg://{self.POSTGRES_USER}:{self.POSTGRES_PASSWORD}@{self.POSTGRES_HOST}:{self.POSTGRES_PORT}/{self.POSTGRES_DB}"
+    
+    # CORS Configuration
+    ALLOW_ORIGINS: List[str] = Field(default_factory=lambda: ["http://localhost:3001", "http://client:3000"])
+    ALLOW_METHODS: List[str] = Field(default_factory=lambda: ["GET", "POST", "OPTIONS"])
+    ALLOW_HEADERS: List[str] = Field(default_factory=lambda: ["*"])
+    
+    # Logging config dictionary
+    @property
+    def LOGGING_CONFIG(self) -> dict:
+        return {
+            "version": 1,
+            "disable_existing_loggers": False,
+            "formatters": {
+                "default": {
+                    "format": "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+                },
+            },
+            "handlers": {
+                "console": {
+                    "class": "logging.StreamHandler",
+                    "formatter": "default",
+                    "level": self.LOG_LEVEL,
+                },
+            },
+            "root": {
+                "handlers": ["console"],
+                "level": self.LOG_LEVEL,
+            },
+        }
+    
+    class Config:
+        env_file = ".env"
+        case_sensitive = True
+
+# Create a settings instance to be imported
+settings = Settings()
+
+# For backwards compatibility
+API_TITLE = settings.API_TITLE
+API_DESCRIPTION = settings.API_DESCRIPTION
+API_VERSION = settings.API_VERSION
+LOG_LEVEL = settings.LOG_LEVEL
+LOGGING_CONFIG = settings.LOGGING_CONFIG
+DATABASE_URI = settings.DATABASE_URI
+ALLOW_ORIGINS = settings.ALLOW_ORIGINS
+ALLOW_METHODS = settings.ALLOW_METHODS
+ALLOW_HEADERS = settings.ALLOW_HEADERS 
