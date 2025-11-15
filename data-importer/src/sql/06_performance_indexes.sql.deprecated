@@ -1,0 +1,38 @@
+-- Performance optimization indexes for routing queries
+-- These indexes improve query performance for common routing operations
+
+-- Composite index for bidirectional routing queries
+-- Used when finding routes between source and target nodes
+CREATE INDEX IF NOT EXISTS idx_edges_source_target ON edges(source, target);
+
+-- Indexes on mode-specific flags for filtering routable edges
+-- Used in WHERE clauses: "WHERE driveable=TRUE", etc.
+CREATE INDEX IF NOT EXISTS idx_edges_driveable ON edges(driveable) WHERE driveable = TRUE;
+CREATE INDEX IF NOT EXISTS idx_edges_bikeable ON edges(bikeable) WHERE bikeable = TRUE;
+CREATE INDEX IF NOT EXISTS idx_edges_walkable ON edges(walkable) WHERE walkable = TRUE;
+
+-- Composite indexes for mode-specific routing with costs
+-- Speeds up pgr_trsp queries that filter by mode and order by cost
+CREATE INDEX IF NOT EXISTS idx_edges_drive_cost ON edges(driveable, cost_drive) WHERE driveable = TRUE;
+CREATE INDEX IF NOT EXISTS idx_edges_bike_cost ON edges(bikeable, cost_bike) WHERE bikeable = TRUE;
+CREATE INDEX IF NOT EXISTS idx_edges_walk_cost ON edges(walkable, cost_walk) WHERE walkable = TRUE;
+
+-- Index on street name for search and grouping operations
+-- Used in turn-by-turn directions and route segment grouping
+CREATE INDEX IF NOT EXISTS idx_edges_street ON edges(street) WHERE street IS NOT NULL;
+
+-- Index on join_id for efficient joins
+-- Used when joining with other LION data
+CREATE INDEX IF NOT EXISTS idx_edges_join_id_btree ON edges(join_id);
+
+-- Analyze tables to update query planner statistics
+-- This helps PostgreSQL choose optimal query plans
+ANALYZE edges;
+ANALYZE edges_vertices_pgr;
+ANALYZE restrictions;
+
+-- Optional: Create statistics for correlated columns
+-- This helps with queries that filter on multiple related columns
+CREATE STATISTICS IF NOT EXISTS edges_mode_cost_stats ON driveable, cost_drive FROM edges;
+CREATE STATISTICS IF NOT EXISTS edges_mode_bike_stats ON bikeable, cost_bike FROM edges;
+CREATE STATISTICS IF NOT EXISTS edges_mode_walk_stats ON walkable, cost_walk FROM edges;

@@ -1,13 +1,13 @@
-import { useEffect, useCallback } from 'react';
-import maplibregl from 'maplibre-gl';
-import { IMapFeature } from '../types/interfaces';
-import { removeMapLayerAndSource } from '../utils/mapHelpers';
+import { useEffect, useCallback } from "react"
+import maplibregl from "maplibre-gl"
+import { IMapFeature } from "../types/interfaces"
+import { removeMapLayerAndSource } from "../utils/mapHelpers"
 
 // Type-safe layer options based on maplibregl types
 interface LayerOptions {
-  type: 'circle' | 'line' | 'fill' | 'symbol';
-  paint: Record<string, any>;
-  layout?: Record<string, any>;
+  type: "circle" | "line" | "fill" | "symbol"
+  paint: Record<string, unknown>
+  layout?: Record<string, unknown>
 }
 
 /**
@@ -18,35 +18,40 @@ const useGeoJsonLayer = (
   sourceId: string,
   layerId: string,
   data: IMapFeature | IMapFeature[] | null,
-  layerOptions: LayerOptions
+  layerOptions: LayerOptions,
 ) => {
   // Convert single feature to feature collection if needed
-  const normalizeData = useCallback((inputData: IMapFeature | IMapFeature[] | null) => {
-    if (!inputData) return null;
-    
-    const features = Array.isArray(inputData) ? inputData : [inputData];
-    return {
-      type: "FeatureCollection" as const,
-      features: features.filter(f => f)
-    };
-  }, []);
+  const normalizeData = useCallback(
+    (inputData: IMapFeature | IMapFeature[] | null) => {
+      if (!inputData) return null
+
+      const features = Array.isArray(inputData) ? inputData : [inputData]
+      return {
+        type: "FeatureCollection" as const,
+        features: features.filter(f => f),
+      }
+    },
+    [],
+  )
 
   // Add or update layer
   useEffect(() => {
-    if (!map || !map.loaded()) return;
-    
-    const normalizedData = normalizeData(data);
+    if (!map || !map.loaded()) return
+
+    const normalizedData = normalizeData(data)
     if (!normalizedData) {
       // Remove layer and source if no data
-      removeMapLayerAndSource(map, layerId, sourceId);
-      return;
+      removeMapLayerAndSource(map, layerId, sourceId)
+      return
     }
 
     // If layer already exists, just update the data
     if (map.getStyle() && map.getLayer(layerId)) {
-      const source = map.getSource(sourceId) as maplibregl.GeoJSONSource;
+      const source = map.getSource(sourceId) as maplibregl.GeoJSONSource
       if (source) {
-        source.setData(normalizedData as GeoJSON.FeatureCollection<GeoJSON.Geometry>);
+        source.setData(
+          normalizedData as GeoJSON.FeatureCollection<GeoJSON.Geometry>,
+        )
       }
     } else {
       // Add new source and layer
@@ -54,37 +59,34 @@ const useGeoJsonLayer = (
         // First add the source
         if (!map.getSource(sourceId)) {
           map.addSource(sourceId, {
-            type: 'geojson',
-            data: normalizedData
-          });
+            type: "geojson",
+            data: normalizedData,
+          })
         }
-        
-        // Then add the layer with the correct type casting
-        const mapLayer: any = {
+
+        // Then add the layer
+        const mapLayer: maplibregl.LayerSpecification = {
           id: layerId,
           type: layerOptions.type,
           source: sourceId,
-          paint: layerOptions.paint
-        };
-        
-        if (layerOptions.layout) {
-          mapLayer.layout = layerOptions.layout;
+          paint: layerOptions.paint,
+          ...(layerOptions.layout && { layout: layerOptions.layout }),
         }
-        
-        map.addLayer(mapLayer);
+
+        map.addLayer(mapLayer)
       } catch (error) {
-        console.error("Error adding layer or source:", error);
+        console.error("Error adding layer or source:", error)
       }
     }
-  }, [map, sourceId, layerId, data, layerOptions, normalizeData]);
+  }, [map, sourceId, layerId, data, layerOptions, normalizeData])
 
   // Return a function to remove the layer and source
   const removeLayer = useCallback(() => {
-    if (!map) return;
-    removeMapLayerAndSource(map, layerId, sourceId);
-  }, [map, layerId, sourceId]);
+    if (!map) return
+    removeMapLayerAndSource(map, layerId, sourceId)
+  }, [map, layerId, sourceId])
 
-  return { removeLayer };
-};
+  return { removeLayer }
+}
 
-export default useGeoJsonLayer; 
+export default useGeoJsonLayer

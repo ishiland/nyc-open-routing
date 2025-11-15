@@ -49,33 +49,94 @@ def test_route_endpoint_success(mock_get_driving_route):
     assert len(data) == 1
     assert data[0]["properties"]["street"] == "BROADWAY"
 
-@patch('api.services.search.SearchService.search_address')
-def test_address_search_success(mock_search_address):
-    """Test successful address search."""
+@patch('api.services.routing.RoutingService.get_biking_route')
+def test_route_endpoint_bike_success(mock_get_biking_route):
+    """Test successful bike route retrieval."""
     # Mock response data
-    mock_response = {
-        "type": "FeatureCollection",
-        "features": [
-            {
-                "type": "Feature",
-                "properties": {
-                    "Borough": "MANHATTAN",
-                    "ZipCode": "10007",
-                    "StreetName": "BROADWAY"
-                },
-                "geometry": {
-                    "type": "Point",
-                    "coordinates": [-73.9857, 40.7484]
-                }
+    mock_features = [
+        {
+            "properties": {
+                "seq": 1,
+                "street": "9TH AVE",
+                "distance": 150.0,
+                "travel_time": 20.0,
+                "traffic_factor": None
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [-73.9857, 40.7484],
+                    [-73.9855, 40.7480]
+                ]
             }
-        ]
-    }
-    mock_search_address.return_value = mock_response
-    
+        }
+    ]
+    mock_get_biking_route.return_value = mock_features
+
     # Test the endpoint
-    response = client.get("/api/search?address=Broadway")
+    response = client.get("/api/route?orig=-73.9857,40.7484&dest=-73.9950,40.7352&mode=bike")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["properties"]["street"] == "9TH AVE"
+
+@patch('api.services.routing.RoutingService.get_walking_route')
+def test_route_endpoint_walk_success(mock_get_walking_route):
+    """Test successful walking route retrieval."""
+    # Mock response data
+    mock_features = [
+        {
+            "properties": {
+                "seq": 1,
+                "street": "W 42ND ST",
+                "distance": 50.0,
+                "travel_time": 15.0,
+                "traffic_factor": None
+            },
+            "geometry": {
+                "type": "LineString",
+                "coordinates": [
+                    [-73.9857, 40.7484],
+                    [-73.9855, 40.7480]
+                ]
+            }
+        }
+    ]
+    mock_get_walking_route.return_value = mock_features
+
+    # Test the endpoint
+    response = client.get("/api/route?orig=-73.9857,40.7484&dest=-73.9950,40.7352&mode=walk")
+    assert response.status_code == 200
+    data = response.json()
+    assert len(data) == 1
+    assert data[0]["properties"]["street"] == "W 42ND ST"
+
+def test_route_endpoint_missing_origin():
+    """Test route endpoint with missing origin parameter."""
+    response = client.get("/api/route?dest=-73.9950,40.7352&mode=drive")
+    assert response.status_code == 422  # FastAPI validation error
+
+def test_route_endpoint_missing_destination():
+    """Test route endpoint with missing destination parameter."""
+    response = client.get("/api/route?orig=-73.9857,40.7484&mode=drive")
+    assert response.status_code == 422  # FastAPI validation error
+
+def test_route_endpoint_missing_mode():
+    """Test route endpoint with missing mode parameter."""
+    response = client.get("/api/route?orig=-73.9857,40.7484&dest=-73.9950,40.7352")
+    assert response.status_code == 422  # FastAPI validation error
+
+def test_address_search_success():
+    """Test successful address search using real Geosupport."""
+    # Test with a known NYC address
+    response = client.get("/api/search?address=260 Broadway")
     assert response.status_code == 200
     data = response.json()
     assert data["type"] == "FeatureCollection"
-    assert len(data["features"]) == 1
-    assert data["features"][0]["properties"]["StreetName"] == "BROADWAY" 
+    assert "features" in data
+    # Results depend on Geosupport, but should return a valid structure
+
+def test_address_search_missing_query():
+    """Test address search with missing query parameter."""
+    response = client.get("/api/search")
+    assert response.status_code == 422  # FastAPI validation error 

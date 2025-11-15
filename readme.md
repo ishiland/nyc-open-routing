@@ -31,11 +31,11 @@ This projected is orchestrated with docker-compose.
     
 4. Import the Lion data using the following command:
 
-    `docker compose exec api sh /data-imports/scripts/import-lion.sh`
+    `docker compose exec api sh /data-imports/import-lion.sh`
     
     You can also specify a version of Lion:
     
-    `docker compose exec api sh /data-imports/scripts/import-lion.sh 25a`
+    `docker compose exec api sh /data-imports/import-lion.sh 25a`
     
 5. When its complete navigate to [http://localhost:3001](http://localhost:3001)
 
@@ -45,12 +45,22 @@ Use the flask api to query routes directly. All successful requests return GeoJS
 
 Parameters:
 
-- `orig`: Origin coordinates. Expects a comma separated _lat,long_.
-- `dest`: Destination coordinates. Expects a comma separated _lat,long_.
+- `orig`: Origin coordinates. Expects a comma separated _lon,lat_.
+- `dest`: Destination coordinates. Expects a comma separated _lon,lat_.
 - `mode`: Travel mode. Can be `drive`, `walk` or `bike`
+- `use_traffic` (optional): Enable/disable traffic-aware routing for drive mode. Defaults to `true`.
 
-Example request:
+Example requests:
+```
+# Driving route with traffic (default)
 http://localhost:5001/api/route?orig=-74.0117,40.649221&dest=-73.951458,40.797061&mode=drive
+
+# Driving route without traffic
+http://localhost:5001/api/route?orig=-74.0117,40.649221&dest=-73.951458,40.797061&mode=drive&use_traffic=false
+
+# Biking route
+http://localhost:5001/api/route?orig=-74.0117,40.649221&dest=-73.951458,40.797061&mode=bike
+```
 
 response:
 ```js

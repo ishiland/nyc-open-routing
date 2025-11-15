@@ -31,11 +31,11 @@ RUN ln -sf /usr/bin/pip${PYTHON_VERSION} /usr/bin/pip3
 
 WORKDIR $APP_HOME
 
-COPY app.py requirements.txt entrypoint.sh ${APP_HOME}
+# Copy entire API directory structure (modular architecture)
+COPY . ${APP_HOME}
 
 # install dependencies via pip
 RUN apt-get remove -y python3-numpy || true
-COPY requirements.txt /tmp/requirements.txt
-RUN pip3 install --no-cache-dir --force-reinstall --ignore-installed numpy -r /tmp/requirements.txt
+RUN pip3 install --no-cache-dir --force-reinstall --ignore-installed numpy -r requirements.txt
 
 CMD ["bash", "entrypoint.sh"]

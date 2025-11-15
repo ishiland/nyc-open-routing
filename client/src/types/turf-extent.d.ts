@@ -1,1 +1,1 @@
-declare module 'turf-extent'; 
+declare module "turf-extent"

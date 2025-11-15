@@ -15,7 +15,7 @@ def test_client():
     return TestClient(app)
 
 @pytest.fixture
-def mock_engine():
+def mock_db_engine():
     """Mock SQLAlchemy engine."""
     engine = MagicMock()
     return engine
@@ -38,9 +38,9 @@ def mock_clock():
     return clock
 
 @pytest.fixture
-def mock_routing_service(mock_engine, mock_sql_queries, mock_clock):
+def mock_routing_service(mock_db_engine, mock_sql_queries, mock_clock):
     """Return a mocked RoutingService."""
-    return RoutingService(mock_engine, mock_sql_queries, mock_clock)
+    return RoutingService(mock_db_engine, mock_sql_queries, mock_clock)
 
 @pytest.fixture
 def mock_search_service():

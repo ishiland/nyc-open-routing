@@ -11,10 +11,10 @@ This document outlines the testing approach for the NYC Open Routing application
 
 ## Running Tests
 
-| Command | Description |
-|---------|-------------|
-| `npm test` | Run all tests |
-| `npm run test:watch` | Run tests in watch mode |
+| Command                 | Description                    |
+| ----------------------- | ------------------------------ |
+| `npm test`              | Run all tests                  |
+| `npm run test:watch`    | Run tests in watch mode        |
 | `npm run test:coverage` | Run tests with coverage report |
 
 ## Test Structure
@@ -42,11 +42,12 @@ Unit tests focus on isolated functions and utilities:
 - **Context**: Test context-related logic
 
 Example:
+
 ```tsx
 // formats.test.ts
-it('should format distances in feet when less than 1000 feet', () => {
-  expect(formatDistance(500)).toBe('500 ft');
-});
+it("should format distances in feet when less than 1000 feet", () => {
+  expect(formatDistance(500)).toBe("500 ft")
+})
 ```
 
 ### Component Tests
@@ -58,14 +59,15 @@ Component tests verify React components render and behave correctly:
 - **Integration**: Test how components work with contexts/providers
 
 Example:
+
 ```tsx
 // Search.test.tsx
-it('updates input value correctly', async () => {
-  renderSearch('Start');
-  const input = screen.getByPlaceholderText('Type an address');
-  await userEvent.type(input, 'Broadway');
-  expect(mockSetAddressInput).toHaveBeenCalledWith('Broadway', 'Start');
-});
+it("updates input value correctly", async () => {
+  renderSearch("Start")
+  const input = screen.getByPlaceholderText("Type an address")
+  await userEvent.type(input, "Broadway")
+  expect(mockSetAddressInput).toHaveBeenCalledWith("Broadway", "Start")
+})
 ```
 
 ### Test Utilities
@@ -111,4 +113,4 @@ Common issues:
 1. **DOM errors**: Use `@testing-library/jest-dom` matchers
 2. **Async tests**: Use `await` and `waitFor` for async operations
 3. **Context errors**: Wrap components with necessary providers
-4. **Missing mocks**: Use testUtils to mock APIs and browser features 
+4. **Missing mocks**: Use testUtils to mock APIs and browser features

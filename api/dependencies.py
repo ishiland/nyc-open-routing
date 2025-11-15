@@ -3,6 +3,9 @@ from typing import Generator, Dict, Any
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 import pathlib
+import pytz
+from geosupport import Geosupport
+from suggest import GeosupportSuggest
 
 from config.settings import settings
 from services.routing import RoutingService
@@ -28,14 +31,26 @@ def load_sql_queries() -> Dict[str, str]:
     
     return queries
 
-# Create shared instances
-_db_engine = create_engine(settings.DATABASE_URI)
+# Create shared instances with connection pooling
+_db_engine = create_engine(
+    settings.DATABASE_URI,
+    pool_size=5,                # Number of permanent connections
+    max_overflow=10,            # Max connections beyond pool_size
+    pool_timeout=30,            # Seconds to wait for connection
+    pool_recycle=3600,          # Recycle connections after 1 hour
+    pool_pre_ping=True,         # Test connections before using
+    echo=False                  # Set to True for SQL debugging
+)
 _sql_queries = load_sql_queries()
-_clock = Clock()
+_clock = Clock(tz=pytz.timezone('America/New_York'))
+
+# Geosupport instances (singleton pattern for performance)
+_geosupport = Geosupport()
+_geosupport_suggest = GeosupportSuggest(_geosupport)
 
 # Services
 _routing_service = RoutingService(_db_engine, _sql_queries, _clock)
-_search_service = SearchService()
+_search_service = SearchService(_geosupport_suggest)
 
 def get_db_engine() -> Engine:
     """
@@ -65,4 +80,16 @@ def get_search_service() -> SearchService:
     """
     Get the address search service.
     """
-    return _search_service 
+    return _search_service
+
+def get_geosupport() -> Geosupport:
+    """
+    Get the Geosupport instance.
+    """
+    return _geosupport
+
+def get_geosupport_suggest() -> GeosupportSuggest:
+    """
+    Get the GeosupportSuggest instance.
+    """
+    return _geosupport_suggest 

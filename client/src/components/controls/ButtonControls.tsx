@@ -1,78 +1,101 @@
-import React, { useContext, useState, useEffect, useCallback } from "react";
-import Button from "@mui/material/Button";
-import { Directions } from "@mui/icons-material";
-import CircularProgress from '@mui/material/CircularProgress';
-import Box from '@mui/material/Box';
+import React, { useContext } from "react"
+import Button from "@mui/material/Button"
+import { Directions } from "@mui/icons-material"
+import CircularProgress from "@mui/material/CircularProgress"
+import Box from "@mui/material/Box"
 
-import { RoutingContext, RoutingContextType } from '../../contexts/RoutingContext';
-import { MessageContext, MessageContextType } from '../../contexts/MessageContext';
-import { useRouteFetch } from '../../hooks/useRouteFetch';
+import {
+  RoutingContext,
+  RoutingContextType,
+} from "../../contexts/RoutingContext"
+import {
+  MessageContext,
+  MessageContextType,
+} from "../../contexts/MessageContext"
+import { useRouteFetch } from "../../hooks/useRouteFetch"
 
 export const ButtonControls: React.FC = () => {
-    const [isFetching, setIsFetching] = useState<boolean>(false);
+  const { clearAddresses, startAddress, endAddress, setRoute, mode } =
+    useContext<RoutingContextType>(RoutingContext)
 
-    const {
-        clearAddresses,
-        startAddress,
-        endAddress,
-        setRoute,
-        mode,
-        route
-    } = useContext<RoutingContextType>(RoutingContext);
+  const { displayMessage } = useContext<MessageContextType>(MessageContext)
 
-    const { displayMessage } = useContext<MessageContextType>(MessageContext);
+  const { fetchRoute, isFetching } = useRouteFetch({
+    startAddress,
+    endAddress,
+    mode,
+    setRoute,
+    displayMessage,
+  })
 
-    const { fetchRoute: performFetchRoute } = useRouteFetch({
-        startAddress,
-        endAddress,
-        mode,
-        setRoute,
-        displayMessage
-    });
+  const routeButtonEnabled = !!(startAddress?.geometry && endAddress?.geometry)
 
-    const routeButtonEnabled = !!(startAddress?.geometry && endAddress?.geometry);
+  const reset = (): void => {
+    clearAddresses()
+    setRoute(null)
 
-    const reset = (): void => {
-        clearAddresses();
-        setRoute(null);
-    };
+    // Return focus to start address input after clearing
+    // Use setTimeout to ensure DOM updates have completed
+    setTimeout(() => {
+      // Target the Start input specifically by its ID pattern
+      // Search component generates IDs like "auto-suggest-Start-{timestamp}"
+      const startInput = document.querySelector<HTMLInputElement>(
+        '[id^="auto-suggest-Start-"]',
+      )
+      if (startInput) {
+        startInput.focus()
+      }
+    }, 0)
+  }
 
-    const handleFetchRoute = useCallback(async () => {
-        setIsFetching(true);
-        try {
-            await performFetchRoute();
-        } catch (error) {
-            console.error("Error calling performFetchRoute from ButtonControls:", error);
-            displayMessage("Failed to calculate route due to an unexpected error.", "error");
-        } finally {
-            setIsFetching(false);
-        }
-    }, [performFetchRoute, displayMessage]);
+  return (
+    <>
+      {/* Screen reader announcement for route calculation status */}
+      <Box
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        sx={{
+          position: "absolute",
+          left: "-10000px",
+          width: "1px",
+          height: "1px",
+          overflow: "hidden",
+        }}
+      >
+        {isFetching && "Calculating route..."}
+      </Box>
 
-    useEffect(() => {
-        if (routeButtonEnabled) {
-        }
-    }, [mode, startAddress, endAddress, routeButtonEnabled, route]);
+      <Box sx={{ display: "flex", gap: 1, alignItems: "center", mt: 2, mb: 2 }}>
+        <Button
+          onClick={reset}
+          variant="contained"
+          disabled={isFetching}
+          aria-label="Clear all addresses and route"
+        >
+          Clear All
+        </Button>
+        <Button
+          onClick={fetchRoute}
+          variant="contained"
+          color="primary"
+          disabled={isFetching || !routeButtonEnabled}
+          startIcon={<Directions />}
+          aria-label="Calculate route between selected addresses"
+        >
+          Calculate Route
+        </Button>
+        {isFetching && (
+          <CircularProgress
+            size={20}
+            sx={{ ml: 1 }}
+            aria-label="Calculating route"
+          />
+        )}
+      </Box>
+    </>
+  )
+}
 
-    return (
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mt: 2, mb: 2 }}>
-            <Button
-                onClick={reset}
-                variant="contained"
-                disabled={isFetching}
-            >
-                clear
-            </Button>
-            <Button
-                onClick={handleFetchRoute}
-                variant="contained"
-                color="primary"
-                disabled={isFetching || !routeButtonEnabled}
-                startIcon={<Directions />}
-            >
-                Route
-            </Button>
-            {isFetching && <CircularProgress size={20} sx={{ ml: 1 }} />}
-        </Box>
-    );
-}; 
+// Memoize to prevent unnecessary re-renders
+export default React.memo(ButtonControls)

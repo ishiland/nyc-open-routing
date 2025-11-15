@@ -1,7 +1,7 @@
 services:
 
   db:
-    image: pgrouting/pgrouting:17-3.5-3.6.3
+    image: pgrouting/pgrouting:17-3.5-3.8
     ports:
       - 5433:5432
     env_file:
@@ -32,7 +32,7 @@ services:
     env_file:
       - ./docker/dev/.env
     ports:
-      - 3001:3000
+      - 3002:3000
     depends_on:
       - api
     volumes:

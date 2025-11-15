@@ -1,7 +1,7 @@
 import os
 import logging
 from typing import List
-from pydantic import Field, PostgresDsn
+from pydantic import Field, PostgresDsn, ConfigDict
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -30,6 +30,15 @@ class Settings(BaseSettings):
     ALLOW_ORIGINS: List[str] = Field(default_factory=lambda: ["http://localhost:3001", "http://client:3000"])
     ALLOW_METHODS: List[str] = Field(default_factory=lambda: ["GET", "POST", "OPTIONS"])
     ALLOW_HEADERS: List[str] = Field(default_factory=lambda: ["*"])
+
+    # Geosupport Configuration
+    GEOSUPPORT_TIMEOUT: int = Field(default=5, description="Timeout for Geosupport operations in seconds")
+
+    # Search Configuration
+    SEARCH_CACHE_TTL: int = Field(default=3600, description="Cache TTL in seconds (1 hour)")
+    SEARCH_CACHE_MAX_SIZE: int = Field(default=100, description="Maximum cache entries")
+    SEARCH_MAX_RETRIES: int = Field(default=3, description="Maximum retry attempts")
+    SEARCH_RETRY_BACKOFF_BASE: float = Field(default=1.0, description="Base backoff delay in seconds")
     
     # Logging config dictionary
     @property
@@ -55,9 +64,10 @@ class Settings(BaseSettings):
             },
         }
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = ConfigDict(
+        env_file=".env",
+        case_sensitive=True
+    )
 
 # Create a settings instance to be imported
 settings = Settings()

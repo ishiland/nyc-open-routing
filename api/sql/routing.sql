@@ -1,22 +1,24 @@
--- SQL query for driving route with traffic
+-- SQL query for driving route with traffic awareness
+-- Traffic data imported on: 2025-11-13
 SELECT * FROM getdrivingroute_with_traffic(
-    :orig_lon, :orig_lat, :dest_lon, :dest_lat, :hour, :day_of_week
+    :orig_lat, :orig_lon, :dest_lat, :dest_lon, :hour, :day_of_week
 );
 
-/* 
+/*
 This function returns a table with the following columns:
 - seq: INT (sequence number)
 - id: VARCHAR (street segment ID)
 - street: VARCHAR (street name)
-- travel_time: FLOAT (travel time in seconds)
+- travel_time: FLOAT (travel time in minutes, adjusted for traffic)
 - distance: FLOAT (distance in feet)
-- traffic_factor: FLOAT (traffic impact factor)
-- geom: GEOMETRY (line geometry)
+- traffic_factor: FLOAT (traffic impact multiplier)
+- turn_instruction: TEXT (turn-by-turn directions)
+- geom: GEOMETRY (line geometry in WGS84/EPSG:4326)
 
-The traffic_factor has these interpretations:
-- 1.0 = No traffic impact (free flow/default) or no data available
-- 1.2 = Light traffic (20% slowdown)
-- 1.5 = Medium traffic (50% slowdown)
-- 2.0 = Heavy traffic (doubles travel time)
-- 3.0 = Very heavy traffic (triples travel time)
+Traffic factors represent time-of-day congestion:
+- 1.0 = Free flow (no traffic impact)
+- 1.2 = Light traffic (20% slower)
+- 1.5 = Moderate traffic (50% slower)
+- 2.0 = Heavy traffic (100% slower)
+- 3.0 = Severe congestion (200% slower)
 */ 

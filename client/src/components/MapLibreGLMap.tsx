@@ -1,187 +1,146 @@
 // MapLibreGLMap.tsx
-import React, { useContext, useEffect, useState, useRef, useCallback } from "react";
-import extent from "turf-extent";
-import { featureCollection } from "@turf/helpers";
-import "maplibre-gl/dist/maplibre-gl.css";
-import { addressPointPaint, startPointColor, endPointColor, routePaint } from '../utils/style';
-import { mapStyle } from '../utils/style';
-import { AddressContext } from '../contexts/AddressContext';
-import { RouteContext } from '../contexts/RouteContext';
-import maplibregl from 'maplibre-gl';
-import { IMapFeature, IRouteData } from '../types/interfaces';
+import React, { useContext, useEffect, useCallback } from "react"
+import "maplibre-gl/dist/maplibre-gl.css"
+
+import {
+  addressPointPaint,
+  startPointColor,
+  endPointColor,
+  routePaint,
+} from "../utils/style"
+import { RoutingContext } from "../contexts/RoutingContext"
+import { MapInstanceContext } from "../contexts/MapInstanceContext"
+import { IMapFeature } from "../types/interfaces"
+import {
+  NYC_DEFAULT_CENTER,
+  NYC_DEFAULT_ZOOM,
+  NYC_BOUNDS_PADDING,
+} from "../utils/constants"
+import useMapInit from "../hooks/useMapInit"
+import useMapZoom from "../hooks/useMapZoom"
+import useGeoJsonLayer from "../hooks/useGeoJsonLayer"
+import { removeMapLayerAndSource } from "../utils/mapHelpers"
 
 const styles: React.CSSProperties = {
-  height: '100vh',
-  flex: 1
-};
-
-const center: [number, number] = [-73.978159, 40.759975];
-const zoom: number = 10;
+  height: "100vh",
+  flex: 1,
+}
 
 const MapLibreGLMap: React.FC = () => {
-  const [map, setMap] = useState<maplibregl.Map | null>(null);
-  const mapContainer = useRef<HTMLDivElement | null>(null);
+  const mapContainer = React.useRef<HTMLDivElement | null>(null)
 
-  const { startAddress, endAddress, toggleEnabled } = useContext(AddressContext);
-  const { route, selectedStreet } = useContext(RouteContext);
+  const {
+    startAddress,
+    endAddress,
+    route,
+    selectedStreet,
+    enableAddressInputs,
+  } = useContext(RoutingContext)
 
-  const zoomToExtent = useCallback((geom: IMapFeature[]) => {
-    const features = geom.filter(item => item);
-    if (features.length && map) {
-      if (features.length === 1 && features[0].geometry.type === 'Point') {
-        map.flyTo({
-          center: features[0].geometry.coordinates as [number, number],
-          zoom: 14
-        });
-      } else {
-        const fc = featureCollection(features);
-        const bounds = extent(fc);
-        map.fitBounds(bounds, { padding: 50 });
-      }
+  const { setMap: setMapInstance } = useContext(MapInstanceContext)
+
+  // Use existing hooks for map initialization and zoom
+  const map = useMapInit(mapContainer, {
+    onMapLoad: enableAddressInputs,
+  })
+
+  // Set the map instance in context when it's initialized
+  useEffect(() => {
+    if (map) {
+      setMapInstance(map)
     }
-  }, [map]);
+  }, [map, setMapInstance])
 
-  const setPoint = useCallback((position: 'start' | 'end', data: IMapFeature) => {
-    if (!map) return;
+  const { zoomToExtent, resetZoom } = useMapZoom(map, {
+    padding: NYC_BOUNDS_PADDING,
+    defaultCenter: NYC_DEFAULT_CENTER,
+    defaultZoom: NYC_DEFAULT_ZOOM,
+  })
 
-    const mapLayerID = `${position}PointLayer`;
-    const mapSourceID = `${position}PointSource`;
-    const mapLayer = map.getLayer(mapLayerID);
-    if (!mapLayer) {
-      map.addSource(mapSourceID, {
-        type: 'geojson',
-        data: data
-      } as maplibregl.GeoJSONSourceOptions);
-      map.addLayer({
-        id: mapLayerID,
-        type: 'circle',
-        source: mapSourceID,
-        paint: {
-          ...addressPointPaint,
-          "circle-color": position === 'start' ? startPointColor : endPointColor
-        },
-      });
-    } else {
-      const source = map.getSource(mapSourceID) as maplibregl.GeoJSONSource;
-      source.setData(data);
-    }
+  // Use GeoJSON layer hooks for start point, end point, and route
+  useGeoJsonLayer(
+    map,
+    "startPointSource",
+    "startPointLayer",
+    startAddress as IMapFeature | null,
+    {
+      type: "circle",
+      paint: {
+        ...addressPointPaint,
+        "circle-color": startPointColor,
+      },
+    },
+  )
 
-    const features: IMapFeature[] = [];
-    if (startAddress && startAddress.geometry) {
-      features.push(startAddress as IMapFeature);
-    }
-    if (endAddress && endAddress.geometry) {
-      features.push(endAddress as IMapFeature);
-    }
-    zoomToExtent(features);
-  }, [map, startAddress, endAddress, zoomToExtent]);
+  useGeoJsonLayer(
+    map,
+    "endPointSource",
+    "endPointLayer",
+    endAddress as IMapFeature | null,
+    {
+      type: "circle",
+      paint: {
+        ...addressPointPaint,
+        "circle-color": endPointColor,
+      },
+    },
+  )
 
-  const setRoute = useCallback((data: IRouteData) => {
-    if (!map) return;
-    const { features } = data;
-    if (!features) return;
-
-    const mapLayerID = `routeLayer`;
-    const mapSourceID = `routeSource`;
-    const mapLayer = map.getLayer(mapLayerID);
-    if (!mapLayer) {
-      map.addSource(mapSourceID, {
-        type: 'geojson',
-        data: {
-          type: "FeatureCollection",
-          features: features
-        }
-      } as maplibregl.GeoJSONSourceOptions);
-      map.addLayer({
-        id: mapLayerID,
-        type: 'line',
-        source: mapSourceID,
-        paint: routePaint
-      });
-    } else {
-      const source = map.getSource(mapSourceID) as maplibregl.GeoJSONSource;
-      source.setData({
-        type: "FeatureCollection",
-        features: features
-      });
-    }
-    zoomToExtent(features);
-  }, [map, zoomToExtent]);
-
-  const removeLayerandSource = useCallback((layer: string, source: string) => {
-    if (!map) return;
-    if (map.getLayer(layer)) {
-      map.removeLayer(layer);
-    }
-    if (map.getSource(source)) {
-      map.removeSource(source);
-    }
-  }, [map]);
+  useGeoJsonLayer(
+    map,
+    "routeSource",
+    "routeLayer",
+    route?.features || null,
+    {
+      type: "line",
+      paint: routePaint,
+    },
+  )
 
   const clearMap = useCallback(() => {
-    removeLayerandSource('startPointLayer', 'startPointSource');
-    removeLayerandSource('endPointLayer', 'endPointSource');
-    removeLayerandSource('routeLayer', 'routeSource');
-    if (map) {
-      map.flyTo({ center, zoom });
-    }
-  }, [map, removeLayerandSource]);
+    if (!map) return
+    removeMapLayerAndSource(map, "startPointLayer", "startPointSource")
+    removeMapLayerAndSource(map, "endPointLayer", "endPointSource")
+    removeMapLayerAndSource(map, "routeLayer", "routeSource")
+    resetZoom()
+  }, [map, resetZoom])
 
+  // Zoom to extent when addresses change
   useEffect(() => {
-    const initializeMap = ({
-      setMap,
-      mapContainer
-    }: {
-      setMap: React.Dispatch<React.SetStateAction<maplibregl.Map | null>>,
-      mapContainer: React.RefObject<HTMLDivElement>
-    }) => {
-      if (!mapContainer.current) return;
+    if (!map || !map.loaded()) return
 
-      const mapLibreMap = new maplibregl.Map({
-        container: mapContainer.current,
-        style: "https://layers-api.planninglabs.nyc/v1/base/style.json",
-        center,
-        zoom
-      });
-      mapLibreMap.on("load", () => {
-        setMap(mapLibreMap);
-        toggleEnabled();
-        mapLibreMap.resize();
-      });
-    };
-    if (!map) {
-      initializeMap({ setMap, mapContainer });
+    const features: IMapFeature[] = []
+    if (startAddress && startAddress.geometry) {
+      features.push(startAddress as IMapFeature)
     }
-  }, [map, toggleEnabled]);
+    if (endAddress && endAddress.geometry) {
+      features.push(endAddress as IMapFeature)
+    }
+    if (features.length > 0) {
+      zoomToExtent(features)
+    }
+  }, [startAddress, endAddress, map, zoomToExtent])
 
+  // Zoom to extent when route changes
   useEffect(() => {
-    if (map && startAddress && startAddress.geometry) {
-      console.log("startAddress", startAddress);
-      setPoint('start', startAddress as IMapFeature);
-    }
-  }, [startAddress, map, setPoint]);
+    if (!map || !map.loaded()) return
 
-  useEffect(() => {
-    if (map && endAddress && endAddress.geometry) {
-      setPoint('end', endAddress as IMapFeature);
+    if (route && route.features && route.features.length > 0) {
+      zoomToExtent(route.features)
+    } else if (!route || !route.features) {
+      clearMap()
     }
-  }, [endAddress, map, setPoint]);
+  }, [route, map, zoomToExtent, clearMap])
 
+  // Zoom to selected street
   useEffect(() => {
     if (map && selectedStreet && selectedStreet.geometry) {
-      zoomToExtent([selectedStreet as IMapFeature]);
+      zoomToExtent([selectedStreet as IMapFeature])
     }
-  }, [selectedStreet, map, zoomToExtent]);
+  }, [selectedStreet, map, zoomToExtent])
 
-  useEffect(() => {
-    if (map && route && route.features && route.features.length) {
-      setRoute(route);
-    } else if (map && (!route || !route.features)) {
-      clearMap();
-    }
-  }, [route, map, setRoute, clearMap]);
+  return <div ref={mapContainer} style={styles} />
+}
 
-  return <div ref={mapContainer} style={styles} />;
-};
-
-export default MapLibreGLMap;
+// Memoize to prevent re-renders during routing context updates
+export default React.memo(MapLibreGLMap)

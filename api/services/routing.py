@@ -6,7 +6,9 @@ from fastapi import HTTPException
 
 from utils.geo import parse_coordinates, dump_geo
 from utils.clock import Clock
+from utils.cache import get_route_cache
 from models.schemas import Feature, Properties
+from exceptions import InvalidCoordinatesError, RouteNotFoundError, DatabaseError
 
 logger = logging.getLogger(__name__)
 
@@ -14,7 +16,7 @@ class RoutingService:
     def __init__(self, db_engine: Engine, sql_queries: Dict[str, str], clock: Clock):
         """
         Initialize the routing service.
-        
+
         Args:
             db_engine: SQLAlchemy engine for database access
             sql_queries: Dictionary of SQL queries
@@ -23,57 +25,198 @@ class RoutingService:
         self.engine = db_engine
         self.sql_queries = sql_queries
         self.clock = clock
+        self.cache = get_route_cache()
         
-    def get_driving_route(self, orig: str, dest: str) -> List[Feature]:
+    def get_driving_route(self, orig: str, dest: str, use_traffic: bool = True) -> List[Feature]:
         """
         Get a driving route between origin and destination coordinates.
-        
+
         Args:
             orig: Origin coordinates in "lon,lat" format
             dest: Destination coordinates in "lon,lat" format
-            
+            use_traffic: Whether to use traffic-aware routing (default: True)
+
         Returns:
             List of GeoJSON Features representing the route segments
-            
+
         Raises:
             HTTPException: If coordinates are invalid or error occurs
         """
-        # Get current time for traffic data
-        hour = self.clock.hour
-        day_of_week = self.clock.day_of_week
-        
+        # Get current time for traffic data (only if traffic is enabled)
+        hour = self.clock.hour if use_traffic else None
+        day_of_week = self.clock.day_of_week if use_traffic else None
+
+        # Check cache first (cache key includes use_traffic via hour/day_of_week)
+        cached_route = self.cache.get(orig, dest, 'drive', hour=hour, day_of_week=day_of_week)
+        if cached_route is not None:
+            logger.info(f"Cache hit for driving route from {orig} to {dest} (traffic={'on' if use_traffic else 'off'})")
+            return cached_route
+
         # Parse coordinates
         try:
             orig_lon, orig_lat = parse_coordinates(orig)
             dest_lon, dest_lat = parse_coordinates(dest)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e))
-            
+
         # Execute routing query
         try:
-            # Use SQL query from file if available, otherwise fallback to inline query
-            sql_query = self.sql_queries.get('routing', 
-                "SELECT * FROM getdrivingroute_with_traffic(:orig_lon, :orig_lat, :dest_lon, :dest_lat, :hour, :day_of_week)")
-            
-            sql = text(sql_query)
-            with self.engine.connect() as conn:
-                result = conn.execute(sql, {
-                    "orig_lon": orig_lon, 
-                    "orig_lat": orig_lat, 
-                    "dest_lon": dest_lon, 
-                    "dest_lat": dest_lat, 
-                    "hour": hour, 
-                    "day_of_week": day_of_week
-                })
-                rows = result.fetchall()
-                logger.info(f"Found {len(rows)} route segments")
+            # Choose function based on use_traffic parameter
+            if use_traffic:
+                # Traffic-aware routing
+                sql = text("SELECT * FROM getdrivingroute_with_traffic(:orig_lat, :orig_lon, :dest_lat, :dest_lon, :hour, :day_of_week)")
+                with self.engine.connect() as conn:
+                    result = conn.execute(sql, {
+                        "orig_lon": orig_lon,
+                        "orig_lat": orig_lat,
+                        "dest_lon": dest_lon,
+                        "dest_lat": dest_lat,
+                        "hour": hour,
+                        "day_of_week": day_of_week
+                    })
+                    rows = result.fetchall()
+            else:
+                # Simple routing without traffic
+                sql = text("SELECT * FROM getdrivingroute(:orig_lat, :orig_lon, :dest_lat, :dest_lon)")
+                with self.engine.connect() as conn:
+                    result = conn.execute(sql, {
+                        "orig_lon": orig_lon,
+                        "orig_lat": orig_lat,
+                        "dest_lon": dest_lon,
+                        "dest_lat": dest_lat
+                    })
+                    rows = result.fetchall()
+
+            logger.info(f"Found {len(rows)} route segments (traffic={'on' if use_traffic else 'off'})")
+
+            # Check if route was found
+            if len(rows) == 0:
+                logger.warning(f"No route found between {orig} and {dest}")
+                raise HTTPException(
+                    status_code=404,
+                    detail="No route found between these locations. This may be due to disconnected areas, grade separation restrictions, or invalid coordinates. Try different points or travel modes."
+                )
+        except HTTPException:
+            raise  # Re-raise HTTP exceptions (including our 404)
         except Exception as e:
             logger.error(f"Error executing route query: {e}")
+            # Check if error is due to missing traffic_factor column
+            if use_traffic and "traffic_factor" in str(e):
+                logger.warning("Traffic data not available, falling back to non-traffic routing")
+                # Retry without traffic
+                return self.get_driving_route(orig, dest, use_traffic=False)
             raise HTTPException(status_code=500, detail="Error processing route request.")
-        
+
         # Convert to GeoJSON Features
-        return self._format_route_response(rows, result)
+        features = self._format_route_response(rows, result)
+
+        # Cache the result
+        self.cache.set(orig, dest, 'drive', features, hour=hour, day_of_week=day_of_week)
+
+        return features
     
+    def get_biking_route(self, orig: str, dest: str) -> List[Feature]:
+        """
+        Get a biking route between origin and destination coordinates.
+
+        Args:
+            orig: Origin coordinates in "lon,lat" format
+            dest: Destination coordinates in "lon,lat" format
+
+        Returns:
+            List of GeoJSON Features representing the route segments
+
+        Raises:
+            HTTPException: If coordinates are invalid or error occurs
+        """
+        # Check cache first
+        cached_route = self.cache.get(orig, dest, 'bike')
+        if cached_route is not None:
+            logger.info(f"Cache hit for biking route from {orig} to {dest}")
+            return cached_route
+
+        # Parse coordinates
+        try:
+            orig_lon, orig_lat = parse_coordinates(orig)
+            dest_lon, dest_lat = parse_coordinates(dest)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        # Execute routing query
+        try:
+            sql = text("SELECT * FROM getbikingroute(:orig_lat, :orig_lon, :dest_lat, :dest_lon)")
+            with self.engine.connect() as conn:
+                result = conn.execute(sql, {
+                    "orig_lon": orig_lon,
+                    "orig_lat": orig_lat,
+                    "dest_lon": dest_lon,
+                    "dest_lat": dest_lat
+                })
+                rows = result.fetchall()
+                logger.info(f"Found {len(rows)} route segments for biking")
+        except Exception as e:
+            logger.error(f"Error executing biking route query: {e}")
+            raise HTTPException(status_code=500, detail="Error processing biking route request.")
+
+        # Convert to GeoJSON Features
+        features = self._format_route_response(rows, result)
+
+        # Cache the result
+        self.cache.set(orig, dest, 'bike', features)
+
+        return features
+
+    def get_walking_route(self, orig: str, dest: str) -> List[Feature]:
+        """
+        Get a walking route between origin and destination coordinates.
+
+        Args:
+            orig: Origin coordinates in "lon,lat" format
+            dest: Destination coordinates in "lon,lat" format
+
+        Returns:
+            List of GeoJSON Features representing the route segments
+
+        Raises:
+            HTTPException: If coordinates are invalid or error occurs
+        """
+        # Check cache first
+        cached_route = self.cache.get(orig, dest, 'walk')
+        if cached_route is not None:
+            logger.info(f"Cache hit for walking route from {orig} to {dest}")
+            return cached_route
+
+        # Parse coordinates
+        try:
+            orig_lon, orig_lat = parse_coordinates(orig)
+            dest_lon, dest_lat = parse_coordinates(dest)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+
+        # Execute routing query
+        try:
+            sql = text("SELECT * FROM getwalkingroute(:orig_lat, :orig_lon, :dest_lat, :dest_lon)")
+            with self.engine.connect() as conn:
+                result = conn.execute(sql, {
+                    "orig_lon": orig_lon,
+                    "orig_lat": orig_lat,
+                    "dest_lon": dest_lon,
+                    "dest_lat": dest_lat
+                })
+                rows = result.fetchall()
+                logger.info(f"Found {len(rows)} route segments for walking")
+        except Exception as e:
+            logger.error(f"Error executing walking route query: {e}")
+            raise HTTPException(status_code=500, detail="Error processing walking route request.")
+
+        # Convert to GeoJSON Features
+        features = self._format_route_response(rows, result)
+
+        # Cache the result
+        self.cache.set(orig, dest, 'walk', features)
+
+        return features
+
     def _format_route_response(self, rows, result) -> List[Feature]:
         """Format database result into a list of GeoJSON Features."""
         features = []
@@ -84,13 +227,13 @@ class RoutingService:
             except Exception as e:
                 logger.warning(f"Error converting row to dict: {e}, using empty dict")
                 row_dict = {}
-                
+
             # Ensure all expected fields exist with defaults
             expected_fields = ['seq', 'street', 'distance', 'travel_time', 'traffic_factor', 'geom']
             for field in expected_fields:
                 if field not in row_dict:
                     row_dict[field] = None
-                    
+
             feature = Feature(
                 properties=Properties(
                     seq=row_dict.get('seq', 0),

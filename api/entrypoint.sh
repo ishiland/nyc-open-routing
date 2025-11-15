@@ -39,4 +39,4 @@ export GEOFILES="${INSTALL_DIR}/${geosupport_directory}/fls/"
 export LD_LIBRARY_PATH="${INSTALL_DIR}/${geosupport_directory}/lib/"
 
 
-uvicorn app:app --host 0.0.0.0 --port 5000 --reload
+uvicorn main:app --host 0.0.0.0 --port 5000 --reload

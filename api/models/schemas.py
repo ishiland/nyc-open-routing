@@ -1,5 +1,12 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import Dict, Any, Optional, List
+from enum import Enum
+
+class TravelMode(str, Enum):
+    """Travel mode options for routing."""
+    DRIVE = "drive"
+    BIKE = "bike"
+    WALK = "walk"
 
 class Properties(BaseModel):
     """Properties of a route segment feature."""
@@ -24,9 +31,9 @@ class Feature(BaseModel):
 class RouteResponse(BaseModel):
     """Response model for the route endpoint."""
     features: List[Feature]
-    
-    class Config:
-        schema_extra = {
+
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "features": [
                     {
@@ -47,4 +54,5 @@ class RouteResponse(BaseModel):
                     }
                 ]
             }
-        } 
+        }
+    ) 
