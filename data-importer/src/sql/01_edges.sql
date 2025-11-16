@@ -32,6 +32,7 @@ END $$;
 -- OPTIMIZATION: Filter by status during SELECT INTO
 ---------------------------------------------
 SELECT
+  segmentid,
   join_id,
   street,
   trafdir,

@@ -198,16 +198,13 @@ def process_traffic_data(cur, conn):
                 "Please ensure the database was created with the latest schema (01_edges.sql)."
             )
 
-        # Add segmentid column for traffic data matching
+        # Clean and convert segmentid column for traffic data matching
+        # Note: segmentid is already populated from LION table (VARCHAR), needs type conversion
         cur.execute("""
+            -- Convert segmentid from VARCHAR to BIGINT for matching with traffic_volumes
+            -- LION has segmentid as VARCHAR (e.g., "0073071"), convert to numeric
             ALTER TABLE edges
-            ADD COLUMN IF NOT EXISTS segmentid BIGINT;
-
-            -- Extract segmentid from join_id
-            UPDATE edges
-            SET segmentid = NULLIF(REGEXP_REPLACE(join_id, '^.*?([0-9]+).*$', '\\1'), '')::BIGINT
-            WHERE join_id ~ '.*[0-9]+.*';
-
+            ALTER COLUMN segmentid TYPE BIGINT USING NULLIF(TRIM(segmentid), '')::BIGINT;
 
             CREATE INDEX IF NOT EXISTS edges_segmentid_idx ON edges(segmentid);
         """)
