@@ -102,6 +102,7 @@ CREATE FUNCTION getdrivingroute(_start_lat FLOAT,_start_lon FLOAT,_end_lat FLOAT
                 travel_time    FLOAT,
                 distance       FLOAT,
                 turn_instruction TEXT,
+                traffic_factor NUMERIC(5,2),
                 geom           GEOMETRY) AS
 $func$
 DECLARE
@@ -111,6 +112,11 @@ BEGIN
   -- Get start and end nodes (driveable only)
   start_node := getnearestdrivenode(_start_lon, _start_lat);
   end_node := getnearestdrivenode(_end_lon, _end_lat);
+
+  -- Validate nodes were found
+  IF start_node IS NULL OR end_node IS NULL THEN
+    RAISE EXCEPTION 'Could not find driveable nodes near start or end location';
+  END IF;
 
   -- Return segments with properly processed geometries
   RETURN QUERY
@@ -183,8 +189,9 @@ BEGIN
       SUM(ewi.travel_time) AS travel_time,
       SUM(ewi.distance) AS distance,
       MIN(ewi.turn_instruction) AS turn_instruction,
+      1.0::FLOAT AS traffic_factor,
       ST_Union(ewi.transformed_geom) AS combined_geom
-    FROM 
+    FROM
       edges_with_instructions ewi
     GROUP BY
       ewi.id, ewi.street, ewi.turn_instruction
@@ -196,8 +203,9 @@ BEGIN
     ge.travel_time,
     ge.distance,
     ge.turn_instruction,
+    ge.traffic_factor,
     CASE
-      WHEN ST_GeometryType(ST_LineMerge(ge.combined_geom)) = 'ST_LineString' THEN 
+      WHEN ST_GeometryType(ST_LineMerge(ge.combined_geom)) = 'ST_LineString' THEN
         ST_LineMerge(ge.combined_geom)
       ELSE
         ST_Multi(ST_LineMerge(ge.combined_geom))
@@ -227,6 +235,11 @@ BEGIN
   -- Get start and end nodes (bikeable only)
   start_node := getnearestbikenode(_start_lon, _start_lat);
   end_node := getnearestbikenode(_end_lon, _end_lat);
+
+  -- Validate nodes were found
+  IF start_node IS NULL OR end_node IS NULL THEN
+    RAISE EXCEPTION 'Could not find bikeable nodes near start or end location';
+  END IF;
 
   -- Return segments with properly processed geometries
   RETURN QUERY
@@ -344,6 +357,11 @@ BEGIN
   start_node := getnearestwalknode(_start_lon, _start_lat);
   end_node := getnearestwalknode(_end_lon, _end_lat);
 
+  -- Validate nodes were found
+  IF start_node IS NULL OR end_node IS NULL THEN
+    RAISE EXCEPTION 'Could not find walkable nodes near start or end location';
+  END IF;
+
   -- Return segments with properly processed geometries
   RETURN QUERY
   WITH ordered_edges AS (
@@ -445,17 +463,17 @@ $func$ LANGUAGE plpgsql;
 DROP FUNCTION IF EXISTS getdrivingroute_with_traffic(double precision, double precision, double precision, double precision, integer, integer);
 
 CREATE FUNCTION getdrivingroute_with_traffic(
-  _start_lat FLOAT, _start_lon FLOAT, 
-    _end_lat FLOAT, _end_lon FLOAT, 
+  _start_lat FLOAT, _start_lon FLOAT,
+    _end_lat FLOAT, _end_lon FLOAT,
     _hour INTEGER, _day_of_week INTEGER)
 RETURNS TABLE(
     seq INT,
     id VARCHAR,
-    street VARCHAR, 
+    street VARCHAR,
     travel_time NUMERIC(10,2),
     distance NUMERIC(10,2),
-    traffic_factor NUMERIC(10,2),
     turn_instruction TEXT,
+    traffic_factor NUMERIC(5,2),
     geom GEOMETRY
 ) AS
 $func$
@@ -482,14 +500,14 @@ BEGIN
         r.edge,
         e.join_id,
         e.street,
-        e.time_drive * e.traffic_factor AS travel_time,
+        e.time_drive * COALESCE(e.traffic_factor, 1.0) AS travel_time,
         e.length_feet,
-        e.traffic_factor,
+        COALESCE(e.traffic_factor, 1.0) AS traffic_factor,
         e.the_geom AS edge_geom,
         v.geom AS node_geom
       FROM
         pgr_trsp(
-          'SELECT id, source, target, cost_drive * traffic_factor AS cost, rcost_drive * traffic_factor AS reverse_cost FROM edges WHERE driveable=TRUE',
+          'SELECT id, source, target, cost_drive * COALESCE(traffic_factor, 1.0) AS cost, rcost_drive * COALESCE(traffic_factor, 1.0) AS reverse_cost FROM edges WHERE driveable=TRUE',
           'SELECT path, cost FROM restrictions_for_routing',
           start_node, end_node, TRUE
         ) AS r
@@ -522,7 +540,7 @@ BEGIN
         ewb.street,
         ewb.travel_time::numeric(10,2) AS travel_time,
         ewb.length_feet::numeric(10,2) AS distance,
-        ewb.traffic_factor::numeric(10,2) AS traffic_factor,
+        ewb.traffic_factor AS traffic_factor,
         ST_Transform(ewb.edge_geom, 4326) AS transformed_geom,
         CASE
           WHEN ewb.seq = 1 THEN 'Start'
@@ -561,10 +579,10 @@ BEGIN
       ge.street,
       ge.travel_time,
       ge.distance,
-      ge.traffic_factor,
       ge.turn_instruction,
+      ge.traffic_factor,
       CASE
-        WHEN ST_GeometryType(ST_LineMerge(ge.combined_geom)) = 'ST_LineString' THEN 
+        WHEN ST_GeometryType(ST_LineMerge(ge.combined_geom)) = 'ST_LineString' THEN
           ST_LineMerge(ge.combined_geom)
         ELSE
           ST_Multi(ST_LineMerge(ge.combined_geom))

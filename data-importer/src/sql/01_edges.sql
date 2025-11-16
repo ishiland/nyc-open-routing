@@ -97,7 +97,8 @@ ALTER TABLE public.edges
   ADD COLUMN bikeable BOOLEAN NOT NULL DEFAULT FALSE,
   ADD COLUMN driveable BOOLEAN NOT NULL DEFAULT FALSE,
   ADD COLUMN walkable BOOLEAN NOT NULL DEFAULT FALSE,
-  ADD COLUMN length_feet DOUBLE PRECISION;
+  ADD COLUMN length_feet DOUBLE PRECISION,
+  ADD COLUMN traffic_factor NUMERIC(5,2) DEFAULT 1.0;
 
 ---------------------------------------------
 -- Step 4: Populate ALL derived fields in single UPDATE
