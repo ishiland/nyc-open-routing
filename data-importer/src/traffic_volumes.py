@@ -186,20 +186,29 @@ def process_traffic_data(cur, conn):
             CREATE INDEX avg_traffic_time_idx ON avg_traffic_by_segment(hour_of_day, day_of_week);
         """)
         conn.commit()
-        
-        # Add traffic factor to edges
+
+        # Validate that traffic_factor column exists (should be created by 01_edges.sql)
         cur.execute("""
-            ALTER TABLE edges 
-            ADD COLUMN IF NOT EXISTS traffic_factor FLOAT DEFAULT 1.0;
-            
-            ALTER TABLE edges 
+            SELECT column_name FROM information_schema.columns
+            WHERE table_name = 'edges' AND column_name = 'traffic_factor';
+        """)
+        if not cur.fetchone():
+            raise RuntimeError(
+                "traffic_factor column not found in edges table. "
+                "Please ensure the database was created with the latest schema (01_edges.sql)."
+            )
+
+        # Add segmentid column for traffic data matching
+        cur.execute("""
+            ALTER TABLE edges
             ADD COLUMN IF NOT EXISTS segmentid BIGINT;
-            
+
             -- Extract segmentid from join_id
-            UPDATE edges 
+            UPDATE edges
             SET segmentid = NULLIF(REGEXP_REPLACE(join_id, '^.*?([0-9]+).*$', '\\1'), '')::BIGINT
             WHERE join_id ~ '.*[0-9]+.*';
-            
+
+
             CREATE INDEX IF NOT EXISTS edges_segmentid_idx ON edges(segmentid);
         """)
         conn.commit()
@@ -276,11 +285,11 @@ def process_traffic_data(cur, conn):
             cur.execute("""
                 -- Get global maximum
                 WITH max_stats AS (
-                    SELECT MAX(max_volume) AS global_max_volume FROM edge_traffic_stats
+                    SELECT MAX(avg_volume) AS global_max_volume FROM edge_traffic_stats
                 )
                 -- Update traffic factors
                 UPDATE edges e
-                SET traffic_factor = CASE 
+                SET traffic_factor = CASE
                     WHEN s.avg_volume IS NULL THEN 1.0  -- No data
                     WHEN s.avg_volume > (SELECT global_max_volume * 0.75 FROM max_stats) THEN 3.0  -- Very heavy
                     WHEN s.avg_volume > (SELECT global_max_volume * 0.5 FROM max_stats) THEN 2.0   -- Heavy
@@ -314,11 +323,11 @@ def process_traffic_data(cur, conn):
                     
                 -- Get global maximum
                 WITH max_stats AS (
-                    SELECT MAX(max_volume) AS global_max_volume FROM segment_traffic
+                    SELECT MAX(avg_volume) AS global_max_volume FROM segment_traffic
                 )
                 -- Update traffic factors
                 UPDATE edges e
-                SET traffic_factor = CASE 
+                SET traffic_factor = CASE
                     WHEN s.avg_volume = 0 THEN 1.0  -- No data
                     WHEN s.avg_volume > (SELECT global_max_volume * 0.75 FROM max_stats) THEN 3.0  -- Very heavy
                     WHEN s.avg_volume > (SELECT global_max_volume * 0.5 FROM max_stats) THEN 2.0   -- Heavy
