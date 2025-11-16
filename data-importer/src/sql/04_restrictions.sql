@@ -103,9 +103,14 @@ SELECT
 FROM restrictions;
 
 -- Populate turn restrictions based on grade-separated intersections
--- When edges connect at a node but are on different vertical levels,
--- turns between them are restricted (e.g., can't turn from street to bridge)
--- Applies to ALL travel modes (driving, biking, walking)
+-- Restrictions are generated for DRIVEABLE edges only, then filtered per mode
+-- Logic: When edges connect at a node but are at different vertical levels,
+-- and neither is a ramp/ferry, the turn is restricted (e.g., can't turn from street to elevated highway)
+--
+-- Mode-specific filtering applied via views:
+-- - Driving: All driveable restrictions (this table)
+-- - Biking: Subset where both edges are bikeable
+-- - Walking: None (pedestrians can use stairs/overpasses)
 INSERT INTO public.restrictions (from_edge, to_edge, via_node)
 SELECT DISTINCT
     e1.id AS from_edge,
@@ -113,31 +118,80 @@ SELECT DISTINCT
     e1.target AS via_node
 FROM edges e1
 JOIN edges e2 ON e1.target = e2.source
-WHERE e1.level_to != e2.level_from  -- Different vertical levels
-  AND e1.id != e2.id;                -- Not the same edge
-
--- Also add restrictions for edges meeting at their source nodes
--- This handles cases where two edges share a common source node
-INSERT INTO public.restrictions (from_edge, to_edge, via_node)
-SELECT DISTINCT
-    e1.id AS from_edge,
-    e2.id AS to_edge,
-    e1.source AS via_node
-FROM edges e1
-JOIN edges e2 ON e1.source = e2.source  -- Both edges share the same source node
-WHERE e1.level_from != e2.level_from    -- Different vertical levels at shared node
+WHERE e1.level_to != e2.level_from      -- Different vertical levels
   AND e1.id != e2.id                     -- Not the same edge
-  AND NOT EXISTS (                        -- Avoid duplicates from first INSERT
-    SELECT 1 FROM restrictions r
-    WHERE r.from_edge = e1.id
-      AND r.to_edge = e2.id
-  );
+  AND e1.driveable = TRUE                -- Both edges must be driveable
+  AND e2.driveable = TRUE
+  AND e1.level_from IS NOT NULL          -- Exclude generic segments (*)
+  AND e1.level_to IS NOT NULL
+  AND e2.level_from IS NOT NULL
+  AND e2.level_to IS NOT NULL
+  AND e1.rw_type != '9'                  -- Exclude ramps (valid transitions)
+  AND e2.rw_type != '9'
+  AND e1.featuretyp != 'F'               -- Exclude ferries
+  AND e2.featuretyp != 'F';
 
--- Log statistics
+---------------------------------------------
+--      CREATE MODE-SPECIFIC VIEWS
+---------------------------------------------
+-- Driving: Use all restrictions (already filtered to driveable edges)
+CREATE OR REPLACE VIEW restrictions_for_driving AS
+SELECT path, cost FROM restrictions_for_routing;
+
+-- Biking: Only restrictions where both edges are bikeable
+CREATE OR REPLACE VIEW restrictions_for_biking AS
+SELECT r.path, r.cost
+FROM restrictions_for_routing r
+WHERE EXISTS (
+    SELECT 1 FROM edges WHERE id = (r.path)[1] AND bikeable = TRUE
+)
+AND EXISTS (
+    SELECT 1 FROM edges WHERE id = (r.path)[2] AND bikeable = TRUE
+);
+
+-- Walking: Empty view (pedestrians can use stairs, overpasses, etc.)
+CREATE OR REPLACE VIEW restrictions_for_walking AS
+SELECT ARRAY[]::BIGINT[] as path, 1000000.0::FLOAT as cost WHERE FALSE;
+
+---------------------------------------------
+--         LOG STATISTICS
+---------------------------------------------
 DO $$
 DECLARE
-    restriction_count INTEGER;
+    total_restrictions INTEGER;
+    driving_restrictions INTEGER;
+    biking_restrictions INTEGER;
+    same_level_count INTEGER;
+    unique_nodes INTEGER;
 BEGIN
-    SELECT COUNT(*) INTO restriction_count FROM restrictions;
-    RAISE NOTICE 'Created % turn restrictions based on grade separations', restriction_count;
+    -- Count total restrictions
+    SELECT COUNT(*) INTO total_restrictions FROM restrictions;
+
+    -- Count mode-specific restrictions
+    SELECT COUNT(*) INTO driving_restrictions FROM restrictions_for_driving;
+    SELECT COUNT(*) INTO biking_restrictions FROM restrictions_for_biking;
+
+    -- Check for same-level restrictions (should be rare/none)
+    SELECT COUNT(*) INTO same_level_count
+    FROM restrictions r
+    JOIN edges e1 ON r.from_edge = e1.id
+    JOIN edges e2 ON r.to_edge = e2.id
+    WHERE e1.level_to = e2.level_from;
+
+    -- Count unique restricted nodes
+    SELECT COUNT(DISTINCT via_node) INTO unique_nodes FROM restrictions;
+
+    -- Log results
+    RAISE NOTICE '=== Turn Restriction Statistics ===';
+    RAISE NOTICE 'Total restrictions created: %', total_restrictions;
+    RAISE NOTICE 'Driving restrictions: %', driving_restrictions;
+    RAISE NOTICE 'Biking restrictions: %', biking_restrictions;
+    RAISE NOTICE 'Walking restrictions: 0 (pedestrians can use stairs/overpasses)';
+    RAISE NOTICE 'Unique restricted nodes: %', unique_nodes;
+
+    IF same_level_count > 0 THEN
+        RAISE WARNING 'Found % same-level restrictions (potential logic issue)', same_level_count;
+    END IF;
+
+    RAISE NOTICE '=== 04_restrictions.sql completed successfully ===';
 END $$;

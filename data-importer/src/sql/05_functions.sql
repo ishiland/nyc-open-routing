@@ -133,7 +133,7 @@ BEGIN
     FROM
       pgr_trsp(
         'SELECT id, source, target, cost_drive AS cost, rcost_drive as reverse_cost FROM edges WHERE driveable=TRUE',
-        'SELECT path, cost FROM restrictions_for_routing',
+        'SELECT path, cost FROM restrictions_for_driving',
         start_node, end_node, TRUE
       ) AS r
       JOIN edges e ON r.edge = e.id
@@ -256,7 +256,7 @@ BEGIN
     FROM
       pgr_trsp(
         'SELECT id, source, target, cost_bike AS cost, rcost_bike as reverse_cost FROM edges WHERE bikeable=TRUE',
-        'SELECT path, cost FROM restrictions_for_routing',
+        'SELECT path, cost FROM restrictions_for_biking',
         start_node, end_node, TRUE
       ) AS r
       JOIN edges e ON r.edge = e.id
@@ -377,7 +377,7 @@ BEGIN
     FROM
       pgr_trsp(
         'SELECT id, source, target, cost_walk AS cost, rcost_walk as reverse_cost FROM edges WHERE walkable=TRUE',
-        'SELECT path, cost FROM restrictions_for_routing',
+        'SELECT path, cost FROM restrictions_for_walking',
         start_node, end_node, FALSE
       ) AS r
       JOIN edges e ON r.edge = e.id
@@ -508,7 +508,7 @@ BEGIN
       FROM
         pgr_trsp(
           'SELECT id, source, target, cost_drive * COALESCE(traffic_factor, 1.0) AS cost, rcost_drive * COALESCE(traffic_factor, 1.0) AS reverse_cost FROM edges WHERE driveable=TRUE',
-          'SELECT path, cost FROM restrictions_for_routing',
+          'SELECT path, cost FROM restrictions_for_driving',
           start_node, end_node, TRUE
         ) AS r
         JOIN edges e ON r.edge = e.id

@@ -194,7 +194,28 @@ Uses **pgr_trsp** (Turn-Restricted Shortest Path) from pgRouting, which handles:
 - Mode-specific accessibility (sidewalks for walking, bike lanes, driveways)
 
 ### Turn Restrictions
-The system handles grade-separated roads (overpasses/underpasses) using LION's `nodelevelf` and `nodelevelt` fields. If an edge's `level_to` doesn't match the next edge's `level_from`, a turn restriction is created to prevent routing through the vertical mismatch.
+The system handles grade-separated roads (overpasses/underpasses) using LION's `nodelevelf` and `nodelevelt` fields. Restrictions are **mode-specific** and prevent impossible turns at grade-separated intersections.
+
+**How it Works:**
+- When edges connect at a node but are at different vertical levels (e.g., street below, highway above), a turn restriction is created
+- Restrictions are filtered by travel mode to match real-world constraints:
+  - **Driving**: All driveable-edge restrictions apply (vehicles need ramps to change levels)
+  - **Biking**: Subset where both edges are bikeable (bikes can use some separated paths)
+  - **Walking**: NO restrictions (pedestrians can use stairs, overpasses, underpasses)
+
+**Generic Segments:** LION segments marked with `*` (asterisk) NodeLevel are non-physical geometry (e.g., divided highway centerlines). These are excluded from restriction generation by setting their levels to NULL.
+
+**Excluded from Restrictions:**
+- Ramps (RW_Type='9') - These are valid level transitions
+- Ferries (FeatureTyp='F') - Already have high cost penalties
+- Generic segments (NodeLevel='*') - Non-physical geometry
+
+**Database Views:**
+- `restrictions_for_driving` - Driveable edges only
+- `restrictions_for_biking` - Bikeable edges only
+- `restrictions_for_walking` - Empty (pedestrians unrestricted by vertical separation)
+
+**Troubleshooting:** If walking/biking routes fail unexpectedly, check that mode-specific views are being used in routing functions (05_functions.sql). If all modes show "No route found" for valid paths, restrictions may be over-aggressive - check that ramps and generic segments are properly excluded.
 
 ### NYC Geosupport Integration
 Uses `python-geosupport` library (v1.1.0) with `geosupport-suggest` (v0.1.0) for authoritative NYC address geocoding and autocomplete. This provides official NYC addresses validated against the city's master address database.

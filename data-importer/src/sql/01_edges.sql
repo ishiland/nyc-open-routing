@@ -115,11 +115,12 @@ SET
   length_feet = ST_Length(ST_Transform(the_geom, 2263)),
 
   -- NodeLevel conversions
-  -- Handles: A-Z letters (1-26), * (level-less), $ (water level), NULL/empty
-  -- Default to M=13 (ground level) for safety
+  -- Handles: A-Z letters (1-26), * (level-less/generic), $ (water level), NULL/empty
+  -- * (asterisk) = Generic/non-physical segments - set to NULL to exclude from restrictions
+  -- Default to M=13 (ground level) for missing data
   level_from = CASE
     WHEN nodelevelf IS NULL OR TRIM(nodelevelf) = '' THEN 13
-    WHEN UPPER(TRIM(nodelevelf)) = '*' THEN 13
+    WHEN UPPER(TRIM(nodelevelf)) = '*' THEN NULL
     WHEN UPPER(TRIM(nodelevelf)) = '$' THEN 1
     WHEN UPPER(TRIM(nodelevelf)) ~ '^[A-Z]$' THEN ASCII(UPPER(TRIM(nodelevelf))) - 64
     ELSE 13
@@ -127,7 +128,7 @@ SET
 
   level_to = CASE
     WHEN nodelevelt IS NULL OR TRIM(nodelevelt) = '' THEN 13
-    WHEN UPPER(TRIM(nodelevelt)) = '*' THEN 13
+    WHEN UPPER(TRIM(nodelevelt)) = '*' THEN NULL
     WHEN UPPER(TRIM(nodelevelt)) = '$' THEN 1
     WHEN UPPER(TRIM(nodelevelt)) ~ '^[A-Z]$' THEN ASCII(UPPER(TRIM(nodelevelt))) - 64
     ELSE 13
