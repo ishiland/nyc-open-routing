@@ -189,7 +189,7 @@ BEGIN
       SUM(ewi.travel_time) AS travel_time,
       SUM(ewi.distance) AS distance,
       MIN(ewi.turn_instruction) AS turn_instruction,
-      1.0::FLOAT AS traffic_factor,
+      1.0::NUMERIC(5,2) AS traffic_factor,
       ST_Union(ewi.transformed_geom) AS combined_geom
     FROM
       edges_with_instructions ewi
@@ -461,11 +461,11 @@ $func$ LANGUAGE plpgsql;
 
 -- traffic-aware driving route with turn instructions
 DROP FUNCTION IF EXISTS getdrivingroute_with_traffic(double precision, double precision, double precision, double precision, integer, integer);
+DROP FUNCTION IF EXISTS getdrivingroute_with_traffic(double precision, double precision, double precision, double precision);
 
 CREATE FUNCTION getdrivingroute_with_traffic(
   _start_lat FLOAT, _start_lon FLOAT,
-    _end_lat FLOAT, _end_lon FLOAT,
-    _hour INTEGER, _day_of_week INTEGER)
+    _end_lat FLOAT, _end_lon FLOAT)
 RETURNS TABLE(
     seq INT,
     id VARCHAR,
@@ -565,7 +565,7 @@ BEGIN
         ewi.street,
         SUM(ewi.travel_time) AS travel_time,
         SUM(ewi.distance) AS distance,
-        AVG(ewi.traffic_factor) AS traffic_factor,
+        MAX(ewi.traffic_factor) AS traffic_factor,
         MIN(ewi.turn_instruction) AS turn_instruction,
         ST_Union(ewi.transformed_geom) AS combined_geom
       FROM 

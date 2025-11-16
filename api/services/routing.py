@@ -42,12 +42,10 @@ class RoutingService:
         Raises:
             HTTPException: If coordinates are invalid or error occurs
         """
-        # Get current time for traffic data (only if traffic is enabled)
-        hour = self.clock.hour if use_traffic else None
-        day_of_week = self.clock.day_of_week if use_traffic else None
-
-        # Check cache first (cache key includes use_traffic via hour/day_of_week)
-        cached_route = self.cache.get(orig, dest, 'drive', hour=hour, day_of_week=day_of_week)
+        # Check cache first (cache key differentiates traffic vs non-traffic via use_traffic)
+        # Note: Traffic factors are static, not time-dependent
+        cache_key_suffix = 'traffic' if use_traffic else 'no-traffic'
+        cached_route = self.cache.get(orig, dest, f'drive-{cache_key_suffix}')
         if cached_route is not None:
             logger.info(f"Cache hit for driving route from {orig} to {dest} (traffic={'on' if use_traffic else 'off'})")
             return RouteResponse(features=cached_route)
@@ -63,16 +61,14 @@ class RoutingService:
         try:
             # Choose function based on use_traffic parameter
             if use_traffic:
-                # Traffic-aware routing
-                sql = text("SELECT * FROM getdrivingroute_with_traffic(:orig_lat, :orig_lon, :dest_lat, :dest_lon, :hour, :day_of_week)")
+                # Traffic-aware routing (uses static traffic_factor from edges table)
+                sql = text("SELECT * FROM getdrivingroute_with_traffic(:orig_lat, :orig_lon, :dest_lat, :dest_lon)")
                 with self.engine.connect() as conn:
                     result = conn.execute(sql, {
                         "orig_lon": orig_lon,
                         "orig_lat": orig_lat,
                         "dest_lon": dest_lon,
-                        "dest_lat": dest_lat,
-                        "hour": hour,
-                        "day_of_week": day_of_week
+                        "dest_lat": dest_lat
                     })
                     rows = result.fetchall()
             else:
@@ -120,8 +116,8 @@ class RoutingService:
         # Convert to GeoJSON Features
         features = self._format_route_response(rows, result, mode='drive')
 
-        # Cache the result
-        self.cache.set(orig, dest, 'drive', features, hour=hour, day_of_week=day_of_week)
+        # Cache the result (static traffic, no time variance)
+        self.cache.set(orig, dest, f'drive-{cache_key_suffix}', features)
 
         return RouteResponse(features=features)
 

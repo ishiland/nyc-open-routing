@@ -221,7 +221,9 @@ Uses `python-geosupport` library (v1.1.0) with `geosupport-suggest` (v0.1.0) for
 - Automatic expiration and cleanup
 
 ### Traffic Data
-Optional traffic integration matches NYC traffic volume data to street segments. Traffic factors are calculated based on time-of-day patterns and applied as cost multipliers during routing.
+Optional traffic integration matches NYC traffic volume data to street segments. Traffic factors are **static values** calculated from historical traffic volume averages and stored in the edges table. They are applied as cost multipliers during routing.
+
+**Important**: Traffic factors are **not time-aware**. The same factor is used regardless of time of day or day of week. This is a POC limitation - implementing true time-dependent routing would require significant architectural changes and would degrade performance by ~36x.
 
 **Importing Traffic Data**: Traffic data is NOT imported by default. To enable traffic-aware routing:
 ```bash
@@ -231,14 +233,18 @@ docker compose exec api sh /data-imports/import-lion.sh 25a --download-traffic
 
 Without the `--download-traffic` flag, the `traffic_factor` column will exist in the edges table but will have default values of 1.0 (no traffic impact).
 
-**Traffic Factor Values**:
+**Traffic Factor Values** (static, based on historical average volume):
 - `1.0` - No traffic data available (default)
-- `1.2` - Light traffic (volume > 0, ≤25th percentile)
-- `1.5` - Medium traffic (volume > 25th percentile, ≤50th percentile)
-- `2.0` - Heavy traffic (volume > 50th percentile, ≤75th percentile)
-- `3.0` - Very heavy traffic (volume > 75th percentile)
+- `1.2` - Light traffic (avg volume > 0, ≤25th percentile)
+- `1.5` - Medium traffic (avg volume > 25th percentile, ≤50th percentile)
+- `2.0` - Heavy traffic (avg volume > 50th percentile, ≤75th percentile)
+- `3.0` - Very heavy traffic (avg volume > 75th percentile)
 
-**Traffic Toggle**: The `use_traffic` API parameter (default: true) allows switching between traffic-aware and non-traffic routing per request. The service layer automatically falls back to non-traffic routing if traffic data is unavailable. Cache keys differentiate between traffic and non-traffic routes via hour/day_of_week parameters (null for non-traffic).
+**Traffic Toggle**: The `use_traffic` API parameter (default: true) allows switching between traffic-aware and non-traffic routing per request:
+- `use_traffic=true`: Uses `getdrivingroute_with_traffic()` which applies static `traffic_factor` multipliers
+- `use_traffic=false`: Uses `getdrivingroute()` which ignores traffic (effectively treats all factors as 1.0)
+
+The service layer automatically falls back to non-traffic routing if traffic data is unavailable. Cache keys differentiate between traffic and non-traffic routes via mode suffix (`drive-traffic` vs `drive-no-traffic`).
 
 **Validation**: The routing service logs a warning when `use_traffic=true` but all `traffic_factor` values are 1.0, indicating that traffic data has not been imported. Both routing functions (`getdrivingroute` and `getdrivingroute_with_traffic`) return `traffic_factor` in their result sets for consistency.
 
