@@ -7,7 +7,7 @@ from fastapi import HTTPException
 from utils.geo import parse_coordinates, dump_geo
 from utils.clock import Clock
 from utils.cache import get_route_cache
-from models.schemas import Feature, Properties
+from models.schemas import Feature, Properties, RouteResponse
 from exceptions import InvalidCoordinatesError, RouteNotFoundError, DatabaseError
 
 logger = logging.getLogger(__name__)
@@ -27,7 +27,7 @@ class RoutingService:
         self.clock = clock
         self.cache = get_route_cache()
         
-    def get_driving_route(self, orig: str, dest: str, use_traffic: bool = True) -> List[Feature]:
+    def get_driving_route(self, orig: str, dest: str, use_traffic: bool = True) -> RouteResponse:
         """
         Get a driving route between origin and destination coordinates.
 
@@ -37,7 +37,7 @@ class RoutingService:
             use_traffic: Whether to use traffic-aware routing (default: True)
 
         Returns:
-            List of GeoJSON Features representing the route segments
+            RouteResponse containing GeoJSON Features representing the route segments
 
         Raises:
             HTTPException: If coordinates are invalid or error occurs
@@ -50,7 +50,7 @@ class RoutingService:
         cached_route = self.cache.get(orig, dest, 'drive', hour=hour, day_of_week=day_of_week)
         if cached_route is not None:
             logger.info(f"Cache hit for driving route from {orig} to {dest} (traffic={'on' if use_traffic else 'off'})")
-            return cached_route
+            return RouteResponse(features=cached_route)
 
         # Parse coordinates
         try:
@@ -89,6 +89,16 @@ class RoutingService:
 
             logger.info(f"Found {len(rows)} route segments (traffic={'on' if use_traffic else 'off'})")
 
+            # Validate traffic data availability
+            if use_traffic and len(rows) > 0:
+                # Check if all traffic_factor values are 1.0 (indicates no traffic data)
+                traffic_factors = [row.traffic_factor for row in rows if hasattr(row, 'traffic_factor')]
+                if traffic_factors and all(tf == 1.0 for tf in traffic_factors):
+                    logger.warning(
+                        "Traffic routing requested but no traffic data available (all traffic_factor=1.0). "
+                        "Run import with --download-traffic flag to enable traffic-aware routing."
+                    )
+
             # Check if route was found
             if len(rows) == 0:
                 logger.warning(f"No route found between {orig} and {dest}")
@@ -108,14 +118,14 @@ class RoutingService:
             raise HTTPException(status_code=500, detail="Error processing route request.")
 
         # Convert to GeoJSON Features
-        features = self._format_route_response(rows, result)
+        features = self._format_route_response(rows, result, mode='drive')
 
         # Cache the result
         self.cache.set(orig, dest, 'drive', features, hour=hour, day_of_week=day_of_week)
 
-        return features
-    
-    def get_biking_route(self, orig: str, dest: str) -> List[Feature]:
+        return RouteResponse(features=features)
+
+    def get_biking_route(self, orig: str, dest: str) -> RouteResponse:
         """
         Get a biking route between origin and destination coordinates.
 
@@ -124,7 +134,7 @@ class RoutingService:
             dest: Destination coordinates in "lon,lat" format
 
         Returns:
-            List of GeoJSON Features representing the route segments
+            RouteResponse containing GeoJSON Features representing the route segments
 
         Raises:
             HTTPException: If coordinates are invalid or error occurs
@@ -133,7 +143,7 @@ class RoutingService:
         cached_route = self.cache.get(orig, dest, 'bike')
         if cached_route is not None:
             logger.info(f"Cache hit for biking route from {orig} to {dest}")
-            return cached_route
+            return RouteResponse(features=cached_route)
 
         # Parse coordinates
         try:
@@ -159,14 +169,14 @@ class RoutingService:
             raise HTTPException(status_code=500, detail="Error processing biking route request.")
 
         # Convert to GeoJSON Features
-        features = self._format_route_response(rows, result)
+        features = self._format_route_response(rows, result, mode='bike')
 
         # Cache the result
         self.cache.set(orig, dest, 'bike', features)
 
-        return features
+        return RouteResponse(features=features)
 
-    def get_walking_route(self, orig: str, dest: str) -> List[Feature]:
+    def get_walking_route(self, orig: str, dest: str) -> RouteResponse:
         """
         Get a walking route between origin and destination coordinates.
 
@@ -175,7 +185,7 @@ class RoutingService:
             dest: Destination coordinates in "lon,lat" format
 
         Returns:
-            List of GeoJSON Features representing the route segments
+            RouteResponse containing GeoJSON Features representing the route segments
 
         Raises:
             HTTPException: If coordinates are invalid or error occurs
@@ -184,7 +194,7 @@ class RoutingService:
         cached_route = self.cache.get(orig, dest, 'walk')
         if cached_route is not None:
             logger.info(f"Cache hit for walking route from {orig} to {dest}")
-            return cached_route
+            return RouteResponse(features=cached_route)
 
         # Parse coordinates
         try:
@@ -210,15 +220,21 @@ class RoutingService:
             raise HTTPException(status_code=500, detail="Error processing walking route request.")
 
         # Convert to GeoJSON Features
-        features = self._format_route_response(rows, result)
+        features = self._format_route_response(rows, result, mode='walk')
 
         # Cache the result
         self.cache.set(orig, dest, 'walk', features)
 
-        return features
+        return RouteResponse(features=features)
 
-    def _format_route_response(self, rows, result) -> List[Feature]:
-        """Format database result into a list of GeoJSON Features."""
+    def _format_route_response(self, rows, result, mode: str = 'drive') -> List[Feature]:
+        """Format database result into a list of GeoJSON Features.
+
+        Args:
+            rows: Database result rows
+            result: SQLAlchemy result object
+            mode: Travel mode ('drive', 'bike', 'walk')
+        """
         features = []
         for row in rows:
             # Convert row to dict
@@ -234,13 +250,19 @@ class RoutingService:
                 if field not in row_dict:
                     row_dict[field] = None
 
+            # traffic_factor only applies to driving mode
+            if mode in ('bike', 'walk'):
+                traffic_factor_value = None
+            else:
+                traffic_factor_value = row_dict.get('traffic_factor', 1.0)  # Default to 1.0 (no traffic) if missing
+
             feature = Feature(
                 properties=Properties(
                     seq=row_dict.get('seq', 0),
                     street=row_dict.get('street'),
                     distance=row_dict.get('distance'),
                     travel_time=row_dict.get('travel_time'),
-                    traffic_factor=row_dict.get('traffic_factor', 1.0)  # Default to 1.0 (no traffic) if missing
+                    traffic_factor=traffic_factor_value
                 ),
                 geometry=dump_geo(row_dict.get('geom'))
             )
