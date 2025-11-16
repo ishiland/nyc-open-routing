@@ -223,7 +223,24 @@ Uses `python-geosupport` library (v1.1.0) with `geosupport-suggest` (v0.1.0) for
 ### Traffic Data
 Optional traffic integration matches NYC traffic volume data to street segments. Traffic factors are calculated based on time-of-day patterns and applied as cost multipliers during routing.
 
+**Importing Traffic Data**: Traffic data is NOT imported by default. To enable traffic-aware routing:
+```bash
+# Import LION data with traffic volumes
+docker compose exec api sh /data-imports/import-lion.sh 25a --download-traffic
+```
+
+Without the `--download-traffic` flag, the `traffic_factor` column will exist in the edges table but will have default values of 1.0 (no traffic impact).
+
+**Traffic Factor Values**:
+- `1.0` - No traffic data available (default)
+- `1.2` - Light traffic (volume > 0, ≤25th percentile)
+- `1.5` - Medium traffic (volume > 25th percentile, ≤50th percentile)
+- `2.0` - Heavy traffic (volume > 50th percentile, ≤75th percentile)
+- `3.0` - Very heavy traffic (volume > 75th percentile)
+
 **Traffic Toggle**: The `use_traffic` API parameter (default: true) allows switching between traffic-aware and non-traffic routing per request. The service layer automatically falls back to non-traffic routing if traffic data is unavailable. Cache keys differentiate between traffic and non-traffic routes via hour/day_of_week parameters (null for non-traffic).
+
+**Validation**: The routing service logs a warning when `use_traffic=true` but all `traffic_factor` values are 1.0, indicating that traffic data has not been imported. Both routing functions (`getdrivingroute` and `getdrivingroute_with_traffic`) return `traffic_factor` in their result sets for consistency.
 
 ## Configuration
 
@@ -310,6 +327,39 @@ docker compose exec api pytest --cov=api
 - Added end-to-end integration tests ([test_smoke.py](api/tests/test_smoke.py))
 - 10 smoke tests covering all modes, traffic toggle, cross-borough routing
 - Real HTTP requests to validate complete request lifecycle
+
+**Traffic Factor Implementation** (2025-01):
+- Initialized `traffic_factor` column in edge creation (always exists with default 1.0)
+- Standardized `getdrivingroute()` to return `traffic_factor` (consistent with traffic-aware function)
+- Added validation logging when traffic routing is requested but no data is available
+- Added comprehensive test coverage for `traffic_factor` values
+
+### Troubleshooting
+
+**Traffic Factor Always Shows 1.0**
+
+If route results always show `traffic_factor: 1.0`, this indicates that traffic data has not been imported:
+
+**Diagnosis**:
+```bash
+# Check if traffic_factor column exists and has varied values
+docker compose exec db psql -U postgres -d routing -c \
+  "SELECT DISTINCT traffic_factor FROM edges ORDER BY traffic_factor;"
+```
+
+**Solution**:
+```bash
+# Re-import LION data with traffic volumes
+docker compose exec api sh /data-imports/import-lion.sh 25a --download-traffic
+```
+
+**Expected Output**: If traffic data is properly imported, you should see multiple distinct values: 1.0, 1.2, 1.5, 2.0, 3.0
+
+**Note**: The API will log a warning message when traffic routing is requested but all `traffic_factor` values are 1.0:
+```
+WARNING: Traffic routing requested but no traffic data available (all traffic_factor=1.0).
+Run import with --download-traffic flag to enable traffic-aware routing.
+```
 
 ### Future Enhancements
 From README, planned improvements include:

@@ -42,24 +42,28 @@ COORDINATES = {
 }
 
 
-def validate_route_response(response_data: list) -> None:
+def validate_route_response(response_data: dict) -> None:
     """
     Validate that a route response has the expected structure and data types.
 
     Args:
-        response_data: List of GeoJSON features from the API response
+        response_data: RouteResponse object with features array from the API response
 
     Raises:
         AssertionError: If validation fails
     """
-    # Response should be a list of features
-    assert isinstance(response_data, list), "Response should be a list"
-    assert len(response_data) > 0, "Route should have at least one segment"
+    # Response should be an object with features array
+    assert isinstance(response_data, dict), "Response should be a dict"
+    assert "features" in response_data, "Response should have 'features' key"
+    features = response_data["features"]
+    assert isinstance(features, list), "Features should be a list"
+    assert len(features) > 0, "Route should have at least one segment"
 
     # Validate each feature
-    for i, feature in enumerate(response_data):
-        # Note: API doesn't include 'type' field in response (not in Pydantic model)
-        # This is acceptable for the smoke tests - we're testing functionality, not strict GeoJSON compliance
+    for i, feature in enumerate(features):
+        # Validate type field (required by GeoJSON spec)
+        assert "type" in feature, f"Feature {i} missing 'type'"
+        assert feature["type"] == "Feature", f"Feature {i} type should be 'Feature', got {feature.get('type')}"
 
         # Validate properties
         assert "properties" in feature, f"Feature {i} missing 'properties'"
@@ -78,7 +82,8 @@ def validate_route_response(response_data: list) -> None:
 
         # Value validation
         assert props["distance"] > 0, f"Feature {i} distance should be positive"
-        assert props["travel_time"] > 0, f"Feature {i} travel_time should be positive"
+        # Allow travel_time to be 0 due to JSON precision rounding for very short segments
+        assert props["travel_time"] >= 0, f"Feature {i} travel_time should be non-negative"
 
         # Validate geometry
         assert "geometry" in feature, f"Feature {i} missing 'geometry'"
@@ -107,7 +112,7 @@ class TestBasicRouteSmoke:
         validate_route_response(data)
 
         # Additional validation for driving routes
-        first_segment = data[0]["properties"]
+        first_segment = data["features"][0]["properties"]
         assert first_segment["seq"] == 1, "First segment should have seq=1"
         assert first_segment["street"] is not None, "Street name should not be null"
 
@@ -162,7 +167,7 @@ class TestTrafficToggle:
         validate_route_response(data)
 
         # Check that traffic_factor field exists (may be null if no traffic data imported)
-        first_segment = data[0]["properties"]
+        first_segment = data["features"][0]["properties"]
         assert "traffic_factor" in first_segment, "traffic_factor field should be present"
 
     def test_driving_route_without_traffic_explicit(self):
@@ -185,10 +190,60 @@ class TestTrafficToggle:
         data = response.json()
         validate_route_response(data)
 
-        # traffic_factor should be null for non-traffic routing
-        first_segment = data[0]["properties"]
-        # Note: traffic_factor field exists but should be null when use_traffic=false
+        # traffic_factor should be 1.0 for non-traffic routing
+        first_segment = data["features"][0]["properties"]
         assert "traffic_factor" in first_segment, "traffic_factor field should be present"
+        assert first_segment["traffic_factor"] == 1.0, "traffic_factor should be 1.0 when use_traffic=false"
+
+    def test_traffic_factor_values(self):
+        """Test that traffic_factor values are valid and consistent."""
+        orig_lon, orig_lat = COORDINATES["city_hall"]
+        dest_lon, dest_lat = COORDINATES["times_square"]
+
+        # Get route with traffic
+        response_with_traffic = requests.get(
+            f"{API_BASE_URL}/route",
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "drive",
+                "use_traffic": "true"
+            },
+            timeout=10
+        )
+
+        # Get route without traffic
+        response_without_traffic = requests.get(
+            f"{API_BASE_URL}/route",
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "drive",
+                "use_traffic": "false"
+            },
+            timeout=10
+        )
+
+        assert response_with_traffic.status_code == 200
+        assert response_without_traffic.status_code == 200
+
+        data_with_traffic = response_with_traffic.json()
+        data_without_traffic = response_without_traffic.json()
+
+        # Validate traffic_factor field exists and has valid values
+        # System generates only discrete values: 1.0, 1.2, 1.5, 2.0, 3.0
+        VALID_TRAFFIC_FACTORS = {1.0, 1.2, 1.5, 2.0, 3.0}
+        for feature in data_with_traffic["features"]:
+            props = feature["properties"]
+            assert "traffic_factor" in props, "traffic_factor field should be present"
+            assert isinstance(props["traffic_factor"], (int, float)), "traffic_factor should be numeric"
+            assert props["traffic_factor"] in VALID_TRAFFIC_FACTORS, \
+                f"traffic_factor should be one of {VALID_TRAFFIC_FACTORS}, got {props['traffic_factor']}"
+
+        # Without traffic, all factors should be 1.0
+        for feature in data_without_traffic["features"]:
+            props = feature["properties"]
+            assert props["traffic_factor"] == 1.0, "traffic_factor should always be 1.0 when use_traffic=false"
 
 
 class TestCrossBoroughRouting:
@@ -210,7 +265,7 @@ class TestCrossBoroughRouting:
         validate_route_response(data)
 
         # Route should have multiple segments for this distance
-        assert len(data) >= 3, "Cross-borough route should have multiple segments"
+        assert len(data["features"]) >= 3, "Cross-borough route should have multiple segments"
 
     def test_queens_to_manhattan(self):
         """Test driving route from Queens to Manhattan."""
@@ -248,7 +303,7 @@ class TestEdgeCases:
         validate_route_response(data)
 
         # Should have at least one segment even for very short routes
-        assert len(data) >= 1, "Very short route should have at least one segment"
+        assert len(data["features"]) >= 1, "Very short route should have at least one segment"
 
     def test_same_origin_and_destination(self):
         """Test routing when origin and destination are the same."""
