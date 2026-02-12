@@ -1,23 +1,8 @@
 import os
-import logging
 from datetime import datetime
 import psycopg
-import concurrent.futures
-from tqdm import tqdm 
-import csv
 from traffic_volumes import import_traffic_volumes, process_traffic_data, create_traffic_routing_functions
 from utils import TqdmLoggingHandler, logger
-
-# Configuration parameters
-CONFIG = {
-    'tolerance': 0.0003,
-    'topology_batch_size': 500,  # Smaller batch size for better stability
-    'speeds': {
-        'walk_mph': 3,  # Average walking speed in mph
-        'bike_mph': 12,  # Average biking speed in mph
-        'ferry_mph': 25  # Average ferry speed in mph
-    }
-}
 
 def setup_notice_handler(conn):
     """Setup psycopg3 notice handler for server messages"""
@@ -153,11 +138,24 @@ def execute_sql_file(cur, conn, file_path, params=None):
         conn.rollback()
         raise
 
+def execute_sql_step(cur, conn, dir_path, sql_file, step_description):
+    """
+    Generic helper for executing SQL file steps with consistent logging.
+
+    Args:
+        cur: Database cursor
+        conn: Database connection
+        dir_path: Base directory path
+        sql_file: SQL filename (e.g., '01_edges.sql')
+        step_description: Human-readable description for logging
+    """
+    logger.info(step_description)
+    execute_sql_file(cur, conn, os.path.join(dir_path, 'sql', sql_file))
+
 def create_edges_table(cur, conn, dir_path):
     """Create and prepare edges table"""
-    logger.info('Creating edges table...')
-    execute_sql_file(cur, conn, os.path.join(dir_path, 'sql', '01_edges.sql'))
-    
+    execute_sql_step(cur, conn, dir_path, '01_edges.sql', 'Creating edges table...')
+
     # Check and fix invalid geometries
     cur.execute("SELECT COUNT(*) FROM edges WHERE NOT ST_IsValid(the_geom);")
     invalid_count = cur.fetchone()[0]
@@ -448,19 +446,14 @@ def create_topology(cur, conn, dir_path):
         conn.rollback()
         raise
 
-def calculate_travel_times(cur, conn, dir_path, speeds):
+def calculate_travel_times(cur, conn, dir_path):
     """Calculate travel times for different modes"""
-    logger.info('Calculating travel times...')
-    # Simply execute the SQL file using the robust execute_sql_file function
-    # The SQL file has hardcoded speeds that match our CONFIG defaults
-    execute_sql_file(cur, conn, os.path.join(dir_path, 'sql', '02_travel_time.sql'))
+    execute_sql_step(cur, conn, dir_path, '02_travel_time.sql', 'Calculating travel times...')
 
 def calculate_costs(cur, conn, dir_path):
     """Calculate costs for edges"""
-    logger.info('Calculating costs...')
-    execute_sql_file(cur, conn, os.path.join(dir_path, 'sql', '03_cost.sql'))
+    execute_sql_step(cur, conn, dir_path, '03_cost.sql', 'Calculating costs...')
 
-        
 def find_turn_restrictions(cur, conn, dir_path):
     """Create turn restrictions for grade-separated intersections"""
     logger.info('Finding turn restrictions...')
@@ -497,40 +490,70 @@ def find_turn_restrictions(cur, conn, dir_path):
 
 def create_functions(cur, conn, dir_path):
     """Create routing functions"""
-    logger.info("Creating routing functions...")
-    execute_sql_file(cur, conn, os.path.join(dir_path, 'sql', '05_functions.sql'))
-
+    execute_sql_step(cur, conn, dir_path, '05_functions.sql', 'Creating routing functions...')
 
 def create_performance_indexes(cur, conn, dir_path):
     """Create performance optimization indexes"""
-    logger.info("Creating performance indexes...")
-    execute_sql_file(cur, conn, os.path.join(dir_path, 'sql', '06_performance_indexes.sql'))
+    execute_sql_step(cur, conn, dir_path, '06_performance_indexes.sql', 'Creating performance indexes...')
 
+def create_vertex_accessibility_flags(cur, conn, dir_path):
+    """Create vertex accessibility flags for optimized node snapping (Phase 2)"""
+    execute_sql_step(cur, conn, dir_path, '07_vertex_accessibility.sql', 'Creating vertex accessibility flags...')
+
+def create_cached_geometries(cur, conn, dir_path):
+    """Create cached transformed geometries for routing performance (Phase 2)"""
+    execute_sql_step(cur, conn, dir_path, '08_cached_geometries.sql', 'Creating cached geometries...')
+
+def create_ferry_connections(cur, conn, dir_path):
+    """Create Staten Island Ferry terminal connections for bike/walk routing"""
+    execute_sql_step(cur, conn, dir_path, '09_ferry_connections.sql', 'Creating Staten Island Ferry connections...')
+
+
+def validate_environment():
+    """
+    Validate required environment variables are set.
+
+    Returns:
+        dict: Database connection parameters
+
+    Raises:
+        ValueError: If any required environment variable is missing
+    """
+    required_vars = ['POSTGRES_USER', 'POSTGRES_PASSWORD', 'POSTGRES_DB', 'POSTGRES_HOST']
+    missing = [var for var in required_vars if not os.getenv(var)]
+
+    if missing:
+        raise ValueError(
+            f"Missing required environment variables: {', '.join(missing)}. "
+            f"Please set these variables before running the importer."
+        )
+
+    return {
+        'user': os.getenv('POSTGRES_USER'),
+        'password': os.getenv('POSTGRES_PASSWORD'),
+        'dbname': os.getenv('POSTGRES_DB'),
+        'host': os.getenv('POSTGRES_HOST'),
+        'port': os.getenv('POSTGRES_PORT', '5432'),
+        'connect_timeout': 60
+    }
 
 def main():
     start_time = datetime.now()
     dir_path = os.path.dirname(os.path.realpath(__file__))
-    
-    # Get environment variables
-    user = os.getenv('POSTGRES_USER')
-    password = os.getenv('POSTGRES_PASSWORD')
-    database = os.getenv('POSTGRES_DB')
-    host = os.getenv('POSTGRES_HOST')
-    port = os.getenv('POSTGRES_PORT', '5432')
-    traffic_data = os.getenv('TRAFFIC_DATA_FILE')  # Path to traffic data CSV
-    
+
+    # Validate environment and get connection parameters
+    try:
+        connect_params = validate_environment()
+    except ValueError as e:
+        logger.error(str(e))
+        import sys
+        sys.exit(1)
+
+    traffic_data = os.getenv('TRAFFIC_DATA_FILE')  # Path to traffic data CSV (optional)
+
     logger.info(f"Starting network creation process")
 
     try:
-        connect_params = {
-            'user': user,
-            'host': host,
-            'dbname': database,
-            'password': password,
-            'port': port,
-            'connect_timeout': 60
-        }
-        
         with psycopg.connect(**connect_params) as conn:
             # Setup notice handler for PostgreSQL messages
             setup_notice_handler(conn)
@@ -541,43 +564,71 @@ def main():
                 try:
                     create_edges_table(cur, conn, dir_path)
                 except Exception as e:
-                    logger.error(f"Failed at step: create_edges_table")
+                    logger.error(f"Failed at step: create_edges_table - {e}")
                     raise
 
                 try:
-                    calculate_travel_times(cur, conn, dir_path, CONFIG['speeds'])
+                    calculate_travel_times(cur, conn, dir_path)
                 except Exception as e:
-                    logger.error(f"Failed at step: calculate_travel_times")
+                    logger.error(f"Failed at step: calculate_travel_times - {e}")
                     raise
 
                 try:
                     calculate_costs(cur, conn, dir_path)
                 except Exception as e:
-                    logger.error(f"Failed at step: calculate_costs")
+                    logger.error(f"Failed at step: calculate_costs - {e}")
+                    raise
+
+                # PHASE 2 MIGRATION ORDER (CRITICAL):
+                # create_cached_geometries MUST run before create_functions
+                # because 05_functions.sql references edges.geom_4326 column
+                try:
+                    create_cached_geometries(cur, conn, dir_path)
+                except Exception as e:
+                    logger.error(f"Failed at step: create_cached_geometries - {e}")
                     raise
 
                 try:
                     create_topology(cur, conn, dir_path)
                 except Exception as e:
-                    logger.error(f"Failed at step: create_topology")
+                    logger.error(f"Failed at step: create_topology - {e}")
                     raise
 
                 try:
                     find_turn_restrictions(cur, conn, dir_path)
                 except Exception as e:
-                    logger.error(f"Failed at step: find_turn_restrictions")
+                    logger.error(f"Failed at step: find_turn_restrictions - {e}")
                     raise
 
+                # PHASE 2 MIGRATION ORDER (CRITICAL):
+                # create_vertex_accessibility_flags MUST run before create_functions
+                # because 05_functions.sql references edges_vertices_pgr.has_* columns
+                try:
+                    create_vertex_accessibility_flags(cur, conn, dir_path)
+                except Exception as e:
+                    logger.error(f"Failed at step: create_vertex_accessibility_flags - {e}")
+                    raise
+
+                # Routing functions depend on Phase 2 columns created above
+                # (edges.geom_4326 and edges_vertices_pgr.has_driveable/bikeable/walkable)
                 try:
                     create_functions(cur, conn, dir_path)
                 except Exception as e:
-                    logger.error(f"Failed at step: create_functions")
+                    logger.error(f"Failed at step: create_functions - {e}")
+                    raise
+
+                # Create Staten Island Ferry connections (workaround for LION 25a data issue)
+                # This must run after topology and vertex flags are created
+                try:
+                    create_ferry_connections(cur, conn, dir_path)
+                except Exception as e:
+                    logger.error(f"Failed at step: create_ferry_connections - {e}")
                     raise
 
                 try:
                     create_performance_indexes(cur, conn, dir_path)
                 except Exception as e:
-                    logger.error(f"Failed at step: create_performance_indexes")
+                    logger.error(f"Failed at step: create_performance_indexes - {e}")
                     raise
 
                 # Process traffic data if available
@@ -587,7 +638,7 @@ def main():
                         process_traffic_data(cur, conn)
                         create_traffic_routing_functions(cur, conn)
                     except Exception as e:
-                        logger.error(f"Failed at step: traffic data processing")
+                        logger.error(f"Failed at step: traffic data processing - {e}")
                         raise
 
                 conn.commit()

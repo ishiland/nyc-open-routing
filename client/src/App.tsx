@@ -7,10 +7,13 @@ import { MapInstanceProvider } from "./contexts/MapInstanceContext"
 import { ErrorFallback } from "./components/shared/ErrorFallback"
 import { SkipLink } from "./components/shared/SkipLink"
 import { LoadingSpinner } from "./components/shared/LoadingSpinner"
+import { DismissibleBanner } from "./components/shared/DismissibleBanner"
+import { RouteStateManager } from "./components/RouteStateManager"
 
 // Lazy load heavy components
 const Sidebar = lazy(() => import("./components/Sidebar"))
 const MapLibreGLMap = lazy(() => import("./components/MapLibreGLMap"))
+const AdaptiveLayout = lazy(() => import("./components/layouts/AdaptiveLayout"))
 
 const App: React.FC = () => {
   return (
@@ -22,35 +25,23 @@ const App: React.FC = () => {
       }}
     >
       <SkipLink />
-      <div
-        style={{
-          height: "100vh",
-          overflow: "hidden",
-          display: "flex",
-        }}
-      >
-        <MessageContextProvider>
-          <RoutingContextProvider>
+      <DismissibleBanner />
+      <MessageContextProvider>
+        <RoutingContextProvider>
+          <RouteStateManager>
             <MapInstanceProvider>
               <Suspense
                 fallback={<LoadingSpinner message="Loading application..." />}
               >
-                <aside aria-label="Route controls" style={{ flexShrink: 0 }}>
-                  <Sidebar />
-                </aside>
-                <main
-                  id="main-content"
-                  role="main"
-                  aria-label="Interactive map"
-                  style={{ flex: 1, overflow: "hidden" }}
-                >
-                  <MapLibreGLMap />
-                </main>
+                <AdaptiveLayout
+                  sidebar={<Sidebar />}
+                  map={<MapLibreGLMap />}
+                />
               </Suspense>
             </MapInstanceProvider>
-          </RoutingContextProvider>
-        </MessageContextProvider>
-      </div>
+          </RouteStateManager>
+        </RoutingContextProvider>
+      </MessageContextProvider>
     </ErrorBoundary>
   )
 }

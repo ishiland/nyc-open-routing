@@ -6,7 +6,7 @@ import Box from "@mui/material/Box"
 import { InfoOutlined } from "@mui/icons-material"
 
 const InfoModal: React.FC = () => {
-  const [open, setOpen] = useState<boolean>(true)
+  const [open, setOpen] = useState<boolean>(false)
 
   const handleOpen = (): void => {
     setOpen(true)

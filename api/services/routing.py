@@ -27,7 +27,8 @@ class RoutingService:
         self.clock = clock
         self.cache = get_route_cache()
         
-    def get_driving_route(self, orig: str, dest: str, use_traffic: bool = True) -> RouteResponse:
+    def get_driving_route(self, orig: str, dest: str, use_traffic: bool = True,
+                          hour: Optional[int] = None, day_of_week: Optional[int] = None) -> RouteResponse:
         """
         Get a driving route between origin and destination coordinates.
 
@@ -35,6 +36,8 @@ class RoutingService:
             orig: Origin coordinates in "lon,lat" format
             dest: Destination coordinates in "lon,lat" format
             use_traffic: Whether to use traffic-aware routing (default: True)
+            hour: Hour of day for time-specific traffic (0-23), None = current time or static
+            day_of_week: Day of week for time-specific traffic (1-7 Mon-Sun), None = current time or static
 
         Returns:
             RouteResponse containing GeoJSON Features representing the route segments
@@ -42,12 +45,23 @@ class RoutingService:
         Raises:
             HTTPException: If coordinates are invalid or error occurs
         """
-        # Check cache first (cache key differentiates traffic vs non-traffic via use_traffic)
-        # Note: Traffic factors are static, not time-dependent
-        cache_key_suffix = 'traffic' if use_traffic else 'no-traffic'
+        # Default to current time if traffic is enabled but no time specified
+        if use_traffic and hour is None and day_of_week is None:
+            hour = self.clock.hour
+            # Convert Python weekday (0=Mon, 6=Sun) to SQL weekday (1=Mon, 7=Sun)
+            day_of_week = self.clock.day_of_week + 1
+            logger.info(f"Using current time for traffic: hour={hour}, day_of_week={day_of_week}")
+
+        # Check cache first (cache key includes time parameters for time-specific routes)
+        # Time-specific routes get unique cache keys to differentiate 168 time slots
+        if hour is not None and day_of_week is not None:
+            cache_key_suffix = f'traffic-h{hour}-d{day_of_week}' if use_traffic else 'no-traffic'
+        else:
+            cache_key_suffix = 'traffic-static' if use_traffic else 'no-traffic'
+
         cached_route = self.cache.get(orig, dest, f'drive-{cache_key_suffix}')
         if cached_route is not None:
-            logger.info(f"Cache hit for driving route from {orig} to {dest} (traffic={'on' if use_traffic else 'off'})")
+            logger.info(f"Cache hit for driving route from {orig} to {dest} ({cache_key_suffix})")
             return RouteResponse(features=cached_route)
 
         # Parse coordinates
@@ -61,14 +75,16 @@ class RoutingService:
         try:
             # Choose function based on use_traffic parameter
             if use_traffic:
-                # Traffic-aware routing (uses static traffic_factor from edges table)
-                sql = text("SELECT * FROM getdrivingroute_with_traffic(:orig_lat, :orig_lon, :dest_lat, :dest_lon)")
+                # Traffic-aware routing (dynamic time-based or static)
+                sql = text("SELECT * FROM getdrivingroute_with_traffic(:orig_lat, :orig_lon, :dest_lat, :dest_lon, :hour, :day_of_week)")
                 with self.engine.connect() as conn:
                     result = conn.execute(sql, {
                         "orig_lon": orig_lon,
                         "orig_lat": orig_lat,
                         "dest_lon": dest_lon,
-                        "dest_lat": dest_lat
+                        "dest_lat": dest_lat,
+                        "hour": hour,
+                        "day_of_week": day_of_week
                     })
                     rows = result.fetchall()
             else:
@@ -83,7 +99,8 @@ class RoutingService:
                     })
                     rows = result.fetchall()
 
-            logger.info(f"Found {len(rows)} route segments (traffic={'on' if use_traffic else 'off'})")
+            time_info = f"hour={hour}, day={day_of_week}" if hour and day_of_week else "static/current"
+            logger.info(f"Found {len(rows)} route segments (traffic={'on' if use_traffic else 'off'}, {time_info})")
 
             # Validate traffic data availability
             if use_traffic and len(rows) > 0:
@@ -106,22 +123,22 @@ class RoutingService:
             raise  # Re-raise HTTP exceptions (including our 404)
         except Exception as e:
             logger.error(f"Error executing route query: {e}")
-            # Check if error is due to missing traffic_factor column
-            if use_traffic and "traffic_factor" in str(e):
+            # Check if error is due to missing traffic_factor column or time table
+            if use_traffic and ("traffic_factor" in str(e) or "avg_traffic_by_segment" in str(e)):
                 logger.warning("Traffic data not available, falling back to non-traffic routing")
                 # Retry without traffic
-                return self.get_driving_route(orig, dest, use_traffic=False)
+                return self.get_driving_route(orig, dest, use_traffic=False, hour=None, day_of_week=None)
             raise HTTPException(status_code=500, detail="Error processing route request.")
 
         # Convert to GeoJSON Features
         features = self._format_route_response(rows, result, mode='drive')
 
-        # Cache the result (static traffic, no time variance)
+        # Cache the result (time-specific or static)
         self.cache.set(orig, dest, f'drive-{cache_key_suffix}', features)
 
         return RouteResponse(features=features)
 
-    def get_biking_route(self, orig: str, dest: str) -> RouteResponse:
+    def get_biking_route(self, orig: str, dest: str, avoid_ferries: bool = False) -> RouteResponse:
         """
         Get a biking route between origin and destination coordinates.
 
@@ -136,7 +153,8 @@ class RoutingService:
             HTTPException: If coordinates are invalid or error occurs
         """
         # Check cache first
-        cached_route = self.cache.get(orig, dest, 'bike')
+        cache_key = 'bike-no-ferry' if avoid_ferries else 'bike'
+        cached_route = self.cache.get(orig, dest, cache_key)
         if cached_route is not None:
             logger.info(f"Cache hit for biking route from {orig} to {dest}")
             return RouteResponse(features=cached_route)
@@ -150,16 +168,27 @@ class RoutingService:
 
         # Execute routing query
         try:
-            sql = text("SELECT * FROM getbikingroute(:orig_lat, :orig_lon, :dest_lat, :dest_lon)")
+            sql = text("SELECT * FROM getbikingroute(:orig_lat, :orig_lon, :dest_lat, :dest_lon, :avoid_ferries)")
             with self.engine.connect() as conn:
                 result = conn.execute(sql, {
                     "orig_lon": orig_lon,
                     "orig_lat": orig_lat,
                     "dest_lon": dest_lon,
-                    "dest_lat": dest_lat
+                    "dest_lat": dest_lat,
+                    "avoid_ferries": avoid_ferries
                 })
                 rows = result.fetchall()
-                logger.info(f"Found {len(rows)} route segments for biking")
+                logger.info(f"Found {len(rows)} route segments for biking (avoid_ferries={avoid_ferries})")
+
+            # Check if route was found
+            if len(rows) == 0:
+                logger.warning(f"No biking route found between {orig} and {dest}")
+                detail = "No route found between these locations."
+                if avoid_ferries:
+                    detail += " Try disabling 'Avoid ferries' — a ferry may be required to connect these areas."
+                raise HTTPException(status_code=404, detail=detail)
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error executing biking route query: {e}")
             raise HTTPException(status_code=500, detail="Error processing biking route request.")
@@ -168,11 +197,11 @@ class RoutingService:
         features = self._format_route_response(rows, result, mode='bike')
 
         # Cache the result
-        self.cache.set(orig, dest, 'bike', features)
+        self.cache.set(orig, dest, cache_key, features)
 
         return RouteResponse(features=features)
 
-    def get_walking_route(self, orig: str, dest: str) -> RouteResponse:
+    def get_walking_route(self, orig: str, dest: str, avoid_ferries: bool = False) -> RouteResponse:
         """
         Get a walking route between origin and destination coordinates.
 
@@ -187,7 +216,8 @@ class RoutingService:
             HTTPException: If coordinates are invalid or error occurs
         """
         # Check cache first
-        cached_route = self.cache.get(orig, dest, 'walk')
+        cache_key = 'walk-no-ferry' if avoid_ferries else 'walk'
+        cached_route = self.cache.get(orig, dest, cache_key)
         if cached_route is not None:
             logger.info(f"Cache hit for walking route from {orig} to {dest}")
             return RouteResponse(features=cached_route)
@@ -201,16 +231,27 @@ class RoutingService:
 
         # Execute routing query
         try:
-            sql = text("SELECT * FROM getwalkingroute(:orig_lat, :orig_lon, :dest_lat, :dest_lon)")
+            sql = text("SELECT * FROM getwalkingroute(:orig_lat, :orig_lon, :dest_lat, :dest_lon, :avoid_ferries)")
             with self.engine.connect() as conn:
                 result = conn.execute(sql, {
                     "orig_lon": orig_lon,
                     "orig_lat": orig_lat,
                     "dest_lon": dest_lon,
-                    "dest_lat": dest_lat
+                    "dest_lat": dest_lat,
+                    "avoid_ferries": avoid_ferries
                 })
                 rows = result.fetchall()
-                logger.info(f"Found {len(rows)} route segments for walking")
+                logger.info(f"Found {len(rows)} route segments for walking (avoid_ferries={avoid_ferries})")
+
+            # Check if route was found
+            if len(rows) == 0:
+                logger.warning(f"No walking route found between {orig} and {dest}")
+                detail = "No route found between these locations."
+                if avoid_ferries:
+                    detail += " Try disabling 'Avoid ferries' — a ferry may be required to connect these areas."
+                raise HTTPException(status_code=404, detail=detail)
+        except HTTPException:
+            raise
         except Exception as e:
             logger.error(f"Error executing walking route query: {e}")
             raise HTTPException(status_code=500, detail="Error processing walking route request.")
@@ -219,7 +260,7 @@ class RoutingService:
         features = self._format_route_response(rows, result, mode='walk')
 
         # Cache the result
-        self.cache.set(orig, dest, 'walk', features)
+        self.cache.set(orig, dest, cache_key, features)
 
         return RouteResponse(features=features)
 
@@ -241,7 +282,7 @@ class RoutingService:
                 row_dict = {}
 
             # Ensure all expected fields exist with defaults
-            expected_fields = ['seq', 'street', 'distance', 'travel_time', 'traffic_factor', 'geom']
+            expected_fields = ['seq', 'street', 'distance', 'travel_time', 'turn_instruction', 'turn_type', 'traffic_factor', 'geom']
             for field in expected_fields:
                 if field not in row_dict:
                     row_dict[field] = None
@@ -258,6 +299,8 @@ class RoutingService:
                     street=row_dict.get('street'),
                     distance=row_dict.get('distance'),
                     travel_time=row_dict.get('travel_time'),
+                    turn_instruction=row_dict.get('turn_instruction'),
+                    turn_type=row_dict.get('turn_type'),
                     traffic_factor=traffic_factor_value
                 ),
                 geometry=dump_geo(row_dict.get('geom'))

@@ -1,20 +1,20 @@
-import React, { useContext, useCallback, useMemo } from "react"
+import React, { useContext, useCallback } from "react"
 import List from "@mui/material/List"
 import ListSubheader from "@mui/material/ListSubheader"
 import ListItemButton from "@mui/material/ListItemButton"
+import ListItemIcon from "@mui/material/ListItemIcon"
 import Divider from "@mui/material/Divider"
 import ListItemText from "@mui/material/ListItemText"
 import Box from "@mui/material/Box"
-import {
-  formatTotalRouteDistance,
-  formatTotalRouteTime,
-  formatDistance,
-} from "../../utils/formats"
+import Typography from "@mui/material/Typography"
+import { formatDistance } from "../../utils/formats"
 import {
   RoutingContext,
   RoutingContextType,
 } from "../../contexts/RoutingContext"
 import { RouteFeature } from "../../types/interfaces"
+import { RouteSummaryCard } from "./RouteSummaryCard"
+import { TurnIcon } from "../shared/TurnIcon"
 
 const RouteListComponent: React.FC = () => {
   const { route, setSelectedStreet } =
@@ -27,39 +27,40 @@ const RouteListComponent: React.FC = () => {
     [setSelectedStreet],
   )
 
-  // Memoize expensive calculations
-  const { totalDistance, totalTime } = useMemo(() => {
-    if (!route?.features?.length) {
-      return { totalDistance: "", totalTime: "" }
-    }
-    return {
-      totalDistance: formatTotalRouteDistance(route.features),
-      totalTime: formatTotalRouteTime(route.features),
-    }
-  }, [route?.features])
-
   return (
-    <Box sx={{ width: "100%", bgcolor: "background.paper", mt: 1 }}>
+    <Box sx={{ width: "100%" }}>
       {route && route.features && route.features.length ? (
-        <List
-          component="nav"
-          aria-labelledby="nested-list-subheader"
-          subheader={
-            <ListSubheader
-              component="div"
-              id="nested-list-subheader"
-              sx={{ bgcolor: "inherit" }}
-            >
-              {totalDistance} - {totalTime}
-            </ListSubheader>
-          }
-          dense
-        >
+        <>
+          <RouteSummaryCard />
+          <List
+            component="nav"
+            aria-labelledby="turn-by-turn-directions"
+            subheader={
+              <ListSubheader
+                component="div"
+                id="turn-by-turn-directions"
+                sx={{ bgcolor: "background.paper", px: 0 }}
+              >
+                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "text.primary" }}>
+                  Turn-by-Turn Directions
+                </Typography>
+              </ListSubheader>
+            }
+            dense
+            sx={{ bgcolor: "background.paper" }}
+          >
           {route.features.map((street: RouteFeature) => (
             <React.Fragment key={street.properties.seq}>
               <ListItemButton onClick={() => handleStreetSelect(street)}>
+                <ListItemIcon sx={{ minWidth: 40 }}>
+                  <TurnIcon
+                    turnType={street.properties.turn_type}
+                    fontSize="small"
+                    color="primary"
+                  />
+                </ListItemIcon>
                 <ListItemText
-                  primary={street.properties.street}
+                  primary={street.properties.turn_instruction || street.properties.street}
                   slotProps={{
                     primary: {
                       noWrap: true,
@@ -73,6 +74,7 @@ const RouteListComponent: React.FC = () => {
             </React.Fragment>
           ))}
         </List>
+        </>
       ) : null}
     </Box>
   )

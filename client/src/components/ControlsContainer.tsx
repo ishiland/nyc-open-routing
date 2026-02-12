@@ -3,6 +3,8 @@ import Paper from "@mui/material/Paper"
 import Box from "@mui/material/Box"
 
 import { TravelModeSelect } from "./controls/TravelModeSelect"
+import { TrafficToggle } from "./controls/TrafficToggle"
+import { FerryToggle } from "./controls/FerryToggle"
 import { TitleBar } from "./shared/TitleBar"
 import { ControlsContainerProps } from "../types/interfaces"
 
@@ -13,7 +15,7 @@ const ControlsContainerComponent: React.FC<ControlsContainerProps> = ({
     <Paper
       square
       sx={{
-        width: 330,
+        width: 400,
         height: "100vh",
         display: "flex",
         flexDirection: "column",
@@ -22,6 +24,8 @@ const ControlsContainerComponent: React.FC<ControlsContainerProps> = ({
     >
       <TitleBar />
       <TravelModeSelect />
+      <TrafficToggle />
+      <FerryToggle />
       <Box sx={{ padding: 2, overflowY: "auto", flexGrow: 1 }}>{children}</Box>
     </Paper>
   )

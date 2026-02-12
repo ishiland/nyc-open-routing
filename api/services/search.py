@@ -4,6 +4,7 @@ from typing import Any, Dict, List
 from fastapi import HTTPException
 from suggest import GeosupportSuggest
 from geosupport.error import GeosupportError
+import anyio
 
 from config.settings import settings
 from utils.retry import retry_with_backoff
@@ -39,8 +40,12 @@ class SearchService:
         logger.info(f"Searching for address: {address}")
 
         try:
-            # Call Geosupport with retry logic and timeout protection
-            suggestions = self._search_with_retry(address)
+            # Call Geosupport with retry logic in thread pool (blocking operation)
+            # This prevents blocking the async event loop
+            suggestions = await anyio.to_thread.run_sync(
+                self._search_with_retry,
+                address
+            )
 
             # Convert to GeoJSON format
             result = self.suggest.to_geojson(suggestions)

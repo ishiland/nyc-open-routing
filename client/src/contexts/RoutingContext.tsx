@@ -18,6 +18,10 @@ export interface RoutingContextType {
   mode: TravelMode
   route: Route | null
   selectedStreet: RouteFeature | null
+  useTraffic: boolean
+  avoidFerries: boolean
+  trafficHour: number | null
+  trafficDayOfWeek: number | null
 
   // UI state (related to routing inputs)
   startAddressInput: string
@@ -29,10 +33,15 @@ export interface RoutingContextType {
   setMode: (mode: TravelMode) => void
   setRoute: (route: Route | null) => void
   setSelectedStreet: (street: RouteFeature | null) => void
+  setUseTraffic: (useTraffic: boolean) => void
+  setAvoidFerries: (avoidFerries: boolean) => void
+  setTrafficHour: (hour: number | null) => void
+  setTrafficDayOfWeek: (day: number | null) => void
 
   // UI state modifiers
   setAddressInput: (value: string, type: "start" | "end") => void
   clearAddresses: () => void
+  swapAddresses: () => void
   enableAddressInputs: () => void // Renamed from toggleEnabled for clarity
 }
 
@@ -42,6 +51,10 @@ export const RoutingContext = createContext<RoutingContextType>({
   mode: "drive",
   route: null,
   selectedStreet: null,
+  useTraffic: true,
+  avoidFerries: false,
+  trafficHour: null,
+  trafficDayOfWeek: null,
   startAddressInput: "",
   endAddressInput: "",
   isInputEnabled: true,
@@ -49,8 +62,13 @@ export const RoutingContext = createContext<RoutingContextType>({
   setMode: () => {},
   setRoute: () => {},
   setSelectedStreet: () => {},
+  setUseTraffic: () => {},
+  setAvoidFerries: () => {},
+  setTrafficHour: () => {},
+  setTrafficDayOfWeek: () => {},
   setAddressInput: () => {},
   clearAddresses: () => {},
+  swapAddresses: () => {},
   enableAddressInputs: () => {},
 })
 
@@ -69,6 +87,45 @@ export function RoutingContextProvider({
   const [route, setRouteState] = useState<Route | null>(null)
   const [selectedStreet, setSelectedStreetState] =
     useState<RouteFeature | null>(null)
+
+  // Initialize useTraffic from localStorage (default: true)
+  const [useTraffic, setUseTrafficState] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem("nyc-routing-use-traffic")
+      return stored ? JSON.parse(stored) : true
+    } catch {
+      return true
+    }
+  })
+
+  // Initialize avoidFerries from localStorage (default: false)
+  const [avoidFerries, setAvoidFerriesState] = useState<boolean>(() => {
+    try {
+      const stored = localStorage.getItem("nyc-routing-avoid-ferries")
+      return stored ? JSON.parse(stored) : false
+    } catch {
+      return false
+    }
+  })
+
+  // Traffic time parameters (null = use current time or static factors)
+  const [trafficHour, setTrafficHourState] = useState<number | null>(() => {
+    try {
+      const stored = localStorage.getItem("nyc-routing-traffic-hour")
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  })
+
+  const [trafficDayOfWeek, setTrafficDayOfWeekState] = useState<number | null>(() => {
+    try {
+      const stored = localStorage.getItem("nyc-routing-traffic-day")
+      return stored ? JSON.parse(stored) : null
+    } catch {
+      return null
+    }
+  })
 
   const [startAddressInput, setStartAddressInputState] = useState<string>("")
   const [endAddressInput, setEndAddressInputState] = useState<string>("")
@@ -109,6 +166,34 @@ export function RoutingContextProvider({
     setRouteState(newRoute)
   }, [])
 
+  const setUseTraffic = useCallback((value: boolean) => {
+    setUseTrafficState(value)
+    localStorage.setItem("nyc-routing-use-traffic", JSON.stringify(value))
+  }, [])
+
+  const setAvoidFerries = useCallback((value: boolean) => {
+    setAvoidFerriesState(value)
+    localStorage.setItem("nyc-routing-avoid-ferries", JSON.stringify(value))
+  }, [])
+
+  const setTrafficHour = useCallback((value: number | null) => {
+    setTrafficHourState(value)
+    if (value === null) {
+      localStorage.removeItem("nyc-routing-traffic-hour")
+    } else {
+      localStorage.setItem("nyc-routing-traffic-hour", JSON.stringify(value))
+    }
+  }, [])
+
+  const setTrafficDayOfWeek = useCallback((value: number | null) => {
+    setTrafficDayOfWeekState(value)
+    if (value === null) {
+      localStorage.removeItem("nyc-routing-traffic-day")
+    } else {
+      localStorage.setItem("nyc-routing-traffic-day", JSON.stringify(value))
+    }
+  }, [])
+
   const setSelectedStreet = useCallback(
     (newSelectedStreet: RouteFeature | null) => {
       setSelectedStreetState(newSelectedStreet)
@@ -134,6 +219,17 @@ export function RoutingContextProvider({
     setEndAddressInputState("")
   }, [])
 
+  const swapAddresses = useCallback(() => {
+    // Swap address states
+    const tempAddress = startAddress
+    const tempInput = startAddressInput
+
+    setStartAddressState(endAddress)
+    setStartAddressInputState(endAddressInput)
+    setEndAddressState(tempAddress)
+    setEndAddressInputState(tempInput)
+  }, [startAddress, endAddress, startAddressInput, endAddressInput])
+
   const enableAddressInputs = useCallback(() => {
     setIsInputEnabledState(true)
   }, [])
@@ -146,6 +242,10 @@ export function RoutingContextProvider({
       mode,
       route,
       selectedStreet,
+      useTraffic,
+      avoidFerries,
+      trafficHour,
+      trafficDayOfWeek,
       startAddressInput,
       endAddressInput,
       isInputEnabled,
@@ -153,8 +253,13 @@ export function RoutingContextProvider({
       setMode,
       setRoute,
       setSelectedStreet,
+      setUseTraffic,
+      setAvoidFerries,
+      setTrafficHour,
+      setTrafficDayOfWeek,
       setAddressInput,
       clearAddresses,
+      swapAddresses,
       enableAddressInputs,
     }),
     [
@@ -163,6 +268,10 @@ export function RoutingContextProvider({
       mode,
       route,
       selectedStreet,
+      useTraffic,
+      avoidFerries,
+      trafficHour,
+      trafficDayOfWeek,
       startAddressInput,
       endAddressInput,
       isInputEnabled,
@@ -170,8 +279,13 @@ export function RoutingContextProvider({
       setMode,
       setRoute,
       setSelectedStreet,
+      setUseTraffic,
+      setAvoidFerries,
+      setTrafficHour,
+      setTrafficDayOfWeek,
       setAddressInput,
       clearAddresses,
+      swapAddresses,
       enableAddressInputs,
     ],
   )

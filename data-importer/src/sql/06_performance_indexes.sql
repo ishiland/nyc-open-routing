@@ -1,5 +1,29 @@
 -- Performance optimization indexes for routing queries (v2)
 -- These covering indexes enable index-only scans for 2-5x performance improvement
+--
+-- CENTRALIZED INDEX MANAGEMENT: All indexes are created here for clarity and maintainability
+-- Indexes are created AFTER all data transformations (edges, topology, restrictions) are complete
+
+---------------------------------------------
+-- Basic Indexes (from 01_edges.sql, 04_restrictions.sql)
+---------------------------------------------
+-- Join ID for LION data reference
+CREATE INDEX IF NOT EXISTS edges_join_id_idx ON edges (join_id);
+
+-- Geometry spatial index (GIST)
+CREATE INDEX IF NOT EXISTS edges_geom_idx ON edges USING GIST (the_geom);
+
+-- Source/target node indexes for topology
+CREATE INDEX IF NOT EXISTS edges_source_idx ON edges USING BTREE (source);
+CREATE INDEX IF NOT EXISTS edges_target_idx ON edges USING BTREE (target);
+
+-- Feature type for filtering (streets, ferries, etc.)
+CREATE INDEX IF NOT EXISTS edges_featuretyp_idx ON edges USING BTREE (featuretyp);
+
+-- Restriction indexes (from 04_restrictions.sql)
+CREATE INDEX IF NOT EXISTS idx_restrictions_from_edge ON restrictions (from_edge);
+CREATE INDEX IF NOT EXISTS idx_restrictions_to_edge ON restrictions (to_edge);
+CREATE INDEX IF NOT EXISTS idx_restrictions_composite ON restrictions (from_edge, to_edge, via_node);
 
 ---------------------------------------------
 -- Covering Indexes for pgRouting Queries
@@ -33,16 +57,18 @@ CREATE INDEX IF NOT EXISTS idx_edges_source_target ON edges(source, target);
 -- Index on street name for turn-by-turn directions
 CREATE INDEX IF NOT EXISTS idx_edges_street ON edges(street) WHERE street IS NOT NULL;
 
--- GIST index on geometry (already exists from 01_edges.sql but ensure it's here)
-CREATE INDEX IF NOT EXISTS edges_geom_idx ON edges USING GIST (the_geom);
-
 ---------------------------------------------
 -- Statistics for Query Planner
 ---------------------------------------------
 -- Update query planner statistics to help PostgreSQL choose optimal plans
 ANALYZE edges;
 ANALYZE edges_vertices_pgr;
-ANALYZE restrictions;
+DO $$
+BEGIN
+    IF to_regclass('public.restrictions') IS NOT NULL THEN
+        EXECUTE 'ANALYZE restrictions';
+    END IF;
+END $$;
 
 -- Create extended statistics for correlated columns
 -- This helps with queries that filter on multiple related columns

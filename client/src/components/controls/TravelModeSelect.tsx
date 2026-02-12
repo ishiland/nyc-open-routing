@@ -15,6 +15,7 @@ export const TravelModeSelect: React.FC = () => {
   const tabSx = {
     minWidth: "auto",
     flexGrow: 1,
+    minHeight: 64, // Increased height for icon + label
   }
 
   return (
@@ -28,18 +29,21 @@ export const TravelModeSelect: React.FC = () => {
       >
         <Tab
           icon={<DirectionsCar />}
+          label="Drive"
           value="drive"
           sx={tabSx}
           aria-label="Driving Directions"
         />
         <Tab
           icon={<DirectionsBike />}
+          label="Bike"
           value="bike"
           sx={tabSx}
           aria-label="Biking Directions"
         />
         <Tab
           icon={<DirectionsWalk />}
+          label="Walk"
           value="walk"
           sx={tabSx}
           aria-label="Walking Directions"

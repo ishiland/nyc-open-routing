@@ -30,6 +30,14 @@ END $$;
 ---------------------------------------------
 -- Step 2: Create edges table with filtering
 -- OPTIMIZATION: Filter by status during SELECT INTO
+--
+-- FeatureTyp filtering logic:
+--   INCLUDED: 0 (Street), A (Alley), W (Walkway/Path), F (Ferry)
+--   EXCLUDED: 1 (Railroad), 2 (Water Edge), 3 (Census Boundary), 5 (Borough Boundary),
+--             6 (Private Street), 7 (District Boundary), 8 (Physical Boundary)
+--
+-- Note: Alleys (A) are included because many provide legitimate pedestrian/bike access
+--       and connect to public street networks. Cost penalties handle accessibility.
 ---------------------------------------------
 SELECT
   segmentid,
@@ -49,7 +57,7 @@ SELECT
   ST_LineMerge(the_geom) AS the_geom
 INTO public.edges
 FROM lion
-WHERE featuretyp IN ('0', 'A', '6', 'W', 'F')
+WHERE featuretyp IN ('0', 'A', 'W', 'F')  -- 0=Street, A=Alley, W=Walkway/Path, F=Ferry (exclude 6=Private)
   AND segmenttyp NOT IN ('G', 'F')
   AND (NOT EXISTS (
         SELECT 1 FROM information_schema.columns
@@ -136,23 +144,11 @@ SET
   END;
 
 ---------------------------------------------
--- Step 5: Create PRIMARY KEY and indexes
+-- Step 5: Create PRIMARY KEY
 -- OPTIMIZATION: Create after all data modifications
+-- NOTE: Indexes moved to 06_performance_indexes.sql for centralized management
 ---------------------------------------------
 ALTER TABLE public.edges ADD PRIMARY KEY (id);
-
-CREATE INDEX edges_join_id_idx ON public.edges (join_id);
-CREATE INDEX edges_geom_idx ON public.edges USING GIST (the_geom);
-CREATE INDEX edges_source_idx ON public.edges USING BTREE (source);
-CREATE INDEX edges_target_idx ON public.edges USING BTREE (target);
-CREATE INDEX edges_featuretyp_idx ON public.edges USING BTREE (featuretyp);
-
----------------------------------------------
--- Step 6: Update statistics
--- OPTIMIZATION: Update query planner stats
--- Note: VACUUM cannot run in transaction, will be handled by autovacuum
----------------------------------------------
-ANALYZE public.edges;
 
 ---------------------------------------------
 -- Step 7: Validation and reporting

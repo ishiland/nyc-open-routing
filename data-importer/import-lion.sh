@@ -61,12 +61,19 @@ else
   done
 fi
 
+if [[ -z "$LION" || "$LION" == --* ]]; then
+  echo "Error: Missing or invalid LION version. Provide a value like '25a' as the first argument."
+  exit 1
+fi
+
 echo "Attempting to import LION $LION"
 
 # Handle traffic data
+TRAFFIC_DATA_PREEXISTS=false
 if [ "$DOWNLOAD_TRAFFIC" = true ]; then
   # Check if traffic data file already exists
   if [ -f "$TRAFFIC_DATA" ]; then
+    TRAFFIC_DATA_PREEXISTS=true
     echo "Traffic data file already exists at $TRAFFIC_DATA"
     echo "Using existing traffic data file"
   else
@@ -140,8 +147,11 @@ if [ -n "$TRAFFIC_DATA" ]; then
   unset TRAFFIC_DATA_FILE
 fi
 
-# Only clean up downloaded traffic data if we downloaded it in this run and it didn't exist before
-if [ "$DOWNLOAD_TRAFFIC" = true ] && [ ! -f "$TRAFFIC_DATA_PATH" ]; then
-  rm -f "$TRAFFIC_DATA"
-  echo "Temporary traffic data file removed"
+# Only clean up downloaded traffic data if we downloaded it in this run
+# and it didn't exist before starting the script
+if [ "$DOWNLOAD_TRAFFIC" = true ] && [ "$TRAFFIC_DATA_PREEXISTS" = false ]; then
+  if [ -n "$TRAFFIC_DATA" ] && [ -f "$TRAFFIC_DATA" ]; then
+    rm -f "$TRAFFIC_DATA"
+    echo "Temporary traffic data file removed"
+  fi
 fi

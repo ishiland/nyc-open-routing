@@ -109,9 +109,14 @@ WHERE cost_drive IS NULL AND driveable = TRUE;
 -- Consider re-adding with correct logic: multiply by 1.15, 1.25, 1.40 if needed
 
 ----------------------------------------------
---              Biking Costs (FIXED)
+--              Biking Costs (ENHANCED)
 ----------------------------------------------
 -- Single comprehensive UPDATE to avoid compounding penalties
+-- Now differentiates bike lane classes:
+--   Class 1 (Separated Greenway): 0.8x multiplier (preferred)
+--   Class 2 (Striped Lane): 1.0x multiplier (baseline)
+--   Class 3 (Signed Route): 1.5x multiplier (shared road with signage only)
+--   Class 7 (Stairs): 50x multiplier (walk bike)
 UPDATE edges
 SET
     cost_bike = CASE
@@ -122,9 +127,12 @@ SET
         -- CASE 2: One-way against bike direction (to->from)
         WHEN one_way_bike = 'TF' THEN
             CASE
-                -- Has designated bike lane against traffic: moderate penalty
-                WHEN bikelane IS NOT NULL AND TRIM(bikelane) != '' AND TRIM(bikelane) != '7'
-                    THEN time_bike * 10
+                -- Class 1: Separated greenway against traffic
+                WHEN TRIM(bikelane) IN ('1', '10', '11') THEN time_bike * 8   -- 0.8 * 10
+                -- Class 2: Striped lane against traffic
+                WHEN TRIM(bikelane) IN ('2', '4', '5', '6', '8', '9') THEN time_bike * 10
+                -- Class 3: Signed route against traffic
+                WHEN TRIM(bikelane) = '3' THEN time_bike * 15  -- 1.5 * 10
                 -- No bike lane against traffic: effectively blocked
                 ELSE time_bike * 100
             END
@@ -132,9 +140,12 @@ SET
         -- CASE 3: One-way with bike direction (from->to)
         WHEN one_way_bike = 'FT' THEN
             CASE
-                -- Has designated bike lane: preferred
-                WHEN bikelane IS NOT NULL AND TRIM(bikelane) != '' AND TRIM(bikelane) != '7'
-                    THEN time_bike * 1.0
+                -- Class 1: Separated greenway with traffic (best)
+                WHEN TRIM(bikelane) IN ('1', '10', '11') THEN time_bike * 0.8
+                -- Class 2: Striped lane with traffic (good)
+                WHEN TRIM(bikelane) IN ('2', '4', '5', '6', '8', '9') THEN time_bike * 1.0
+                -- Class 3: Signed route with traffic (acceptable)
+                WHEN TRIM(bikelane) = '3' THEN time_bike * 1.5
                 -- No bike lane but with traffic: moderate penalty
                 ELSE time_bike * 5.0
             END
@@ -142,9 +153,12 @@ SET
         -- CASE 4: Bidirectional
         WHEN one_way_bike = 'B' THEN
             CASE
-                -- Has designated bike lane: preferred
-                WHEN bikelane IS NOT NULL AND TRIM(bikelane) != '' AND TRIM(bikelane) != '7'
-                    THEN time_bike * 1.0
+                -- Class 1: Separated greenway bidirectional (best)
+                WHEN TRIM(bikelane) IN ('1', '10', '11') THEN time_bike * 0.8
+                -- Class 2: Striped lane bidirectional (good)
+                WHEN TRIM(bikelane) IN ('2', '4', '5', '6', '8', '9') THEN time_bike * 1.0
+                -- Class 3: Signed route bidirectional (acceptable)
+                WHEN TRIM(bikelane) = '3' THEN time_bike * 1.5
                 -- No bike lane: slight penalty
                 ELSE time_bike * 3.0
             END
@@ -160,24 +174,39 @@ SET
         -- CASE 2: One-way with bike direction (reverse is against)
         WHEN one_way_bike = 'FT' THEN
             CASE
-                WHEN bikelane IS NOT NULL AND TRIM(bikelane) != '' AND TRIM(bikelane) != '7'
-                    THEN time_bike * 10
+                -- Class 1: Separated greenway against traffic (reverse)
+                WHEN TRIM(bikelane) IN ('1', '10', '11') THEN time_bike * 8
+                -- Class 2: Striped lane against traffic (reverse)
+                WHEN TRIM(bikelane) IN ('2', '4', '5', '6', '8', '9') THEN time_bike * 10
+                -- Class 3: Signed route against traffic (reverse)
+                WHEN TRIM(bikelane) = '3' THEN time_bike * 15
+                -- No bike lane against traffic: blocked
                 ELSE time_bike * 100
             END
 
         -- CASE 3: One-way against bike direction (reverse is with)
         WHEN one_way_bike = 'TF' THEN
             CASE
-                WHEN bikelane IS NOT NULL AND TRIM(bikelane) != '' AND TRIM(bikelane) != '7'
-                    THEN time_bike * 1.0
+                -- Class 1: Separated greenway with traffic (reverse)
+                WHEN TRIM(bikelane) IN ('1', '10', '11') THEN time_bike * 0.8
+                -- Class 2: Striped lane with traffic (reverse)
+                WHEN TRIM(bikelane) IN ('2', '4', '5', '6', '8', '9') THEN time_bike * 1.0
+                -- Class 3: Signed route with traffic (reverse)
+                WHEN TRIM(bikelane) = '3' THEN time_bike * 1.5
+                -- No bike lane but with traffic
                 ELSE time_bike * 5.0
             END
 
         -- CASE 4: Bidirectional
         WHEN one_way_bike = 'B' THEN
             CASE
-                WHEN bikelane IS NOT NULL AND TRIM(bikelane) != '' AND TRIM(bikelane) != '7'
-                    THEN time_bike * 1.0
+                -- Class 1: Separated greenway bidirectional
+                WHEN TRIM(bikelane) IN ('1', '10', '11') THEN time_bike * 0.8
+                -- Class 2: Striped lane bidirectional
+                WHEN TRIM(bikelane) IN ('2', '4', '5', '6', '8', '9') THEN time_bike * 1.0
+                -- Class 3: Signed route bidirectional
+                WHEN TRIM(bikelane) = '3' THEN time_bike * 1.5
+                -- No bike lane
                 ELSE time_bike * 3.0
             END
 
@@ -242,46 +271,95 @@ SET walkable = TRUE,
 WHERE trafdir = 'P';
 
 ----------------------------------------------
---      RW_Type Cost Adjustments
+--      RW_Type Cost Adjustments (CORRECTED)
 ----------------------------------------------
 -- Apply additional cost factors based on roadway type for more realism
--- These adjustments account for special infrastructure like tunnels, ramps, stairs
+-- Per LION metadata (lion_metadata.csv):
+--   1=Street, 2=Highway, 3=Bridge, 4=Tunnel, 5=Boardwalk, 6=Path/Trail,
+--   7=Step Street, 8=Driveway, 9=Ramp, 10=Alley, 11=Unknown,
+--   12=Non-Physical, 13=U-Turn, 14=Ferry Route
 
--- Tunnels (RW_Type = '1'): slightly longer/less pleasant
+-- Bridges (RW_Type = '3'): Slightly longer/more exposed
 UPDATE edges
-SET cost_walk = cost_walk * 1.1,
-    rcost_walk = rcost_walk * 1.1
-WHERE rw_type = '1' AND walkable = TRUE;
+SET cost_walk = cost_walk * 1.05,
+    rcost_walk = rcost_walk * 1.05
+WHERE rw_type = '3' AND walkable = TRUE;
 
--- Ramps (RW_Type = '2'): harder for pedestrians/bikes
+-- Tunnels (RW_Type = '4'): Less pleasant, slightly slower
+UPDATE edges
+SET cost_walk = cost_walk * 1.15,
+    rcost_walk = rcost_walk * 1.15,
+    cost_bike = cost_bike * 1.1,
+    rcost_bike = rcost_bike * 1.1
+WHERE rw_type = '4' AND (walkable = TRUE OR bikeable = TRUE);
+
+-- Boardwalks (RW_Type = '5'): Pleasant for walking/biking
+UPDATE edges
+SET cost_walk = cost_walk * 0.9,
+    rcost_walk = rcost_walk * 0.9,
+    cost_bike = cost_bike * 0.9,
+    rcost_bike = rcost_bike * 0.9
+WHERE rw_type = '5' AND (walkable = TRUE OR bikeable = TRUE);
+
+-- Step Streets (RW_Type = '7'): Very difficult for walking, impossible for biking
+-- Note: bikelane='7' also indicates stairs and is handled in main bike cost logic
+UPDATE edges
+SET cost_walk = GREATEST(cost_walk, time_walk * 1.5),
+    rcost_walk = GREATEST(rcost_walk, time_walk * 1.5),
+    cost_bike = cost_bike * 50,  -- Effectively blocked for bikes
+    rcost_bike = rcost_bike * 50
+WHERE rw_type = '7' AND (walkable = TRUE OR bikeable = TRUE);
+
+-- Ramps (RW_Type = '9'): Harder for pedestrians/bikes
 UPDATE edges
 SET cost_walk = cost_walk * 1.3,    -- 30% harder to walk ramps
     rcost_walk = rcost_walk * 1.3,
     cost_bike = cost_bike * 1.2,    -- 20% harder to bike ramps
     rcost_bike = rcost_bike * 1.2
-WHERE rw_type = '2' AND (walkable = TRUE OR bikeable = TRUE);
+WHERE rw_type = '9' AND (walkable = TRUE OR bikeable = TRUE);
 
--- Step streets (RW_Type = '3' or bikelane = '7'): very difficult
--- Already handled by bikelane='7' logic above, but ensure consistency
-UPDATE edges
-SET cost_walk = GREATEST(cost_walk, time_walk * 1.5),
-    rcost_walk = GREATEST(rcost_walk, time_walk * 1.5)
-WHERE rw_type = '3' AND walkable = TRUE;
+-- Note: RW_Type='2' (Highway) already handled by lane count penalties
+-- Note: RW_Type='14' (Ferry Route) handled separately in Ferry Accessibility section
 
 ----------------------------------------------
---       Ferry Accessibility Fix (FINAL)
+--      Lane Count-Based Safety Penalties
+----------------------------------------------
+-- Multi-lane roads are more dangerous and less pleasant for cycling/walking
+-- These penalties discourage routing through high-traffic arterials
+
+-- Wide roads (6+ lanes): harder and less safe for pedestrians to cross
+UPDATE edges
+SET cost_walk = cost_walk * 1.2,
+    rcost_walk = rcost_walk * 1.2
+WHERE number_travel_lanes >= 6 AND walkable = TRUE;
+
+-- Multi-lane roads (4+ lanes): more dangerous for cycling without protected infrastructure
+-- Only apply if no Class 1 separated greenway (already has 0.8x bonus)
+UPDATE edges
+SET cost_bike = cost_bike * 1.3,
+    rcost_bike = rcost_bike * 1.3
+WHERE number_travel_lanes >= 4
+  AND bikeable = TRUE
+  AND (bikelane IS NULL OR TRIM(bikelane) NOT IN ('1', '10', '11'));
+
+----------------------------------------------
+--       Ferry Cost Penalties (REVISED)
 ----------------------------------------------
 -- IMPORTANT: This MUST run AFTER all other cost calculations
--- Ferries should only be accessible from ferry terminals, not bridges/tunnels
--- Apply massive penalty to ferry edges to prevent direct bridge->ferry routing
--- This penalty ensures ferries are only used when routing through legitimate
--- ferry terminal streets, not when spatial topology creates invalid connections
--- (e.g., bridge overlapping ferry route in schematic representation)
+-- Ferries are bikeable/walkable per LION metadata but should be discouraged
+-- unless no bridge/tunnel alternative exists.
+--
+-- Strategy: Apply moderate cost multiplier (5x) rather than massive penalty (1000x)
+-- Time already includes 15-minute waiting penalty (see 02_travel_time.sql)
+-- The 5x multiplier ensures ferries are only used when necessary (e.g., Staten Island,
+-- Governors Island, Rockaway) but not for routes where bridges exist.
+--
+-- Note: Setting bikeable=TRUE in 02_travel_time.sql makes ferries available for routing
 UPDATE edges
-SET cost_walk = time_walk * 1000,
-    rcost_walk = time_walk * 1000,
-    cost_bike = time_bike * 1000,
-    rcost_bike = time_bike * 1000
+SET cost_walk = time_walk * 5.0,    -- 5x penalty: waiting + inconvenience
+    rcost_walk = time_walk * 5.0,
+    cost_bike = time_bike * 5.0,    -- 5x penalty: waiting + inconvenience
+    rcost_bike = time_bike * 5.0
 WHERE featuretyp = 'F';
 
 ----------------------------------------------

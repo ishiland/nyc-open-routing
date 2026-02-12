@@ -81,19 +81,13 @@ CREATE TABLE public.restrictions (
   id         BIGSERIAL PRIMARY KEY,   -- unique restriction ID
   from_edge  BIGINT    NOT NULL,      -- edge you're coming from
   to_edge    BIGINT    NOT NULL,      -- edge you're turning onto
-  via_node   INTEGER   NOT NULL       -- the intersection node
+  via_node   INTEGER   NOT NULL,      -- the intersection node
+
+  -- UNIQUE constraint to prevent duplicate restrictions
+  CONSTRAINT unique_restriction UNIQUE (from_edge, to_edge, via_node)
 );
 
--- Add indexes to speed up lookups in the routing functions
-CREATE INDEX idx_restrictions_from_edge ON public.restrictions (from_edge);
-CREATE INDEX idx_restrictions_to_edge ON public.restrictions (to_edge);
-
--- Add composite index for better query performance
-CREATE INDEX idx_restrictions_composite ON public.restrictions (from_edge, to_edge, via_node);
-
--- Add UNIQUE constraint to prevent duplicate restrictions
-ALTER TABLE public.restrictions
-ADD CONSTRAINT unique_restriction UNIQUE (from_edge, to_edge, via_node);
+-- NOTE: Indexes moved to 06_performance_indexes.sql for centralized management
 
 -- Create view for routing functions (DRY principle - used in all 4 routing functions)
 CREATE OR REPLACE VIEW restrictions_for_routing AS

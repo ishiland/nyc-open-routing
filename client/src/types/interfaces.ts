@@ -40,6 +40,9 @@ export interface RouteProperties {
   street: string
   distance: number
   travel_time: number
+  turn_instruction?: string // Human-readable turn instruction (e.g., "Turn right onto MAIN ST")
+  turn_type?: string // Machine-readable turn type for icons (e.g., "right", "slight-left", "u-turn")
+  traffic_factor?: number // Traffic impact factor (1.0 = no traffic, >1.0 = delays)
   [key: string]: unknown
 }
 
@@ -85,6 +88,12 @@ export interface GeosupportProperties {
   label?: string
   address?: string
   id?: string
+  "House Number - Display Format"?: string
+  "First Street Name Normalized"?: string
+  "First Borough Name"?: string
+  "ZIP Code"?: string
+  Latitude?: string
+  Longitude?: string
   [key: string]: unknown
 }
 

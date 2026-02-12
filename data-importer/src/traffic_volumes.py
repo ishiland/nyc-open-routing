@@ -2,7 +2,6 @@ import os
 import csv
 from datetime import datetime
 from tqdm import tqdm
-from psycopg import sql
 from utils import TqdmLoggingHandler, logger
 
 
@@ -279,20 +278,25 @@ def process_traffic_data(cur, conn):
             conn.commit()
             
             # Create traffic factors from the spatially matched data
+            # Use percentile-based thresholds for meaningful tier distribution
             cur.execute("""
-                -- Get global maximum
-                WITH max_stats AS (
-                    SELECT MAX(avg_volume) AS global_max_volume FROM edge_traffic_stats
+                WITH pcts AS (
+                    SELECT
+                        percentile_cont(0.50) WITHIN GROUP (ORDER BY avg_volume) AS p50,
+                        percentile_cont(0.75) WITHIN GROUP (ORDER BY avg_volume) AS p75,
+                        percentile_cont(0.90) WITHIN GROUP (ORDER BY avg_volume) AS p90,
+                        percentile_cont(0.95) WITHIN GROUP (ORDER BY avg_volume) AS p95
+                    FROM edge_traffic_stats
+                    WHERE avg_volume > 0
                 )
-                -- Update traffic factors
                 UPDATE edges e
                 SET traffic_factor = CASE
-                    WHEN s.avg_volume IS NULL THEN 1.0  -- No data
-                    WHEN s.avg_volume > (SELECT global_max_volume * 0.75 FROM max_stats) THEN 3.0  -- Very heavy
-                    WHEN s.avg_volume > (SELECT global_max_volume * 0.5 FROM max_stats) THEN 2.0   -- Heavy
-                    WHEN s.avg_volume > (SELECT global_max_volume * 0.25 FROM max_stats) THEN 1.5  -- Medium
-                    WHEN s.avg_volume > 0 THEN 1.2  -- Light
-                    ELSE 1.0  -- No data
+                    WHEN s.avg_volume IS NULL THEN 1.0
+                    WHEN s.avg_volume >= (SELECT p95 FROM pcts) THEN 3.0
+                    WHEN s.avg_volume >= (SELECT p90 FROM pcts) THEN 2.0
+                    WHEN s.avg_volume >= (SELECT p75 FROM pcts) THEN 1.5
+                    WHEN s.avg_volume >= (SELECT p50 FROM pcts) THEN 1.2
+                    ELSE 1.0
                 END
                 FROM edge_traffic_stats s
                 WHERE e.id = s.edge_id;
@@ -301,36 +305,41 @@ def process_traffic_data(cur, conn):
             
         else:
             # Use the standard segment ID matching if we have enough matches
-            # Create mapping table
+            # Create mapping table and update with percentile-based thresholds
             cur.execute("""
                 CREATE TEMP TABLE segment_traffic AS
-                SELECT 
+                SELECT
                     e.id AS edge_id,
                     e.segmentid,
                     COALESCE(AVG(t.avg_volume), 0) AS avg_volume,
                     COALESCE(MAX(t.max_volume), 0) AS max_volume
-                FROM 
+                FROM
                     edges e
-                LEFT JOIN 
+                LEFT JOIN
                     avg_traffic_by_segment t ON e.segmentid = t.segment_id
-                WHERE 
+                WHERE
                     e.segmentid IS NOT NULL
                 GROUP BY
                     e.id, e.segmentid;
-                    
-                -- Get global maximum
-                WITH max_stats AS (
-                    SELECT MAX(avg_volume) AS global_max_volume FROM segment_traffic
+
+                -- Use percentile-based thresholds for meaningful tier distribution
+                WITH pcts AS (
+                    SELECT
+                        percentile_cont(0.50) WITHIN GROUP (ORDER BY avg_volume) AS p50,
+                        percentile_cont(0.75) WITHIN GROUP (ORDER BY avg_volume) AS p75,
+                        percentile_cont(0.90) WITHIN GROUP (ORDER BY avg_volume) AS p90,
+                        percentile_cont(0.95) WITHIN GROUP (ORDER BY avg_volume) AS p95
+                    FROM segment_traffic
+                    WHERE avg_volume > 0
                 )
-                -- Update traffic factors
                 UPDATE edges e
                 SET traffic_factor = CASE
-                    WHEN s.avg_volume = 0 THEN 1.0  -- No data
-                    WHEN s.avg_volume > (SELECT global_max_volume * 0.75 FROM max_stats) THEN 3.0  -- Very heavy
-                    WHEN s.avg_volume > (SELECT global_max_volume * 0.5 FROM max_stats) THEN 2.0   -- Heavy
-                    WHEN s.avg_volume > (SELECT global_max_volume * 0.25 FROM max_stats) THEN 1.5  -- Medium
-                    WHEN s.avg_volume > 0 THEN 1.2  -- Light
-                    ELSE 1.0  -- No data
+                    WHEN s.avg_volume = 0 THEN 1.0
+                    WHEN s.avg_volume >= (SELECT p95 FROM pcts) THEN 3.0
+                    WHEN s.avg_volume >= (SELECT p90 FROM pcts) THEN 2.0
+                    WHEN s.avg_volume >= (SELECT p75 FROM pcts) THEN 1.5
+                    WHEN s.avg_volume >= (SELECT p50 FROM pcts) THEN 1.2
+                    ELSE 1.0
                 END
                 FROM segment_traffic s
                 WHERE e.id = s.edge_id;

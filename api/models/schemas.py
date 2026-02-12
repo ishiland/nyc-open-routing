@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Dict, Any, Optional, List
+from typing import Dict, Any, Optional, List, Literal
 from enum import Enum
 
 class TravelMode(str, Enum):
@@ -14,6 +14,8 @@ class Properties(BaseModel):
     street: Optional[str] = None
     distance: Optional[float] = None  # in feet
     travel_time: Optional[float] = None
+    turn_instruction: Optional[str] = None  # Human-readable turn instruction
+    turn_type: Optional[str] = None  # Machine-readable turn type for icons
     traffic_factor: Optional[float] = None  # traffic impact factor
 
     # Traffic factor explanation:
@@ -23,8 +25,13 @@ class Properties(BaseModel):
     # 2.0 = Heavy traffic (doubles travel time)
     # 3.0 = Very heavy traffic (triples travel time)
 
+    # Turn type values:
+    # 'straight', 'slight-left', 'left', 'sharp-left',
+    # 'slight-right', 'right', 'sharp-right', 'u-turn', 'continue'
+
 class Feature(BaseModel):
     """GeoJSON feature representation."""
+    type: Literal["Feature"] = "Feature"
     properties: Properties
     geometry: Dict[str, Any]
 
@@ -37,11 +44,14 @@ class RouteResponse(BaseModel):
             "example": {
                 "features": [
                     {
+                        "type": "Feature",
                         "properties": {
                             "seq": 1,
                             "street": "MAIN ST",
                             "distance": 325.5,
                             "travel_time": 45.2,
+                            "turn_instruction": "Turn right onto MAIN ST",
+                            "turn_type": "right",
                             "traffic_factor": 1.2
                         },
                         "geometry": {

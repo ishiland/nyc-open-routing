@@ -36,3 +36,28 @@ export const formatTotalRouteDistance = (routes: Route[]): string => {
   const feet = routes.map(x => x.properties.distance).reduce((a, c) => a + c)
   return formatDistance(feet)
 }
+
+/**
+ * Calculates and formats the arrival time based on route duration
+ * @param routes - Array of route features
+ * @returns Formatted arrival time string (e.g., "Arrive 3:45 PM")
+ */
+export const formatArrivalTime = (routes: Route[]): string => {
+  const totalMinutes = routes
+    .map(x => x.properties.travel_time)
+    .reduce((a, c) => a + c, 0)
+
+  const now = new Date()
+  const arrivalTime = new Date(now.getTime() + totalMinutes * 60000) // Add minutes in milliseconds
+
+  // Format time as "h:mm AM/PM"
+  let hours = arrivalTime.getHours()
+  const minutes = arrivalTime.getMinutes()
+  const ampm = hours >= 12 ? "PM" : "AM"
+
+  hours = hours % 12
+  hours = hours || 12 // Convert 0 to 12
+
+  const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes
+  return `Arrive ${hours}:${formattedMinutes} ${ampm}`
+}

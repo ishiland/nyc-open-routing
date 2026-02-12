@@ -16,11 +16,12 @@ const StyledToolbar = styled(Toolbar)({
   paddingRight: "16px", // Example padding
 })
 
-const Title = styled(Typography)({
+const Title = styled(Typography)(({ theme }) => ({
   fontSize: "20px",
-  fontWeight: 400,
+  fontWeight: 500, // Slightly bolder for better readability
   flexGrow: 1, // Make title take available space
-})
+  color: theme.palette.primary.contrastText, // Ensure proper contrast on primary background
+}))
 
 const TitleBarComponent: React.FC = () => {
   return (
@@ -28,9 +29,7 @@ const TitleBarComponent: React.FC = () => {
       {/* Use background color from theme primary */}
       <StyledAppBar position="relative" color="primary">
         <StyledToolbar variant="dense">
-          <Title variant="h6" color="inherit">
-            {" "}
-            {/* Use h6 for AppBar title consistency */}
+          <Title variant="h6">
             NYC Open Routing
           </Title>
           <InfoModal />

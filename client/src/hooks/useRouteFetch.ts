@@ -10,6 +10,10 @@ interface UseRouteFetchArgs {
   startAddress: IMapFeature | null
   endAddress: IMapFeature | null
   mode: TravelMode
+  useTraffic: boolean
+  avoidFerries: boolean
+  trafficHour: number | null
+  trafficDayOfWeek: number | null
   setRoute: (route: Route | null) => void
   displayMessage: MessageContextType["displayMessage"]
 }
@@ -18,6 +22,10 @@ export const useRouteFetch = ({
   startAddress,
   endAddress,
   mode,
+  useTraffic,
+  avoidFerries,
+  trafficHour,
+  trafficDayOfWeek,
   setRoute,
   displayMessage,
 }: UseRouteFetchArgs) => {
@@ -63,26 +71,38 @@ export const useRouteFetch = ({
       const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
       try {
-        const response = await fetch(
-          `/api/route?orig=${startCoords}&dest=${endCoords}&mode=${mode}`,
-          { signal: controller.signal },
-        )
+        // Build URL with traffic and time parameters (only for drive mode)
+        let url = `/api/route?orig=${startCoords}&dest=${endCoords}&mode=${mode}`
+        if (mode === "drive") {
+          url += `&use_traffic=${useTraffic}`
+          if (useTraffic && trafficHour !== null && trafficDayOfWeek !== null) {
+            url += `&hour=${trafficHour}&day_of_week=${trafficDayOfWeek}`
+          }
+        }
+        if (mode === "bike" || mode === "walk") {
+          url += `&avoid_ferries=${avoidFerries}`
+        }
+        const response = await fetch(url, { signal: controller.signal })
 
         if (!response.ok) {
           // Try to get error message from response body, otherwise use statusText
           let errorText = response.statusText
           try {
             const errorData = await response.json()
-            if (errorData && errorData.message) {
+            // Backend returns error messages in 'detail' field (FastAPI standard)
+            if (errorData && errorData.detail) {
+              errorText = errorData.detail
+            } else if (errorData && errorData.message) {
               errorText = errorData.message
             }
           } catch (e) {
-            // Ignore if response is not json or doesn't have message
+            // Ignore if response is not json or doesn't have detail/message
           }
 
           // Provide user-friendly error messages based on status code
           if (response.status === 404) {
-            throw new Error("Route calculation endpoint not found.")
+            // 404 means no route found between locations (not endpoint missing)
+            throw new Error(errorText || "No route found between these locations.")
           } else if (response.status >= 500) {
             throw new Error("Server error. Please try again later.")
           } else {
@@ -120,7 +140,7 @@ export const useRouteFetch = ({
             "error",
           )
         } else {
-          displayMessage(`Error fetching route: ${error.message}`, "error")
+          displayMessage(error.message, "error")
         }
       } else {
         displayMessage("An unexpected error occurred.", "error")
@@ -128,7 +148,7 @@ export const useRouteFetch = ({
     } finally {
       setIsFetching(false)
     }
-  }, [startAddress, endAddress, mode, setRoute, displayMessage])
+  }, [startAddress, endAddress, mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek, setRoute, displayMessage])
 
   return { fetchRoute: fetchRouteCallback, isFetching }
 }

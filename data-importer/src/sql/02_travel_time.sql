@@ -129,10 +129,18 @@ END;
 UPDATE public.edges
 SET driveable = (featuretyp = '0' AND trafdir IN ('A', 'W', 'T'));
 
--- Walkable and Bikeable: Anywhere except NonPed='V' (Not Pedestrian)
+-- Walkable: Anywhere except NonPed='V' (vehicle-only)
 UPDATE public.edges
-SET walkable = (nonped IS NULL OR nonped <> 'V'),
-    bikeable = (nonped IS NULL OR nonped <> 'V');
+SET walkable = (nonped IS NULL OR nonped <> 'V');
+
+-- Bikeable: More restrictive than walking
+-- FeatureTyp='W' (non-vehicular paths) require explicit bike lane designation
+-- All other features: bikeable unless NonPed='V'
+UPDATE public.edges
+SET bikeable = CASE
+    WHEN featuretyp = 'W' THEN (bikelane IS NOT NULL AND TRIM(bikelane) != '')
+    ELSE (nonped IS NULL OR nonped <> 'V')
+END;
 
 -- Log mode restrictions
 DO $$
@@ -151,25 +159,33 @@ END $$;
 
 ---------------------------------------------
 -- Step 6: Calculate travel times for each mode
--- Drive: Based on posted_speed and length
+-- Drive: Based on posted_speed and length, adjusted by lane count
+--   - Highways (4+ lanes): 95% of posted speed (smoother flow)
+--   - Local streets (1-2 lanes): 80% of posted speed (more stops, turns)
+--   - Medium roads (3 lanes): 87.5% average
 -- Bike: Assumes 12 mph average speed
 -- Walk: Assumes 3 mph average speed
 ---------------------------------------------
 UPDATE public.edges
-SET time_drive = (length_feet / 5280.0) / (posted_speed / 60.0),  -- hours
+SET time_drive = CASE
+        WHEN number_travel_lanes >= 4 THEN (length_feet / 5280.0) / ((posted_speed * 0.95) / 60.0)
+        WHEN number_travel_lanes <= 2 THEN (length_feet / 5280.0) / ((posted_speed * 0.80) / 60.0)
+        ELSE (length_feet / 5280.0) / ((posted_speed * 0.875) / 60.0)
+    END,
     time_bike  = (length_feet / 5280.0) / 0.2,   -- 12 mph = 0.2 miles/minute
     time_walk  = (length_feet / 5280.0) / 0.05;  -- 3 mph = 0.05 miles/minute
 
 ---------------------------------------------
 -- Step 7: Special handling for Ferry routes (FeatureTyp='F')
--- Ferries carry vehicles and pedestrians at ~25 mph
--- Bikes and cars stay on vehicle (not ridden/driven)
+-- Ferries carry vehicles, bikes, and pedestrians at ~25 mph
+-- Per LION metadata: "Ferry routes required for bicycle routing within NYC"
+-- Add waiting time penalty (15 min average) to discourage unless necessary
 ---------------------------------------------
 UPDATE public.edges
-SET time_bike = (length_feet / 5280.0) / 0.42,  -- 25 mph = 0.42 miles/minute
-    time_walk = (length_feet / 5280.0) / 0.42,
-    bikeable  = FALSE,  -- Bikes carried, not ridden
-    driveable = FALSE,  -- Vehicles carried, not driven
+SET time_bike = ((length_feet / 5280.0) / 0.42) + (15.0 / 60.0),  -- Transit time + 15 min wait
+    time_walk = ((length_feet / 5280.0) / 0.42) + (15.0 / 60.0),  -- Transit time + 15 min wait
+    bikeable  = TRUE,   -- Bikes allowed on ferries (per LION metadata)
+    driveable = FALSE,  -- Private vehicles not included in routing (use transit mode)
     walkable  = TRUE    -- Pedestrians can walk on/off
 WHERE featuretyp = 'F';
 

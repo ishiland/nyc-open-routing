@@ -344,3 +344,207 @@ class TestErrorHandling:
         error_detail = response.json().get("detail", "")
         assert any(word in error_detail.lower() for word in ["coordinate", "bound", "range", "invalid"]), \
             f"Error message should mention invalid coordinates: {error_detail}"
+
+
+class TestFerryRouting:
+    """
+    Smoke tests for ferry routing functionality.
+
+    These tests verify that:
+    1. Staten Island Ferry connections work correctly (our manual fix in 09_ferry_connections.sql)
+    2. Other accessible NYC ferries remain routeable
+    3. Drive mode correctly avoids ferries and uses bridges/tunnels
+
+    See docs/STATEN_ISLAND_CONNECTIVITY_ISSUE.md for background on the ferry fix.
+    """
+
+    def test_staten_island_ferry_bike_route(self):
+        """
+        Test biking route using Staten Island Ferry.
+
+        This validates the manual ferry terminal connections created in 09_ferry_connections.sql.
+        The route should include the ferry crossing between St. George (Staten Island) and
+        Whitehall (Manhattan) terminals.
+        """
+        # St. George Terminal (Staten Island) to Whitehall Terminal (Manhattan)
+        orig_lon, orig_lat = (-74.0743, 40.6434)
+        dest_lon, dest_lat = (-74.0134, 40.7024)
+
+        response = requests.get(
+            f"{API_BASE_URL}/route",
+            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "bike"},
+            timeout=10
+        )
+
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        data = response.json()
+        validate_route_response(data)
+
+        # Verify the route includes the Staten Island Ferry
+        street_names = [feature["properties"]["street"] for feature in data["features"]]
+        assert any("STATEN ISLAND FERRY" in street.upper() for street in street_names), \
+            "Route should include Staten Island Ferry segment"
+
+    def test_staten_island_ferry_walk_route(self):
+        """
+        Test walking route using Staten Island Ferry.
+
+        This validates that pedestrians can use the ferry to travel between
+        Staten Island and Manhattan. The ferry allows walk-on passengers.
+        """
+        # St. George Terminal (Staten Island) to Whitehall Terminal (Manhattan)
+        orig_lon, orig_lat = (-74.0743, 40.6434)
+        dest_lon, dest_lat = (-74.0134, 40.7024)
+
+        response = requests.get(
+            f"{API_BASE_URL}/route",
+            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "walk"},
+            timeout=10
+        )
+
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        data = response.json()
+        validate_route_response(data)
+
+        # Verify the route includes the ferry
+        street_names = [feature["properties"]["street"] for feature in data["features"]]
+        assert any("STATEN ISLAND FERRY" in street.upper() for street in street_names), \
+            "Route should include Staten Island Ferry segment"
+
+        # Verify travel time is substantial (ferry crossing is ~40 minutes)
+        # Find the ferry segment and check its travel time
+        for feature in data["features"]:
+            if "STATEN ISLAND FERRY" in feature["properties"]["street"].upper():
+                travel_time = feature["properties"]["travel_time"]
+                assert travel_time > 30, \
+                    f"Ferry crossing should take >30 minutes, got {travel_time} minutes"
+                break
+
+    def test_staten_island_ferry_not_in_drive_mode(self):
+        """
+        Test that driving routes do NOT use the Staten Island Ferry.
+
+        Vehicles cannot use the Staten Island Ferry for routing between boroughs.
+        Drive mode should use the Verrazzano-Narrows Bridge instead.
+        """
+        # Staten Island interior to Manhattan
+        orig_lon, orig_lat = (-74.179451, 40.559705)  # Staten Island
+        dest_lon, dest_lat = (-74.0060, 40.7128)      # Manhattan City Hall
+
+        response = requests.get(
+            f"{API_BASE_URL}/route",
+            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "drive"},
+            timeout=10
+        )
+
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        data = response.json()
+        validate_route_response(data)
+
+        # Verify the route does NOT include the Staten Island Ferry
+        street_names = [feature["properties"]["street"] for feature in data["features"]]
+        assert not any("STATEN ISLAND FERRY" in street.upper() for street in street_names), \
+            "Drive mode should NOT use Staten Island Ferry"
+
+        # Route should use a bridge or highway
+        route_text = " ".join(street_names).upper()
+        assert any(keyword in route_text for keyword in ["BRIDGE", "EXPRESSWAY", "HIGHWAY", "VERRAZANO"]), \
+            "Drive route should use bridges/highways, not ferry"
+
+    def test_governors_island_area_walk_route(self):
+        """
+        Test walking route in Governors Island ferry area.
+
+        This validates that routes near Governors Island ferry terminals work correctly.
+        The router may choose land routes over ferry if they're more efficient, but
+        the route should succeed without errors.
+        """
+        # Battery Maritime Terminal area to nearby Manhattan location
+        orig_lon, orig_lat = (-74.0120, 40.7007)
+        dest_lon, dest_lat = (-74.0056, 40.7028)
+
+        response = requests.get(
+            f"{API_BASE_URL}/route",
+            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "walk"},
+            timeout=10
+        )
+
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        data = response.json()
+        validate_route_response(data)
+
+        # Route should succeed (validates ferry terminals don't break routing)
+        assert len(data["features"]) > 0, "Route should return segments"
+
+    def test_governors_island_area_bike_route(self):
+        """
+        Test biking route in Governors Island ferry area.
+
+        This validates that bike routes near Governors Island work correctly.
+        The router may choose land routes or ferry depending on efficiency.
+        """
+        # Battery Maritime Terminal area to nearby Manhattan location
+        orig_lon, orig_lat = (-74.0120, 40.7007)
+        dest_lon, dest_lat = (-74.0056, 40.7028)
+
+        response = requests.get(
+            f"{API_BASE_URL}/route",
+            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "bike"},
+            timeout=10
+        )
+
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        data = response.json()
+        validate_route_response(data)
+
+        # Route should succeed
+        assert len(data["features"]) > 0, "Route should return segments"
+
+    def test_dumbo_red_hook_ferry_bike_route(self):
+        """
+        Test biking route using Brooklyn waterfront ferry (DUMBO to Red Hook).
+
+        This validates that NYC Ferry East River routes are accessible for bike routing.
+        The route may or may not use the ferry depending on routing preferences,
+        but it should not fail.
+        """
+        # Red Hook Terminal to DUMBO Terminal (Brooklyn waterfront)
+        orig_lon, orig_lat = (-74.0180, 40.6739)
+        dest_lon, dest_lat = (-73.9959, 40.7033)
+
+        response = requests.get(
+            f"{API_BASE_URL}/route",
+            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "bike"},
+            timeout=10
+        )
+
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        data = response.json()
+        validate_route_response(data)
+
+        # Route should succeed - ferry is one option, but land route also exists
+        assert len(data["features"]) > 0, "Route should return segments"
+
+    def test_dumbo_south_williamsburg_ferry_walk_route(self):
+        """
+        Test walking route in area served by DUMBO-South Williamsburg ferry.
+
+        This validates that ferry connections to bridge bike paths work correctly.
+        The route should succeed whether using ferry or bridges.
+        """
+        # Near Manhattan Bridge to Brooklyn Bridge area
+        orig_lon, orig_lat = (-73.9899, 40.7064)
+        dest_lon, dest_lat = (-73.9950, 40.7046)
+
+        response = requests.get(
+            f"{API_BASE_URL}/route",
+            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "walk"},
+            timeout=10
+        )
+
+        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        data = response.json()
+        validate_route_response(data)
+
+        # Route should succeed (validates ferry doesn't break routing in this area)
+        assert len(data["features"]) > 0, "Route should return segments"

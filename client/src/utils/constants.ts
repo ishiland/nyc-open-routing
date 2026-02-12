@@ -48,8 +48,29 @@ export const ROUTE_FETCH_TIMEOUT_MS = 30000 // 30 seconds
 // UI Dimensions
 // =======================
 export const SIDEBAR_WIDTH_PX = 330
+export const SIDEBAR_WIDTH_TABLET_PX = 280
 export const DROPDOWN_Z_INDEX = 101
 export const OVERLAY_Z_INDEX = 999
+export const BOTTOM_SHEET_Z_INDEX = 1200
+
+// =======================
+// Responsive Breakpoints (matches theme.ts)
+// =======================
+export const BREAKPOINTS = {
+  MOBILE: 600,           // 0-599px
+  TABLET: 905,           // 600-904px
+  DESKTOP: 1240,         // 905-1239px
+  LARGE_DESKTOP: 1440,   // 1240px+
+} as const
+
+// =======================
+// Touch & Mobile
+// =======================
+export const MIN_TOUCH_TARGET_PX = 44 // WCAG 2.1 Level AAA
+export const MOBILE_FONT_SIZE_PX = 16  // Prevents iOS zoom on focus
+export const BOTTOM_SHEET_SNAP_POINTS = [0.4, 0.6, 0.9] // 40%, 60%, 90% of viewport height
+export const BOTTOM_SHEET_DRAG_HANDLE_HEIGHT_PX = 36
+export const SWIPE_THRESHOLD_PX = 20 // Minimum swipe distance
 
 // =======================
 // Accessibility

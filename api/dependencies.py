@@ -34,10 +34,10 @@ def load_sql_queries() -> Dict[str, str]:
 # Create shared instances with connection pooling
 _db_engine = create_engine(
     settings.DATABASE_URI,
-    pool_size=5,                # Number of permanent connections
-    max_overflow=10,            # Max connections beyond pool_size
-    pool_timeout=30,            # Seconds to wait for connection
-    pool_recycle=3600,          # Recycle connections after 1 hour
+    pool_size=20,               # Number of permanent connections (Phase 2 optimization: 5→20)
+    max_overflow=30,            # Max connections beyond pool_size (Phase 2 optimization: 10→30, total: 50)
+    pool_timeout=10,            # Seconds to wait for connection (Phase 2 optimization: 30→10, fail faster)
+    pool_recycle=1800,          # Recycle connections after 30 min (Phase 2 optimization: 3600→1800)
     pool_pre_ping=True,         # Test connections before using
     echo=False                  # Set to True for SQL debugging
 )
