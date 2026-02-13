@@ -102,20 +102,35 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
   return (
     <div
       style={{
-        display: "flex",
         width: "100%",
         height: "100dvh",
         position: "relative",
       }}
     >
+      {/* Map fills the entire viewport */}
+      <main
+        id="main-content"
+        role="main"
+        aria-label="Interactive map"
+        style={{ width: "100%", height: "100%", overflow: "hidden" }}
+      >
+        {map}
+      </main>
+
+      {/* Sidebar overlays the map */}
       <aside
         aria-label="Route controls"
         onTransitionEnd={handleTransitionEnd}
         style={{
+          position: "absolute",
+          top: 0,
+          left: 0,
           width: `${sidebarWidth}px`,
+          maxHeight: "100%",
+          overflowY: "auto",
+          overflowX: "hidden",
           transition: "width 250ms ease-in-out",
-          overflow: "hidden",
-          flexShrink: 0,
+          zIndex: 1050,
         }}
       >
         {isCollapsed ? (
@@ -159,7 +174,7 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
         )}
       </aside>
 
-      {/* Collapse/expand toggle — positioned outside the sidebar on the map edge */}
+      {/* Collapse/expand toggle — positioned on the sidebar edge */}
       <IconButton
         ref={expandBtnRef}
         onClick={handleToggle}
@@ -190,15 +205,6 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
           <ChevronLeft fontSize="small" />
         )}
       </IconButton>
-
-      <main
-        id="main-content"
-        role="main"
-        aria-label="Interactive map"
-        style={{ flex: 1, overflow: "hidden" }}
-      >
-        {map}
-      </main>
     </div>
   )
 }

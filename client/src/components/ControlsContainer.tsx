@@ -16,7 +16,6 @@ const ControlsContainerComponent: React.FC<ControlsContainerProps> = ({
       square
       sx={{
         width: "100%",
-        height: "100%",
         display: "flex",
         flexDirection: "column",
       }}
@@ -28,7 +27,7 @@ const ControlsContainerComponent: React.FC<ControlsContainerProps> = ({
         <TrafficToggle />
         <FerryToggle />
       </Box>
-      <Box sx={{ padding: 1.5, overflowY: "auto", flexGrow: 1 }}>{children}</Box>
+      <Box sx={{ padding: 1.5, overflowY: "auto" }}>{children}</Box>
     </Paper>
   )
 }
