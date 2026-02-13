@@ -8,6 +8,7 @@ import { RouteList } from "./controls/RouteList"
 import { ButtonControls } from "./controls/ButtonControls"
 import Message from "./shared/Message"
 import { RoutingContext } from "../contexts/RoutingContext"
+import { SIDEBAR_WIDTH_PX } from "../utils/constants"
 
 const Sidebar: React.FC = () => {
   const { swapAddresses, startAddress, endAddress } = useContext(RoutingContext)
@@ -17,7 +18,7 @@ const Sidebar: React.FC = () => {
 
   return (
     <aside
-      style={{ width: "400px", height: "100vh", overflowY: "auto" }}
+      style={{ width: `${SIDEBAR_WIDTH_PX}px`, height: "100dvh", overflowY: "auto" }}
       aria-label="Route planning controls"
     >
       <nav aria-label="Address input and routing">

@@ -47,11 +47,13 @@ export const ROUTE_FETCH_TIMEOUT_MS = 30000 // 30 seconds
 // =======================
 // UI Dimensions
 // =======================
-export const SIDEBAR_WIDTH_PX = 330
-export const SIDEBAR_WIDTH_TABLET_PX = 280
+export const SIDEBAR_WIDTH_PX = 400
+export const SIDEBAR_WIDTH_TABLET_PX = 340
+export const SIDEBAR_COLLAPSED_WIDTH_PX = 56
 export const DROPDOWN_Z_INDEX = 101
 export const OVERLAY_Z_INDEX = 999
 export const BOTTOM_SHEET_Z_INDEX = 1200
+export const MAP_CONTROLS_Z_INDEX = 1050
 
 // =======================
 // Responsive Breakpoints (matches theme.ts)

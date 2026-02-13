@@ -28,7 +28,7 @@ import { ZoomToRouteButton } from "./controls/ZoomToRouteButton"
 import { MapControls } from "./controls/MapControls"
 
 const styles: React.CSSProperties = {
-  height: "100vh",
+  height: "100dvh",
   flex: 1,
 }
 

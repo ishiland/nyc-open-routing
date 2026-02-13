@@ -3,6 +3,7 @@ import { useResponsive } from "../../hooks/useResponsive"
 import { LoadingSpinner } from "../shared/LoadingSpinner"
 import { BottomSheet } from "../mobile/BottomSheet"
 import Sidebar from "../Sidebar"
+import { SIDEBAR_WIDTH_PX, SIDEBAR_WIDTH_TABLET_PX } from "../../utils/constants"
 
 interface AdaptiveLayoutProps {
   sidebar: React.ReactNode
@@ -22,7 +23,7 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
   // Mobile layout: Bottom sheet over full-screen map
   if (isMobile) {
     return (
-      <div style={{ display: "flex", width: "100%", height: "100vh" }}>
+      <div style={{ display: "flex", width: "100%", height: "100dvh" }}>
         {/* Full-screen map */}
         <main
           id="main-content"
@@ -45,12 +46,12 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
 
   // Tablet/Desktop layout: Sidebar + Map (existing layout)
   return (
-    <div style={{ display: "flex", width: "100%", height: "100vh" }}>
+    <div style={{ display: "flex", width: "100%", height: "100dvh" }}>
       <aside
         aria-label="Route controls"
         style={{
           flexShrink: 0,
-          width: isTabletOrBelow ? "340px" : "400px",
+          width: isTabletOrBelow ? `${SIDEBAR_WIDTH_TABLET_PX}px` : `${SIDEBAR_WIDTH_PX}px`,
         }}
       >
         <Suspense fallback={<LoadingSpinner message="Loading controls..." />}>
