@@ -195,6 +195,28 @@ const theme = createTheme({
         },
       },
     },
+    MuiToggleButton: {
+      styleOverrides: {
+        root: {
+          fontWeight: 600,
+          textTransform: "none" as const,
+          borderRadius: 6,
+          minHeight: 44,
+          "&:focus-visible": {
+            outline: "3px solid",
+            outlineColor: MTA_BLUE,
+            outlineOffset: "2px",
+          },
+        },
+      },
+    },
+    MuiToggleButtonGroup: {
+      styleOverrides: {
+        root: {
+          borderRadius: 6,
+        },
+      },
+    },
     MuiTab: {
       styleOverrides: {
         root: {

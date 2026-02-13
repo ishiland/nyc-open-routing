@@ -1,54 +1,60 @@
 import React, { useContext } from "react"
-import AppBar from "@mui/material/AppBar"
-import Tabs from "@mui/material/Tabs"
-import Tab from "@mui/material/Tab"
+import ToggleButtonGroup from "@mui/material/ToggleButtonGroup"
+import ToggleButton from "@mui/material/ToggleButton"
 import {
   DirectionsBike,
   DirectionsCar,
   DirectionsWalk,
 } from "@mui/icons-material"
 import { RoutingContext, TravelMode } from "../../contexts/RoutingContext"
+import { MODE_COLORS } from "../../utils/theme"
 
 export const TravelModeSelect: React.FC = () => {
   const { mode, setMode } = useContext(RoutingContext)
 
-  const tabSx = {
-    minWidth: "auto",
-    flexGrow: 1,
-    minHeight: 64, // Increased height for icon + label
-  }
-
   return (
-    <AppBar position="static" color="default">
-      <Tabs
-        value={mode}
-        onChange={(event, newValue: TravelMode) => setMode(newValue)}
-        indicatorColor="primary"
-        textColor="primary"
-        variant="fullWidth"
+    <ToggleButtonGroup
+      value={mode}
+      exclusive
+      onChange={(_, newMode: TravelMode | null) => newMode && setMode(newMode)}
+      aria-label="Travel mode"
+      fullWidth
+      size="small"
+      sx={{
+        "& .Mui-selected": {
+          bgcolor: MODE_COLORS[mode] + " !important",
+          color: "#fff !important",
+          "&:hover": {
+            bgcolor: MODE_COLORS[mode] + " !important",
+            opacity: 0.9,
+          },
+        },
+      }}
+    >
+      <ToggleButton
+        value="drive"
+        aria-label="Driving directions"
+        sx={{ minHeight: 44, gap: 0.5 }}
       >
-        <Tab
-          icon={<DirectionsCar />}
-          label="Drive"
-          value="drive"
-          sx={tabSx}
-          aria-label="Driving Directions"
-        />
-        <Tab
-          icon={<DirectionsBike />}
-          label="Bike"
-          value="bike"
-          sx={tabSx}
-          aria-label="Biking Directions"
-        />
-        <Tab
-          icon={<DirectionsWalk />}
-          label="Walk"
-          value="walk"
-          sx={tabSx}
-          aria-label="Walking Directions"
-        />
-      </Tabs>
-    </AppBar>
+        <DirectionsCar fontSize="small" />
+        Drive
+      </ToggleButton>
+      <ToggleButton
+        value="bike"
+        aria-label="Biking directions"
+        sx={{ minHeight: 44, gap: 0.5 }}
+      >
+        <DirectionsBike fontSize="small" />
+        Bike
+      </ToggleButton>
+      <ToggleButton
+        value="walk"
+        aria-label="Walking directions"
+        sx={{ minHeight: 44, gap: 0.5 }}
+      >
+        <DirectionsWalk fontSize="small" />
+        Walk
+      </ToggleButton>
+    </ToggleButtonGroup>
   )
 }
