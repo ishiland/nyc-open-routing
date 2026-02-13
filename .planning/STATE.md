@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-12)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** Phase 3 - Sidebar Redesign (in progress)
+**Current focus:** Phase 3 - Sidebar Redesign (complete)
 
 ## Current Position
 
 Phase: 3 of 5 (Sidebar Redesign)
-Plan: 1 of 2 complete
-Status: In progress
-Last activity: 2026-02-13 — Completed 03-01 Compact Sidebar Header
+Plan: 2 of 2 complete
+Status: Phase 3 complete
+Last activity: 2026-02-13 — Completed 03-02 Compact Inputs and Transit Controls
 
-Progress: [████▓░░░░░] 45%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 4
-- Average duration: ~10 min
-- Total execution time: ~0.6 hours
+- Total plans completed: 5
+- Average duration: ~8 min
+- Total execution time: ~0.7 hours
 
 **By Phase:**
 
@@ -29,11 +29,11 @@ Progress: [████▓░░░░░] 45%
 |-------|-------|-------|----------|
 | 01-design-system-foundation | 1 | ~3 min | ~3 min |
 | 02-responsive-layout-system | 2 | ~32 min | ~16 min |
-| 03-sidebar-redesign | 1 | ~2 min | ~2 min |
+| 03-sidebar-redesign | 2 | ~4 min | ~2 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (~3 min), 02-01 (~2 min), 02-02 (~30 min), 03-01 (~2 min)
-- Trend: stable (03-01 straightforward styling changes, no checkpoint needed)
+- Last 5 plans: 01-01 (~3 min), 02-01 (~2 min), 02-02 (~30 min), 03-01 (~2 min), 03-02 (~2 min)
+- Trend: stable (03-02 compact inputs and transit controls, straightforward styling)
 
 *Updated after each plan completion*
 
@@ -63,6 +63,9 @@ Recent decisions affecting current work:
 - [Phase 03]: ToggleButtonGroup with exclusive prop replaces AppBar+Tabs for travel mode selection
 - [Phase 03]: MODE_COLORS drives selected button background color dynamically per mode
 - [Phase 03]: Inline Switch+icon+label pattern replaces FormControlLabel for compact toggle rows
+- [Phase 03]: slotProps.input/slotProps.htmlInput replaces deprecated InputProps/inputProps on MUI TextFields
+- [Phase 03]: Transit Fab pattern: white bg, primary.main icon, hover fills primary.main with contrastText
+- [Phase 03]: Tests use getByLabelText over getByPlaceholderText for resilience
 
 ### Pending Todos
 
@@ -75,9 +78,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-13
-Stopped at: Completed 03-01-PLAN.md (Compact Sidebar Header) — Phase 3 plan 1 of 2 done
+Stopped at: Completed 03-02-PLAN.md (Compact Inputs and Transit Controls) — Phase 3 complete
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-13 after completing 03-01 plan*
+*Last updated: 2026-02-13 after completing 03-02 plan (Phase 3 complete)*
