@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 
 Milestone: v1.1 UI Polish
 Phase: 6 of 6 (Bug Fixes and UX Polish)
-Plan: 0 of TBD in current phase
-Status: Ready to plan
-Last activity: 2026-02-13 — Roadmap created for v1.1
+Plan: 1 of 3 in current phase
+Status: Executing
+Last activity: 2026-02-13 — Completed 06-01-PLAN.md
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
@@ -25,7 +25,7 @@ Progress: [░░░░░░░░░░] 0%
 - Total execution time: —
 
 **Recent Trend:**
-- Starting new milestone, no v1.1 data yet
+- 06-01: 1min, 2 tasks, 2 files
 
 ## Accumulated Context
 
@@ -37,6 +37,7 @@ Recent decisions affecting current work:
 - [v1.1 Roadmap]: Single phase for all 6 fixes — all are component-level, no architectural changes
 - [v1.1 Research]: Z-index fix is prerequisite for mobile autocomplete fix (plan ordering, not phase boundary)
 - [v1.1 Research]: Zero new dependencies needed — all fixes use existing MUI/React/CSS APIs
+- [Phase 06]: top:48 for collapse button (40px TitleBar + 8px gap) to avoid info button overlap
 
 ### Pending Todos
 
@@ -49,9 +50,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-13
-Stopped at: v1.1 roadmap created, ready to plan Phase 6
+Stopped at: Completed 06-01-PLAN.md
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-13 after v1.1 roadmap creation*
+*Last updated: 2026-02-13 after 06-01 plan execution*
