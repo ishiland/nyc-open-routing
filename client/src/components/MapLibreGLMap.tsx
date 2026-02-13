@@ -242,7 +242,8 @@ const MapLibreGLMap: React.FC = () => {
       if (map.loaded()) {
         zoomToExtent(route.features)
       } else {
-        const handler = () => zoomToExtent(route.features)
+        const features = route.features
+        const handler = () => zoomToExtent(features)
         map.once('idle', handler)
         return () => { map.off('idle', handler) }
       }
