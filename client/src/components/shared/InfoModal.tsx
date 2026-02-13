@@ -33,6 +33,7 @@ const InfoModal: React.FC = () => {
     <Box>
       <Button
         onClick={handleOpen}
+        aria-label="About NYC Open Routing"
         sx={{
           color: "white",
         }}

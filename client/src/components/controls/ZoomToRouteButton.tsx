@@ -62,6 +62,7 @@ export const ZoomToRouteButton: React.FC = () => {
         color="primary"
         size="small"
         onClick={handleZoomToRoute}
+        aria-label="Zoom to route"
         sx={{
           position: "absolute",
           bottom: isMobile ? "calc(40% + 16px)" : 24,

@@ -57,6 +57,7 @@ const RouteListComponent: React.FC = () => {
                 <ListItemButton
                   onClick={() => handleStreetSelect(street)}
                   selected={isActive}
+                  aria-label={street.properties.turn_instruction || street.properties.street}
                   sx={{
                     "&.Mui-selected": {
                       bgcolor: `${MODE_COLORS[mode]}14`,

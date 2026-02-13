@@ -34,8 +34,8 @@ const Sidebar: React.FC = () => {
                       transform: "rotate(90deg)",
                       bgcolor: "action.hover",
                       transition: "all 0.2s ease-in-out",
-                      minWidth: 32,
-                      minHeight: 32,
+                      minWidth: 44,
+                      minHeight: 44,
                       "&:hover": {
                         bgcolor: "action.selected",
                         transform: "rotate(90deg) scale(1.15)",

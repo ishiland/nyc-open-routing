@@ -9,6 +9,10 @@ import {
 import { RoutingContext, TravelMode } from "../../contexts/RoutingContext"
 import { MODE_COLORS } from "../../utils/theme"
 
+/** Return text color with sufficient contrast for the mode's background */
+const getContrastText = (m: TravelMode): string =>
+  m === "walk" ? "#000" : "#fff"
+
 export const TravelModeSelect: React.FC = () => {
   const { mode, setMode } = useContext(RoutingContext)
 
@@ -23,7 +27,7 @@ export const TravelModeSelect: React.FC = () => {
       sx={{
         "& .Mui-selected": {
           bgcolor: MODE_COLORS[mode] + " !important",
-          color: "#fff !important",
+          color: getContrastText(mode) + " !important",
           "&:hover": {
             bgcolor: MODE_COLORS[mode] + " !important",
             opacity: 0.9,

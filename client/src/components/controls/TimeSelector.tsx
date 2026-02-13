@@ -96,6 +96,7 @@ export function TimeSelector() {
           min={0}
           max={23}
           step={1}
+          aria-label="Hour of day"
           marks={[
             { value: 0, label: "12 AM" },
             { value: 6, label: "6 AM" },

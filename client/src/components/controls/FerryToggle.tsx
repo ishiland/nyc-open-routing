@@ -32,6 +32,7 @@ export function FerryToggle() {
           checked={avoidFerries}
           onChange={e => setAvoidFerries(e.target.checked)}
           color="primary"
+          inputProps={{ "aria-label": "Avoid ferries" }}
         />
         <DirectionsBoatIcon fontSize="small" sx={{ color: "primary.main" }} />
         <Typography variant="caption" fontWeight={500}>
