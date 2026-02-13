@@ -1,3 +1,5 @@
+import { MODE_COLORS } from "./theme"
+
 // Enhanced marker styling with better visibility
 export const addressPointPaint = {
   "circle-stroke-width": 4,
@@ -31,7 +33,7 @@ export const trafficColorScale = {
 // Static route paint for non-traffic routes (default/fallback)
 export const routePaint = {
   "line-width": 5,
-  "line-color": "#007cbf",
+  "line-color": MODE_COLORS.drive,
 }
 
 // Mode-specific route paint styles
@@ -52,20 +54,20 @@ export const getModeRoutePaint = (mode: "drive" | "bike" | "walk") => {
     case "walk":
       return {
         ...baseStyle,
-        "line-color": "#22c55e",  // Green for walking
+        "line-color": MODE_COLORS.walk,  // Dark orange for walking
         "line-dasharray": [2, 2] as any,  // Dotted pattern
       }
     case "bike":
       return {
         ...baseStyle,
-        "line-color": "#f97316",  // Orange for biking
+        "line-color": MODE_COLORS.bike,  // Dark green for biking
         "line-dasharray": [4, 2] as any,  // Dashed pattern
       }
     case "drive":
     default:
       return {
         ...baseStyle,
-        "line-color": "#007cbf",  // Blue for driving
+        "line-color": MODE_COLORS.drive,  // MTA Blue for driving
         "line-dasharray": null,  // Explicitly reset to solid line (removes dashed pattern)
       }
   }
