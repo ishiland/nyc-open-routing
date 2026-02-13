@@ -30,10 +30,10 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. All interactive elements have compact spacing (tighter than default MUI)
   4. Travel modes display distinct color accents (drive=MTA blue, bike=green, walk=orange)
   5. All components share consistent border radius, elevation, and shape tokens
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 01-01: TBD during phase planning
+- [ ] 01-01-PLAN.md — MTA design tokens, Inter font, compact spacing, mode colors, component overrides
 
 ### Phase 2: Responsive Layout System
 **Goal**: Deliver polished adaptive layout with tablet/mobile optimization and gesture conflict resolution
@@ -103,7 +103,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Design System Foundation | 0/TBD | Not started | - |
+| 1. Design System Foundation | 0/1 | Not started | - |
 | 2. Responsive Layout System | 0/TBD | Not started | - |
 | 3. Sidebar Redesign | 0/TBD | Not started | - |
 | 4. Route Display Polish | 0/TBD | Not started | - |
