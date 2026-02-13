@@ -103,7 +103,7 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           sx={{
             position: "absolute",
-            top: 8,
+            top: 48,
             right: 8,
             zIndex: 1,
             minWidth: 44,
