@@ -47,10 +47,11 @@ Plans:
   5. Map remains interactive behind/around bottom sheet on mobile
   6. Desktop sidebar collapses/expands smoothly to maximize map space
   7. Map attribution and controls don't clash with sidebar/bottom sheet
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD during phase planning
+- [ ] 02-01-PLAN.md — Consolidate width constants, fix viewport units (100dvh), harden bottom sheet gesture isolation
+- [ ] 02-02-PLAN.md — Desktop sidebar collapse/expand with CSS transition, responsive map control positioning
 
 ### Phase 3: Sidebar Redesign
 **Goal**: Compact, transit-inspired sidebar with polished search, mode selector, and map controls
@@ -104,7 +105,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Design System Foundation | 0/1 | Not started | - |
-| 2. Responsive Layout System | 0/TBD | Not started | - |
+| 2. Responsive Layout System | 0/2 | Not started | - |
 | 3. Sidebar Redesign | 0/TBD | Not started | - |
 | 4. Route Display Polish | 0/TBD | Not started | - |
 | 5. Accessibility Audit | 0/TBD | Not started | - |
