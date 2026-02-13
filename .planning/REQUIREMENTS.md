@@ -1,0 +1,73 @@
+# Requirements: NYC Open Routing v1.1 UI Polish
+
+**Defined:** 2026-02-13
+**Core Value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
+
+## v1.1 Requirements
+
+Requirements for the UI polish milestone. Each maps to roadmap phases.
+
+### Bug Fixes
+
+- [ ] **BUG-01**: Sidebar collapse toggle is integrated into TitleBar, eliminating info button click interception
+- [ ] **BUG-02**: Shared deep links correctly restore the travel mode parameter on page load
+- [ ] **BUG-03**: Mobile autocomplete suggestions are visible above the bottom sheet on mobile devices
+
+### Sidebar Polish
+
+- [ ] **SB-01**: Collapsed sidebar displays icon rail with current travel mode indicator and tooltips
+- [ ] **SB-02**: Sidebar shows contextual hint text when no route has been calculated
+
+### Map Polish
+
+- [ ] **MAP-01**: Map controls appear smoothly on initial page load without flash or pop-in
+
+## Future Requirements
+
+Deferred to future release. Tracked but not in current roadmap.
+
+### Visual Enhancements
+
+- **VE-01**: Dark mode theme variant
+- **VE-02**: Transit-inspired loading animations (subway-style progress)
+- **VE-03**: Custom map tile styling to match transit theme
+
+### Advanced Mobile
+
+- **AM-01**: Haptic feedback on bottom sheet snap points (native apps only)
+- **AM-02**: PWA support with install prompt
+- **AM-03**: Offline-capable route display
+
+## Out of Scope
+
+| Feature | Reason |
+|---------|--------|
+| Backend/API changes | Frontend-only polish, routing logic untouched |
+| New routing modes (transit, etc.) | UI polish, not feature expansion |
+| Animation libraries (framer-motion, react-spring) | CSS transitions sufficient |
+| Dark mode | Ship one strong identity first |
+| Full routing in collapsed sidebar | Collapsed state is informational, not interactive |
+| Custom map tiles | Map tiles stay as-is, only UI chrome changes |
+| Elaborate empty state illustrations | Wrong tone for utility app; text hints sufficient |
+
+## Traceability
+
+Which phases cover which requirements. Updated during roadmap creation.
+
+| Requirement | Phase | Status |
+|-------------|-------|--------|
+| BUG-01 | — | Pending |
+| BUG-02 | — | Pending |
+| BUG-03 | — | Pending |
+| SB-01 | — | Pending |
+| SB-02 | — | Pending |
+| MAP-01 | — | Pending |
+
+**Coverage:**
+- v1.1 requirements: 6 total
+- Mapped to phases: 0
+- Unmapped: 6 ⚠️
+
+---
+*Requirements defined: 2026-02-13*
+*Last updated: 2026-02-13 after initial definition*
