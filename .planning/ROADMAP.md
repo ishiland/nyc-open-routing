@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Responsive Layout System** - Polished adaptive layout with gesture conflict resolution
 - [x] **Phase 3: Sidebar Redesign** - Compact sidebar with transit-inspired controls
 - [x] **Phase 4: Route Display Polish** - Polished route cards and turn-by-turn with transit aesthetic
-- [ ] **Phase 5: Accessibility Audit** - WCAG 2.1 Level AA compliance verification
+- [x] **Phase 5: Accessibility Audit** - WCAG 2.1 Level AA compliance verification
 
 ## Phase Details
 
@@ -96,8 +96,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 05-01-PLAN.md — Fix contrast, ARIA labels, touch targets, keyboard support, and focus management across 10 components
-- [ ] 05-02-PLAN.md — Install vitest-axe and write automated accessibility tests for WCAG AA compliance
+- [x] 05-01-PLAN.md — Fix contrast, ARIA labels, touch targets, keyboard support, and focus management across 10 components
+- [x] 05-02-PLAN.md — Install vitest-axe and write automated accessibility tests for WCAG AA compliance
 
 ## Progress
 
@@ -110,8 +110,8 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Responsive Layout System | 2/2 | Complete | 2026-02-13 |
 | 3. Sidebar Redesign | 2/2 | Complete | 2026-02-13 |
 | 4. Route Display Polish | 1/1 | Complete | 2026-02-13 |
-| 5. Accessibility Audit | 0/2 | Not started | - |
+| 5. Accessibility Audit | 2/2 | Complete | 2026-02-13 |
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-13 after completing Phase 4*
+*Last updated: 2026-02-13 after completing Phase 5 — ALL PHASES COMPLETE*
