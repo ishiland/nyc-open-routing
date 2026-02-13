@@ -49,27 +49,37 @@ declare module "@mui/material/styles" {
   }
 }
 
+// MTA color constants
+const MTA_BLUE = "#0039A6"
+const MTA_RED = "#EE352E"
+const MTA_ORANGE = "#FF6319"
+
 // Shared source of truth for mode-specific colors, consumed by style.ts
 export const MODE_COLORS = {
-  drive: "#0039A6", // MTA Blue
+  drive: MTA_BLUE,
   bike: "#087F23", // Accessible dark green (5.16:1 vs white)
   walk: "#E65100", // Accessible dark orange (3.79:1 vs white)
 } as const
 
-// First pass: base palette so augmentColor is available
-const base = createTheme({
+const theme = createTheme({
   cssVariables: true,
   palette: {
     primary: {
-      main: "#0039A6", // MTA Blue
+      main: MTA_BLUE,
       contrastText: "#ffffff",
     },
     secondary: {
-      main: "#EE352E", // MTA Red
+      main: MTA_RED,
       contrastText: "#000000", // Black text — red fails white AA at 4.05:1
     },
+    accent: {
+      main: MTA_ORANGE,
+      light: "#FF8A50",
+      dark: "#C43E00",
+      contrastText: "#000000", // Black text — orange fails white AA
+    },
     error: {
-      main: "#EE352E",
+      main: MTA_RED,
     },
     background: {
       default: "#f5f5f5",
@@ -79,18 +89,6 @@ const base = createTheme({
       disabledBackground: "rgba(0, 0, 0, 0.12)",
       disabled: "rgba(0, 0, 0, 0.38)",
     },
-  },
-})
-
-// Second pass: full theme with augmented accent palette and component overrides
-const theme = createTheme({
-  ...base,
-  palette: {
-    ...base.palette,
-    accent: base.palette.augmentColor({
-      color: { main: "#FF6319" },
-      name: "accent",
-    }),
   },
   breakpoints: {
     values: {
@@ -103,7 +101,7 @@ const theme = createTheme({
   },
   typography: {
     fontFamily: "'Inter Variable', sans-serif",
-    fontSize: 14, // MUI default (NOT 16 — see research pitfall 3)
+    fontSize: 14,
     htmlFontSize: 16,
     h1: { fontWeight: 700, fontSize: "2rem" },
     h2: { fontWeight: 700, fontSize: "1.75rem" },
@@ -137,7 +135,7 @@ const theme = createTheme({
           minHeight: 44, // WCAG minimum touch target
           "&:focus-visible": {
             outline: "3px solid",
-            outlineColor: base.palette.primary.main,
+            outlineColor: MTA_BLUE,
             outlineOffset: "2px",
           },
           "&.Mui-disabled": {
@@ -150,11 +148,9 @@ const theme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          elevation: 0,
           boxShadow: "none",
           borderRadius: 8,
-          border: "1px solid",
-          borderColor: base.palette.divider,
+          border: "1px solid rgba(0, 0, 0, 0.12)",
         },
       },
     },
@@ -172,7 +168,7 @@ const theme = createTheme({
           minWidth: 44,
           "&:focus-visible": {
             outline: "3px solid",
-            outlineColor: base.palette.primary.main,
+            outlineColor: MTA_BLUE,
             outlineOffset: "2px",
           },
         },
@@ -193,7 +189,7 @@ const theme = createTheme({
           minHeight: 44, // WCAG minimum touch target
           "&:focus-visible": {
             outline: "2px solid",
-            outlineColor: base.palette.primary.main,
+            outlineColor: MTA_BLUE,
             outlineOffset: "-2px",
           },
         },
@@ -218,8 +214,8 @@ const theme = createTheme({
   },
   modeColors: MODE_COLORS,
   map: {
-    startPoint: { color: "#22c55e" }, // Green for start (universal convention)
-    endPoint: { color: "#ef4444" }, // Red for end (universal convention)
+    startPoint: { color: "#22c55e" },
+    endPoint: { color: "#ef4444" },
     route: { color: MODE_COLORS.drive, width: 5 },
     point: {
       radius: 8,
