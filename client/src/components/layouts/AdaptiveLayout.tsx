@@ -97,43 +97,34 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
   // Tablet/Desktop layout: Collapsible sidebar + Map
   const expandedWidth = isTabletOrBelow ? SIDEBAR_WIDTH_TABLET_PX : SIDEBAR_WIDTH_PX
 
+  const sidebarWidth = isCollapsed ? SIDEBAR_COLLAPSED_WIDTH_PX : expandedWidth
+
   return (
-    <div style={{ display: "flex", width: "100%", height: "100dvh" }}>
+    <div
+      style={{
+        display: "flex",
+        width: "100%",
+        height: "100dvh",
+        position: "relative",
+      }}
+    >
       <aside
         aria-label="Route controls"
         onTransitionEnd={handleTransitionEnd}
         style={{
-          width: isCollapsed
-            ? `${SIDEBAR_COLLAPSED_WIDTH_PX}px`
-            : `${expandedWidth}px`,
+          width: `${sidebarWidth}px`,
           transition: "width 250ms ease-in-out",
           overflow: "hidden",
           flexShrink: 0,
-          position: "relative",
         }}
       >
-        <IconButton
-          ref={expandBtnRef}
-          onClick={handleToggle}
-          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
-          sx={{
-            position: "absolute",
-            top: 48,
-            right: 8,
-            zIndex: 1,
-            minWidth: 44,
-            minHeight: 44,
-          }}
-        >
-          {isCollapsed ? <ChevronRight /> : <ChevronLeft />}
-        </IconButton>
         {isCollapsed ? (
           <Box
             sx={{
               display: "flex",
               flexDirection: "column",
               alignItems: "center",
-              pt: 12,
+              pt: 2,
               gap: 1,
             }}
           >
@@ -167,6 +158,39 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
           </div>
         )}
       </aside>
+
+      {/* Collapse/expand toggle — positioned outside the sidebar on the map edge */}
+      <IconButton
+        ref={expandBtnRef}
+        onClick={handleToggle}
+        aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+        sx={{
+          position: "absolute",
+          top: 12,
+          left: `${sidebarWidth}px`,
+          transition: "left 250ms ease-in-out",
+          transform: "translateX(-50%)",
+          zIndex: 1100,
+          width: 28,
+          height: 28,
+          minWidth: 28,
+          minHeight: 28,
+          bgcolor: "background.paper",
+          boxShadow: 2,
+          border: "1px solid",
+          borderColor: "divider",
+          "&:hover": {
+            bgcolor: "grey.100",
+          },
+        }}
+      >
+        {isCollapsed ? (
+          <ChevronRight fontSize="small" />
+        ) : (
+          <ChevronLeft fontSize="small" />
+        )}
+      </IconButton>
+
       <main
         id="main-content"
         role="main"
