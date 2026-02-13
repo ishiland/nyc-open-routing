@@ -129,6 +129,7 @@ const SuggestionDropdown: FC<SuggestionDropdownProps> = ({
       open={true}
       anchorEl={anchorEl}
       placement="bottom-start"
+      disablePortal
       sx={{ zIndex: DROPDOWN_Z_INDEX, width: anchorEl.clientWidth }}
     >
       <Paper
