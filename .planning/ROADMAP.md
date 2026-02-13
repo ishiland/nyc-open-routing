@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Design System Foundation** - MTA-inspired theme with MUI overrides
 - [x] **Phase 2: Responsive Layout System** - Polished adaptive layout with gesture conflict resolution
-- [ ] **Phase 3: Sidebar Redesign** - Compact sidebar with transit-inspired controls
+- [x] **Phase 3: Sidebar Redesign** - Compact sidebar with transit-inspired controls
 - [ ] **Phase 4: Route Display Polish** - Polished route cards and turn-by-turn with transit aesthetic
 - [ ] **Phase 5: Accessibility Audit** - WCAG 2.1 Level AA compliance verification
 
@@ -67,8 +67,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md — Compact mode selector (ToggleButtonGroup), inline toggles, tighter TitleBar and ControlsContainer
-- [ ] 03-02-PLAN.md — Compact search inputs (size="small"), tighter Sidebar spacing, transit-themed MapControls
+- [x] 03-01-PLAN.md — Compact mode selector (ToggleButtonGroup), inline toggles, tighter TitleBar and ControlsContainer
+- [x] 03-02-PLAN.md — Compact search inputs (size="small"), tighter Sidebar spacing, transit-themed MapControls
 
 ### Phase 4: Route Display Polish
 **Goal**: Polished route cards and turn-by-turn directions with transit aesthetic
@@ -107,10 +107,10 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Design System Foundation | 1/1 | Complete | 2026-02-13 |
 | 2. Responsive Layout System | 2/2 | Complete | 2026-02-13 |
-| 3. Sidebar Redesign | 0/2 | Not started | - |
+| 3. Sidebar Redesign | 2/2 | Complete | 2026-02-13 |
 | 4. Route Display Polish | 0/TBD | Not started | - |
 | 5. Accessibility Audit | 0/TBD | Not started | - |
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-13 after completing Phase 2*
+*Last updated: 2026-02-13 after completing Phase 3*
