@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-13)
 
 Milestone: v1.1 UI Polish
 Phase: 6 of 6 (Bug Fixes and UX Polish)
-Plan: 1 of 3 in current phase
+Plan: 2 of 3 in current phase
 Status: Executing
-Last activity: 2026-02-13 — Completed 06-01-PLAN.md
+Last activity: 2026-02-13 — Completed 06-02-PLAN.md
 
-Progress: [███░░░░░░░] 33%
+Progress: [██████░░░░] 67%
 
 ## Performance Metrics
 
@@ -26,6 +26,7 @@ Progress: [███░░░░░░░] 33%
 
 **Recent Trend:**
 - 06-01: 1min, 2 tasks, 2 files
+- 06-02: 2min, 2 tasks, 2 files
 
 ## Accumulated Context
 
@@ -38,6 +39,8 @@ Recent decisions affecting current work:
 - [v1.1 Research]: Z-index fix is prerequisite for mobile autocomplete fix (plan ordering, not phase boundary)
 - [v1.1 Research]: Zero new dependencies needed — all fixes use existing MUI/React/CSS APIs
 - [Phase 06]: top:48 for collapse button (40px TitleBar + 8px gap) to avoid info button overlap
+- [Phase 06-02]: queueMicrotask for isInitialized ref guard to coordinate URL sync effect ordering
+- [Phase 06-02]: Directions icon from @mui/icons-material for empty state visual cue
 
 ### Pending Todos
 
@@ -50,9 +53,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-13
-Stopped at: Completed 06-01-PLAN.md
+Stopped at: Completed 06-02-PLAN.md
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-13 after 06-01 plan execution*
+*Last updated: 2026-02-13 after 06-02 plan execution*
