@@ -7,6 +7,7 @@ import Divider from "@mui/material/Divider"
 import ListItemText from "@mui/material/ListItemText"
 import Box from "@mui/material/Box"
 import Typography from "@mui/material/Typography"
+import { Directions } from "@mui/icons-material"
 import { formatDistance } from "../../utils/formats"
 import {
   RoutingContext,
@@ -96,7 +97,17 @@ const RouteListComponent: React.FC = () => {
           })}
         </List>
         </>
-      ) : null}
+      ) : (
+        <Box sx={{ py: 4, textAlign: "center" }}>
+          <Directions sx={{ color: "text.disabled", fontSize: 48 }} />
+          <Typography variant="subtitle2" sx={{ mt: 1 }}>
+            Get started
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Enter a start and end address above, then tap Get Directions.
+          </Typography>
+        </Box>
+      )}
     </Box>
   )
 }
