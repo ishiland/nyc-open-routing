@@ -119,9 +119,12 @@ export const BottomSheet: FC<BottomSheetProps> = ({
       onOpen={onOpen || (() => {})}
       disableSwipeToOpen={false}
       disableDiscovery // Prevents interfering with map gestures
+      hideBackdrop // Allows map interaction around the sheet
       sx={{
         zIndex: BOTTOM_SHEET_Z_INDEX,
+        pointerEvents: "none", // Let events pass through to map
         "& .MuiDrawer-paper": {
+          pointerEvents: "auto", // Re-enable events on the sheet itself
           height: `${snapPoint * 100}%`,
           overflow: "visible",
           borderTopLeftRadius: 16,
@@ -136,6 +139,9 @@ export const BottomSheet: FC<BottomSheetProps> = ({
       }}
       ModalProps={{
         keepMounted: true, // Better mobile performance
+        slotProps: {
+          backdrop: { invisible: true }, // MUI v7 compatibility
+        },
       }}
     >
       {/* Drag Handle */}
@@ -151,6 +157,7 @@ export const BottomSheet: FC<BottomSheetProps> = ({
           justifyContent: "center",
           alignItems: "center",
           cursor: "grab",
+          touchAction: "none", // Prevent browser from interpreting drag as scroll/pan
           "&:active": {
             cursor: "grabbing",
           },
@@ -203,6 +210,7 @@ export const BottomSheet: FC<BottomSheetProps> = ({
         sx={{
           height: `calc(100% - ${BOTTOM_SHEET_DRAG_HANDLE_HEIGHT_PX}px)`,
           overflow: "auto",
+          overscrollBehavior: "contain", // Prevent iOS bounce-scroll propagation
           px: 2,
           pb: 2,
         }}
