@@ -79,10 +79,10 @@ Plans:
   2. Turn-by-turn list has clean visual hierarchy with properly sized step icons
   3. Route cards use mode-specific color accents (drive=blue, bike=green, walk=orange)
   4. Clicking a turn-by-turn step zooms the map to that location
-**Plans**: TBD
+**Plans**: 1 plan
 
 Plans:
-- [ ] 04-01: TBD during phase planning
+- [ ] 04-01-PLAN.md — Mode-specific color accents, active step highlighting, zoom cap, selectedStreet reset
 
 ### Phase 5: Accessibility Audit
 **Goal**: Verify WCAG 2.1 Level AA compliance across all redesigned components
@@ -108,7 +108,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Design System Foundation | 1/1 | Complete | 2026-02-13 |
 | 2. Responsive Layout System | 2/2 | Complete | 2026-02-13 |
 | 3. Sidebar Redesign | 2/2 | Complete | 2026-02-13 |
-| 4. Route Display Polish | 0/TBD | Not started | - |
+| 4. Route Display Polish | 0/1 | Not started | - |
 | 5. Accessibility Audit | 0/TBD | Not started | - |
 
 ---
