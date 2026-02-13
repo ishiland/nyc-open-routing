@@ -79,6 +79,40 @@ export const BottomSheet: FC<BottomSheetProps> = ({
     setDragStartTime(Date.now())
   }, [])
 
+  // Handle keyboard navigation on drag handle
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      switch (e.key) {
+        case "ArrowUp": {
+          e.preventDefault()
+          const nextUp = getNextSnapPoint(snapPoint, "up")
+          setSnapPoint(nextUp)
+          break
+        }
+        case "ArrowDown": {
+          e.preventDefault()
+          const nextDown = getNextSnapPoint(snapPoint, "down")
+          if (nextDown === snapPoint && snapPoint === BOTTOM_SHEET_SNAP_POINTS[0] && onClose) {
+            onClose()
+          } else {
+            setSnapPoint(nextDown)
+          }
+          break
+        }
+        case "Enter":
+        case " ": {
+          e.preventDefault()
+          // Toggle between min and max snap points
+          const min = BOTTOM_SHEET_SNAP_POINTS[0]
+          const max = BOTTOM_SHEET_SNAP_POINTS[BOTTOM_SHEET_SNAP_POINTS.length - 1]
+          setSnapPoint(snapPoint === max ? min : max)
+          break
+        }
+      }
+    },
+    [snapPoint, onClose],
+  )
+
   // Handle drag end
   const handleDragEnd = useCallback(
     (e: React.TouchEvent | React.MouseEvent) => {
@@ -162,8 +196,13 @@ export const BottomSheet: FC<BottomSheetProps> = ({
             cursor: "grabbing",
           },
         }}
-        role="button"
-        aria-label="Drag to resize bottom sheet"
+        role="slider"
+        aria-label="Resize bottom sheet"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={Math.round(snapPoint * 100)}
+        aria-valuetext={`${Math.round(snapPoint * 100)} percent`}
+        onKeyDown={handleKeyDown}
         tabIndex={0}
       >
         <Box

@@ -1,4 +1,4 @@
-import React, { FC, Suspense, useState, useCallback, useContext } from "react"
+import React, { FC, Suspense, useState, useCallback, useContext, useRef } from "react"
 import { IconButton } from "@mui/material"
 import { ChevronLeft, ChevronRight } from "@mui/icons-material"
 import { useResponsive } from "../../hooks/useResponsive"
@@ -28,10 +28,32 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
   const { isMobile, isTabletOrBelow } = useResponsive()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { map: mapInstance } = useContext(MapInstanceContext)
+  const expandBtnRef = useRef<HTMLButtonElement>(null)
 
   const handleTransitionEnd = useCallback(() => {
     mapInstance?.resize()
   }, [mapInstance])
+
+  const handleToggle = useCallback(() => {
+    setIsCollapsed(prev => {
+      const willCollapse = !prev
+      if (willCollapse) {
+        // After collapse: focus the expand button
+        setTimeout(() => {
+          expandBtnRef.current?.focus()
+        }, 260)
+      } else {
+        // After expand: focus the start address input
+        setTimeout(() => {
+          const firstInput = document.querySelector<HTMLInputElement>(
+            'aside [id^="auto-suggest-Start-"]',
+          )
+          firstInput?.focus()
+        }, 260)
+      }
+      return willCollapse
+    })
+  }, [])
 
   // Mobile layout: Bottom sheet over full-screen map
   if (isMobile) {
@@ -76,7 +98,8 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
         }}
       >
         <IconButton
-          onClick={() => setIsCollapsed(prev => !prev)}
+          ref={expandBtnRef}
+          onClick={handleToggle}
           aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           sx={{
             position: "absolute",
