@@ -7,7 +7,6 @@ import { TrafficToggle } from "./controls/TrafficToggle"
 import { FerryToggle } from "./controls/FerryToggle"
 import { TitleBar } from "./shared/TitleBar"
 import { ControlsContainerProps } from "../types/interfaces"
-import { SIDEBAR_WIDTH_PX } from "../utils/constants"
 
 const ControlsContainerComponent: React.FC<ControlsContainerProps> = ({
   children,
@@ -16,8 +15,8 @@ const ControlsContainerComponent: React.FC<ControlsContainerProps> = ({
     <Paper
       square
       sx={{
-        width: SIDEBAR_WIDTH_PX,
-        height: "100dvh",
+        width: "100%",
+        height: "100%",
         display: "flex",
         flexDirection: "column",
       }}

@@ -1,9 +1,16 @@
-import React, { FC, Suspense } from "react"
+import React, { FC, Suspense, useState, useCallback, useContext } from "react"
+import { IconButton } from "@mui/material"
+import { ChevronLeft, ChevronRight } from "@mui/icons-material"
 import { useResponsive } from "../../hooks/useResponsive"
 import { LoadingSpinner } from "../shared/LoadingSpinner"
 import { BottomSheet } from "../mobile/BottomSheet"
 import Sidebar from "../Sidebar"
-import { SIDEBAR_WIDTH_PX, SIDEBAR_WIDTH_TABLET_PX } from "../../utils/constants"
+import { MapInstanceContext } from "../../contexts/MapInstanceContext"
+import {
+  SIDEBAR_WIDTH_PX,
+  SIDEBAR_WIDTH_TABLET_PX,
+  SIDEBAR_COLLAPSED_WIDTH_PX,
+} from "../../utils/constants"
 
 interface AdaptiveLayoutProps {
   sidebar: React.ReactNode
@@ -19,6 +26,12 @@ interface AdaptiveLayoutProps {
  */
 export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
   const { isMobile, isTabletOrBelow } = useResponsive()
+  const [isCollapsed, setIsCollapsed] = useState(false)
+  const { map: mapInstance } = useContext(MapInstanceContext)
+
+  const handleTransitionEnd = useCallback(() => {
+    mapInstance?.resize()
+  }, [mapInstance])
 
   // Mobile layout: Bottom sheet over full-screen map
   if (isMobile) {
@@ -44,19 +57,48 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
     )
   }
 
-  // Tablet/Desktop layout: Sidebar + Map (existing layout)
+  // Tablet/Desktop layout: Collapsible sidebar + Map
+  const expandedWidth = isTabletOrBelow ? SIDEBAR_WIDTH_TABLET_PX : SIDEBAR_WIDTH_PX
+
   return (
     <div style={{ display: "flex", width: "100%", height: "100dvh" }}>
       <aside
         aria-label="Route controls"
+        onTransitionEnd={handleTransitionEnd}
         style={{
+          width: isCollapsed
+            ? `${SIDEBAR_COLLAPSED_WIDTH_PX}px`
+            : `${expandedWidth}px`,
+          transition: "width 250ms ease-in-out",
+          overflow: "hidden",
           flexShrink: 0,
-          width: isTabletOrBelow ? `${SIDEBAR_WIDTH_TABLET_PX}px` : `${SIDEBAR_WIDTH_PX}px`,
+          position: "relative",
         }}
       >
-        <Suspense fallback={<LoadingSpinner message="Loading controls..." />}>
-          {sidebar}
-        </Suspense>
+        <IconButton
+          onClick={() => setIsCollapsed(prev => !prev)}
+          aria-label={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+          sx={{
+            position: "absolute",
+            top: 8,
+            right: 8,
+            zIndex: 1,
+            minWidth: 44,
+            minHeight: 44,
+          }}
+        >
+          {isCollapsed ? <ChevronRight /> : <ChevronLeft />}
+        </IconButton>
+        <div
+          style={{
+            width: expandedWidth,
+            minWidth: expandedWidth,
+          }}
+        >
+          <Suspense fallback={<LoadingSpinner message="Loading controls..." />}>
+            {sidebar}
+          </Suspense>
+        </div>
       </aside>
       <main
         id="main-content"
