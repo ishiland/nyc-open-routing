@@ -11,11 +11,7 @@ import { MAP_CONTROLS_Z_INDEX } from "../../utils/constants"
  */
 export const MapControls: React.FC = () => {
   const { map } = useContext(MapInstanceContext)
-
-  // Don't render if no map
-  if (!map) {
-    return null
-  }
+  const isReady = !!map
 
   const handleZoomIn = () => {
     if (!map) return
@@ -44,6 +40,8 @@ export const MapControls: React.FC = () => {
           color="default"
           size="small"
           onClick={handleZoomIn}
+          disabled={!isReady}
+          aria-disabled={!isReady}
           aria-label="Zoom in"
           sx={{
             bgcolor: "background.paper",
@@ -57,6 +55,7 @@ export const MapControls: React.FC = () => {
             },
             minWidth: 44,
             minHeight: 44,
+            opacity: isReady ? 1 : 0.5,
           }}
         >
           <Add />
@@ -68,6 +67,8 @@ export const MapControls: React.FC = () => {
           color="default"
           size="small"
           onClick={handleZoomOut}
+          disabled={!isReady}
+          aria-disabled={!isReady}
           aria-label="Zoom out"
           sx={{
             bgcolor: "background.paper",
@@ -81,6 +82,7 @@ export const MapControls: React.FC = () => {
             },
             minWidth: 44,
             minHeight: 44,
+            opacity: isReady ? 1 : 0.5,
           }}
         >
           <Remove />
