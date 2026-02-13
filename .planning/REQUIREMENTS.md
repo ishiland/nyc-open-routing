@@ -85,39 +85,39 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| DS-01 | — | Pending |
-| DS-02 | — | Pending |
-| DS-03 | — | Pending |
-| DS-04 | — | Pending |
-| DS-05 | — | Pending |
-| SB-01 | — | Pending |
-| SB-02 | — | Pending |
-| SB-03 | — | Pending |
-| SB-04 | — | Pending |
-| SB-05 | — | Pending |
-| SB-06 | — | Pending |
-| RD-01 | — | Pending |
-| RD-02 | — | Pending |
-| RD-03 | — | Pending |
-| RD-04 | — | Pending |
-| RS-01 | — | Pending |
-| RS-02 | — | Pending |
-| RS-03 | — | Pending |
-| RS-04 | — | Pending |
-| RS-05 | — | Pending |
-| MC-01 | — | Pending |
-| MC-02 | — | Pending |
-| MC-03 | — | Pending |
-| A11Y-01 | — | Pending |
-| A11Y-02 | — | Pending |
-| A11Y-03 | — | Pending |
-| A11Y-04 | — | Pending |
+| DS-01 | Phase 1 | Pending |
+| DS-02 | Phase 1 | Pending |
+| DS-03 | Phase 1 | Pending |
+| DS-04 | Phase 1 | Pending |
+| DS-05 | Phase 1 | Pending |
+| SB-01 | Phase 3 | Pending |
+| SB-02 | Phase 3 | Pending |
+| SB-03 | Phase 3 | Pending |
+| SB-04 | Phase 3 | Pending |
+| SB-05 | Phase 2 | Pending |
+| SB-06 | Phase 2 | Pending |
+| RD-01 | Phase 4 | Pending |
+| RD-02 | Phase 4 | Pending |
+| RD-03 | Phase 4 | Pending |
+| RD-04 | Phase 4 | Pending |
+| RS-01 | Phase 2 | Pending |
+| RS-02 | Phase 2 | Pending |
+| RS-03 | Phase 2 | Pending |
+| RS-04 | Phase 2 | Pending |
+| RS-05 | Phase 2 | Pending |
+| MC-01 | Phase 3 | Pending |
+| MC-02 | Phase 3 | Pending |
+| MC-03 | Phase 2 | Pending |
+| A11Y-01 | Phase 5 | Pending |
+| A11Y-02 | Phase 5 | Pending |
+| A11Y-03 | Phase 5 | Pending |
+| A11Y-04 | Phase 5 | Pending |
 
 **Coverage:**
 - v1 requirements: 27 total
-- Mapped to phases: 0
-- Unmapped: 27
+- Mapped to phases: 27
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-12*
-*Last updated: 2026-02-12 after initial definition*
+*Last updated: 2026-02-12 after roadmap creation with 100% coverage*
