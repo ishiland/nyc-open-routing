@@ -12,12 +12,13 @@ import {
   RoutingContext,
   RoutingContextType,
 } from "../../contexts/RoutingContext"
+import { MODE_COLORS } from "../../utils/theme"
 import { RouteFeature } from "../../types/interfaces"
 import { RouteSummaryCard } from "./RouteSummaryCard"
 import { TurnIcon } from "../shared/TurnIcon"
 
 const RouteListComponent: React.FC = () => {
-  const { route, setSelectedStreet } =
+  const { route, mode, selectedStreet, setSelectedStreet } =
     useContext<RoutingContextType>(RoutingContext)
 
   const handleStreetSelect = useCallback(
@@ -49,30 +50,49 @@ const RouteListComponent: React.FC = () => {
             dense
             sx={{ bgcolor: "background.paper" }}
           >
-          {route.features.map((street: RouteFeature) => (
-            <React.Fragment key={street.properties.seq}>
-              <ListItemButton onClick={() => handleStreetSelect(street)}>
-                <ListItemIcon sx={{ minWidth: 40 }}>
-                  <TurnIcon
-                    turnType={street.properties.turn_type}
-                    fontSize="small"
-                    color="primary"
-                  />
-                </ListItemIcon>
-                <ListItemText
-                  primary={street.properties.turn_instruction || street.properties.street}
-                  slotProps={{
-                    primary: {
-                      noWrap: true,
-                      sx: { fontWeight: "medium" },
+          {route.features.map((street: RouteFeature) => {
+            const isActive = selectedStreet?.properties.seq === street.properties.seq
+            return (
+              <React.Fragment key={street.properties.seq}>
+                <ListItemButton
+                  onClick={() => handleStreetSelect(street)}
+                  selected={isActive}
+                  sx={{
+                    "&.Mui-selected": {
+                      bgcolor: `${MODE_COLORS[mode]}14`,
+                      borderLeft: 3,
+                      borderColor: MODE_COLORS[mode],
+                      "&:hover": {
+                        bgcolor: `${MODE_COLORS[mode]}1F`,
+                      },
                     },
                   }}
-                  secondary={formatDistance(street.properties.distance)}
-                />
-              </ListItemButton>
-              <Divider component="li" />
-            </React.Fragment>
-          ))}
+                >
+                  <ListItemIcon sx={{ minWidth: 36 }}>
+                    <TurnIcon
+                      turnType={street.properties.turn_type}
+                      fontSize="small"
+                      sx={{ color: MODE_COLORS[mode] }}
+                    />
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={street.properties.turn_instruction || street.properties.street}
+                    slotProps={{
+                      primary: {
+                        noWrap: true,
+                        sx: { fontWeight: 500, fontSize: "0.875rem" },
+                      },
+                      secondary: {
+                        sx: { fontSize: "0.75rem" },
+                      },
+                    }}
+                    secondary={formatDistance(street.properties.distance)}
+                  />
+                </ListItemButton>
+                <Divider component="li" />
+              </React.Fragment>
+            )
+          })}
         </List>
         </>
       ) : null}

@@ -37,7 +37,7 @@ export interface TurnIconProps extends Omit<SvgIconProps, "color"> {
  */
 export const TurnIcon: React.FC<TurnIconProps> = ({
   turnType,
-  color = "action",
+  color = "inherit",
   ...props
 }) => {
   const iconProps: SvgIconProps = {
