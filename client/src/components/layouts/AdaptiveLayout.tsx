@@ -1,16 +1,30 @@
 import React, { FC, Suspense, useState, useCallback, useContext, useRef } from "react"
-import { IconButton } from "@mui/material"
-import { ChevronLeft, ChevronRight } from "@mui/icons-material"
+import { IconButton, Tooltip, Box } from "@mui/material"
+import {
+  ChevronLeft,
+  ChevronRight,
+  DirectionsCar,
+  DirectionsBike,
+  DirectionsWalk,
+} from "@mui/icons-material"
 import { useResponsive } from "../../hooks/useResponsive"
 import { LoadingSpinner } from "../shared/LoadingSpinner"
 import { BottomSheet } from "../mobile/BottomSheet"
 import Sidebar from "../Sidebar"
 import { MapInstanceContext } from "../../contexts/MapInstanceContext"
+import { RoutingContext } from "../../contexts/RoutingContext"
+import { MODE_COLORS } from "../../utils/theme"
 import {
   SIDEBAR_WIDTH_PX,
   SIDEBAR_WIDTH_TABLET_PX,
   SIDEBAR_COLLAPSED_WIDTH_PX,
 } from "../../utils/constants"
+
+const MODE_ICONS = {
+  drive: DirectionsCar,
+  bike: DirectionsBike,
+  walk: DirectionsWalk,
+} as const
 
 interface AdaptiveLayoutProps {
   sidebar: React.ReactNode
@@ -28,6 +42,7 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
   const { isMobile, isTabletOrBelow } = useResponsive()
   const [isCollapsed, setIsCollapsed] = useState(false)
   const { map: mapInstance } = useContext(MapInstanceContext)
+  const { mode } = useContext(RoutingContext)
   const expandBtnRef = useRef<HTMLButtonElement>(null)
 
   const handleTransitionEnd = useCallback(() => {
@@ -112,16 +127,45 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
         >
           {isCollapsed ? <ChevronRight /> : <ChevronLeft />}
         </IconButton>
-        <div
-          style={{
-            width: expandedWidth,
-            minWidth: expandedWidth,
-          }}
-        >
-          <Suspense fallback={<LoadingSpinner message="Loading controls..." />}>
-            {sidebar}
-          </Suspense>
-        </div>
+        {isCollapsed ? (
+          <Box
+            sx={{
+              display: "flex",
+              flexDirection: "column",
+              alignItems: "center",
+              pt: 12,
+              gap: 1,
+            }}
+          >
+            <Tooltip title={`Mode: ${mode}`} placement="right">
+              <Box
+                sx={{
+                  width: 40,
+                  height: 40,
+                  borderRadius: 1,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  bgcolor: MODE_COLORS[mode],
+                  color: mode === "walk" ? "#000" : "#fff",
+                }}
+              >
+                {React.createElement(MODE_ICONS[mode], { fontSize: "small" })}
+              </Box>
+            </Tooltip>
+          </Box>
+        ) : (
+          <div
+            style={{
+              width: expandedWidth,
+              minWidth: expandedWidth,
+            }}
+          >
+            <Suspense fallback={<LoadingSpinner message="Loading controls..." />}>
+              {sidebar}
+            </Suspense>
+          </div>
+        )}
       </aside>
       <main
         id="main-content"
