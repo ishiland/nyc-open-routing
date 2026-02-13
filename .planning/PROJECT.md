@@ -1,4 +1,4 @@
-# NYC Open Routing — UI Redesign
+# NYC Open Routing — UI Polish
 
 ## What This Is
 
@@ -30,7 +30,17 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ### Active
 
-(None — next milestone requirements defined via `/gsd:new-milestone`)
+## Current Milestone: v1.1 UI Polish
+
+**Goal:** Fix bugs and refine UX issues identified during v1.0 review
+
+**Target features:**
+- Fix info button click intercepted by collapse sidebar button
+- Fix deep link mode parameter ignored on page load
+- Improve empty sidebar state when no route is present
+- Smooth zoom controls appearance on initial load
+- Fix mobile autocomplete dropdown positioning relative to bottom sheet
+- Refine sidebar collapse toggle button and collapsed state content
 
 ### Out of Scope
 
@@ -43,6 +53,7 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ## Context
 
+- **Current:** v1.1 UI Polish — bugfixes + UX refinements from v1.0 review
 - **Shipped:** v1.0 UI Redesign (2026-02-13)
 - **Stack:** React 18 + TypeScript + MUI 7 + MapLibre GL 5 + Vite
 - **LOC:** 6,546 TypeScript (client)
@@ -73,4 +84,4 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 | vitest-axe for a11y testing | axe-core via existing Vitest setup, no new test runner | ✓ Good — 18 a11y tests, catches regressions |
 
 ---
-*Last updated: 2026-02-13 after v1.0 milestone*
+*Last updated: 2026-02-13 after v1.1 milestone start*
