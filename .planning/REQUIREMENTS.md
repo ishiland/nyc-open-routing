@@ -9,18 +9,18 @@ Requirements for the UI polish milestone. Each maps to roadmap phases.
 
 ### Bug Fixes
 
-- [ ] **BUG-01**: Sidebar collapse toggle is integrated into TitleBar, eliminating info button click interception
-- [ ] **BUG-02**: Shared deep links correctly restore the travel mode parameter on page load
-- [ ] **BUG-03**: Mobile autocomplete suggestions are visible above the bottom sheet on mobile devices
+- [x] **BUG-01**: Sidebar collapse toggle is integrated into TitleBar, eliminating info button click interception
+- [x] **BUG-02**: Shared deep links correctly restore the travel mode parameter on page load
+- [x] **BUG-03**: Mobile autocomplete suggestions are visible above the bottom sheet on mobile devices
 
 ### Sidebar Polish
 
-- [ ] **SB-01**: Collapsed sidebar displays icon rail with current travel mode indicator and tooltips
-- [ ] **SB-02**: Sidebar shows contextual hint text when no route has been calculated
+- [x] **SB-01**: Collapsed sidebar displays icon rail with current travel mode indicator and tooltips
+- [x] **SB-02**: Sidebar shows contextual hint text when no route has been calculated
 
 ### Map Polish
 
-- [ ] **MAP-01**: Map controls appear smoothly on initial page load without flash or pop-in
+- [x] **MAP-01**: Map controls appear smoothly on initial page load without flash or pop-in
 
 ## Future Requirements
 
@@ -56,12 +56,12 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| BUG-01 | Phase 6 | Pending |
-| BUG-02 | Phase 6 | Pending |
-| BUG-03 | Phase 6 | Pending |
-| SB-01 | Phase 6 | Pending |
-| SB-02 | Phase 6 | Pending |
-| MAP-01 | Phase 6 | Pending |
+| BUG-01 | Phase 6 | Complete |
+| BUG-02 | Phase 6 | Complete |
+| BUG-03 | Phase 6 | Complete |
+| SB-01 | Phase 6 | Complete |
+| SB-02 | Phase 6 | Complete |
+| MAP-01 | Phase 6 | Complete |
 
 **Coverage:**
 - v1.1 requirements: 6 total
@@ -70,4 +70,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-02-13*
-*Last updated: 2026-02-13 after roadmap creation*
+*Last updated: 2026-02-13 after Phase 6 execution complete*

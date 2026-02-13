@@ -8,7 +8,7 @@
 
 **Goal:** Fix bugs and refine UX issues identified during v1.0 review
 
-- [ ] **Phase 6: Bug Fixes and UX Polish** - Resolve interaction bugs and add missing UX affordances across sidebar, map, and mobile
+- [x] **Phase 6: Bug Fixes and UX Polish** - Resolve interaction bugs and add missing UX affordances across sidebar, map, and mobile (2026-02-13)
 
 ## Phase Details
 
@@ -27,15 +27,15 @@
 **Plans:** 3 plans
 
 Plans:
-- [ ] 06-01-PLAN.md — Fix collapse button overlap (BUG-01) + map controls loading flash (MAP-01)
-- [ ] 06-02-PLAN.md — Fix deep link mode race condition (BUG-02) + empty state hint (SB-02)
-- [ ] 06-03-PLAN.md — Fix mobile autocomplete z-index (BUG-03) + collapsed sidebar icon rail (SB-01)
+- [x] 06-01-PLAN.md — Fix collapse button overlap (BUG-01) + map controls loading flash (MAP-01)
+- [x] 06-02-PLAN.md — Fix deep link mode race condition (BUG-02) + empty state hint (SB-02)
+- [x] 06-03-PLAN.md — Fix mobile autocomplete z-index (BUG-03) + collapsed sidebar icon rail (SB-01)
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 6. Bug Fixes and UX Polish | v1.1 | 0/3 | Not started | - |
+| 6. Bug Fixes and UX Polish | v1.1 | 3/3 | ✓ Complete | 2026-02-13 |
 
 ---
-*Last updated: 2026-02-13 after Phase 6 planning*
+*Last updated: 2026-02-13 after Phase 6 execution complete*
