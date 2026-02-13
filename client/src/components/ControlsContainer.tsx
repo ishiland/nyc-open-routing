@@ -23,10 +23,12 @@ const ControlsContainerComponent: React.FC<ControlsContainerProps> = ({
       elevation={8}
     >
       <TitleBar />
-      <TravelModeSelect />
-      <TrafficToggle />
-      <FerryToggle />
-      <Box sx={{ padding: 2, overflowY: "auto", flexGrow: 1 }}>{children}</Box>
+      <Box sx={{ px: 1.5, pt: 1 }}>
+        <TravelModeSelect />
+        <TrafficToggle />
+        <FerryToggle />
+      </Box>
+      <Box sx={{ padding: 1.5, overflowY: "auto", flexGrow: 1 }}>{children}</Box>
     </Paper>
   )
 }

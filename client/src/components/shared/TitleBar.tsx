@@ -11,14 +11,14 @@ const StyledAppBar = styled(AppBar)(({ theme }) => ({
 }))
 
 const StyledToolbar = styled(Toolbar)({
-  minHeight: "48px", // Example for dense toolbar, adjust as needed
-  paddingLeft: "16px", // Example padding
-  paddingRight: "16px", // Example padding
+  minHeight: "40px",
+  paddingLeft: "12px",
+  paddingRight: "12px",
 })
 
 const Title = styled(Typography)(({ theme }) => ({
-  fontSize: "20px",
-  fontWeight: 500, // Slightly bolder for better readability
+  fontSize: "16px",
+  fontWeight: 500,
   flexGrow: 1, // Make title take available space
   color: theme.palette.primary.contrastText, // Ensure proper contrast on primary background
 }))
