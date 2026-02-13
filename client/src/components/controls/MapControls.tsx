@@ -2,6 +2,7 @@ import React, { useContext } from "react"
 import { Box, Fab, Tooltip } from "@mui/material"
 import { Add, Remove } from "@mui/icons-material"
 import { MapInstanceContext } from "../../contexts/MapInstanceContext"
+import { MAP_CONTROLS_Z_INDEX } from "../../utils/constants"
 
 /**
  * MapControls component
@@ -32,7 +33,7 @@ export const MapControls: React.FC = () => {
         position: "absolute",
         top: 24,
         right: 24,
-        zIndex: 1000,
+        zIndex: MAP_CONTROLS_Z_INDEX,
         display: "flex",
         flexDirection: "column",
         gap: 1,

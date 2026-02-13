@@ -4,7 +4,8 @@ import { ZoomOutMap } from "@mui/icons-material"
 import { RoutingContext } from "../../contexts/RoutingContext"
 import { MapInstanceContext } from "../../contexts/MapInstanceContext"
 import { IMapFeature } from "../../types/interfaces"
-import { NYC_BOUNDS_PADDING } from "../../utils/constants"
+import { NYC_BOUNDS_PADDING, MAP_CONTROLS_Z_INDEX } from "../../utils/constants"
+import { useResponsive } from "../../hooks/useResponsive"
 
 /**
  * Floating action button to zoom map to fit the entire route
@@ -13,6 +14,7 @@ import { NYC_BOUNDS_PADDING } from "../../utils/constants"
 export const ZoomToRouteButton: React.FC = () => {
   const { route } = useContext(RoutingContext)
   const { map } = useContext(MapInstanceContext)
+  const { isMobile } = useResponsive()
 
   // Don't render if no route or no map
   if (!route?.features?.length || !map) {
@@ -62,9 +64,10 @@ export const ZoomToRouteButton: React.FC = () => {
         onClick={handleZoomToRoute}
         sx={{
           position: "absolute",
-          bottom: 24,
+          bottom: isMobile ? "calc(40% + 16px)" : 24,
           right: 24,
-          zIndex: 1000,
+          zIndex: MAP_CONTROLS_Z_INDEX,
+          transition: "bottom 250ms ease-in-out",
         }}
       >
         <ZoomOutMap />
