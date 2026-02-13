@@ -24,17 +24,18 @@
   5. User who loads the app with no route sees a contextual hint in the sidebar explaining how to get started
   6. Map zoom and navigation controls appear smoothly on page load without any flash, pop-in, or layout shift
 
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 06-01: TBD
-- [ ] 06-02: TBD
+- [ ] 06-01-PLAN.md — Fix collapse button overlap (BUG-01) + map controls loading flash (MAP-01)
+- [ ] 06-02-PLAN.md — Fix deep link mode race condition (BUG-02) + empty state hint (SB-02)
+- [ ] 06-03-PLAN.md — Fix mobile autocomplete z-index (BUG-03) + collapsed sidebar icon rail (SB-01)
 
 ## Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
-| 6. Bug Fixes and UX Polish | v1.1 | 0/TBD | Not started | - |
+| 6. Bug Fixes and UX Polish | v1.1 | 0/3 | Not started | - |
 
 ---
-*Last updated: 2026-02-13 after v1.1 roadmap creation*
+*Last updated: 2026-02-13 after Phase 6 planning*
