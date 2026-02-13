@@ -9,6 +9,7 @@ import {
   Traffic as TrafficIcon,
 } from "@mui/icons-material"
 import { RoutingContext } from "../../contexts/RoutingContext"
+import { MODE_COLORS } from "../../utils/theme"
 import {
   formatTotalRouteDistance,
   formatTotalRouteTime,
@@ -71,9 +72,9 @@ export const RouteSummaryCard: React.FC = () => {
     <Card
       sx={{
         width: "100%",
-        mb: 2,
+        mb: 1.5,
         borderLeft: 4,
-        borderColor: "primary.main",
+        borderColor: MODE_COLORS[mode],
         boxShadow: 2,
       }}
       elevation={3}
@@ -88,7 +89,7 @@ export const RouteSummaryCard: React.FC = () => {
             mb: 2,
           }}
         >
-          <Box sx={{ color: "primary.main", display: "flex", alignItems: "center" }}>
+          <Box sx={{ color: MODE_COLORS[mode], display: "flex", alignItems: "center" }}>
             {getModeIcon()}
           </Box>
           <Typography variant="h6" component="h3" sx={{ fontWeight: 600 }}>
@@ -99,9 +100,8 @@ export const RouteSummaryCard: React.FC = () => {
               icon={<TrafficIcon fontSize="small" />}
               label="Traffic"
               size="small"
-              color="primary"
               variant="outlined"
-              sx={{ ml: "auto" }}
+              sx={{ ml: "auto", borderColor: MODE_COLORS[mode], color: MODE_COLORS[mode] }}
             />
           )}
         </Box>
