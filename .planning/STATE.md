@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-02-12)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** Phase 3 - Sidebar Redesign (complete)
+**Current focus:** Phase 4 - Route Display Polish (complete)
 
 ## Current Position
 
-Phase: 3 of 5 (Sidebar Redesign)
-Plan: 2 of 2 complete
-Status: Phase 3 complete
-Last activity: 2026-02-13 — Completed 03-02 Compact Inputs and Transit Controls
+Phase: 4 of 5 (Route Display Polish)
+Plan: 1 of 1 complete
+Status: Phase 4 complete
+Last activity: 2026-02-13 — Completed 04-01 Route Display Polish
 
-Progress: [██████░░░░] 60%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: ~8 min
-- Total execution time: ~0.7 hours
+- Total plans completed: 6
+- Average duration: ~7 min
+- Total execution time: ~0.75 hours
 
 **By Phase:**
 
@@ -30,10 +30,11 @@ Progress: [██████░░░░] 60%
 | 01-design-system-foundation | 1 | ~3 min | ~3 min |
 | 02-responsive-layout-system | 2 | ~32 min | ~16 min |
 | 03-sidebar-redesign | 2 | ~4 min | ~2 min |
+| 04-route-display-polish | 1 | ~3 min | ~3 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (~3 min), 02-01 (~2 min), 02-02 (~30 min), 03-01 (~2 min), 03-02 (~2 min)
-- Trend: stable (03-02 compact inputs and transit controls, straightforward styling)
+- Last 5 plans: 02-01 (~2 min), 02-02 (~30 min), 03-01 (~2 min), 03-02 (~2 min), 04-01 (~3 min)
+- Trend: stable (04-01 route display polish with mode colors and active step highlighting)
 
 *Updated after each plan completion*
 
@@ -66,6 +67,10 @@ Recent decisions affecting current work:
 - [Phase 03]: slotProps.input/slotProps.htmlInput replaces deprecated InputProps/inputProps on MUI TextFields
 - [Phase 03]: Transit Fab pattern: white bg, primary.main icon, hover fills primary.main with contrastText
 - [Phase 03]: Tests use getByLabelText over getByPlaceholderText for resilience
+- [Phase 04]: MODE_COLORS[mode] used consistently for border, icon, chip, and step highlight colors
+- [Phase 04]: Hex alpha suffix (14/1F) for subtle tinted backgrounds on active step
+- [Phase 04]: TurnIcon default color changed to inherit to allow sx color override
+- [Phase 04]: maxZoom: 17 default caps fitBounds zoom level (~1-2 blocks of context)
 
 ### Pending Todos
 
@@ -78,9 +83,9 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-02-13
-Stopped at: Completed 03-02-PLAN.md (Compact Inputs and Transit Controls) — Phase 3 complete
+Stopped at: Completed 04-01-PLAN.md (Route Display Polish) — Phase 4 complete
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-13 after completing 03-02 plan (Phase 3 complete)*
+*Last updated: 2026-02-13 after completing 04-01 plan (Phase 4 complete)*
