@@ -129,7 +129,7 @@ export function RoutingContextProvider({
 
   const [startAddressInput, setStartAddressInputState] = useState<string>("")
   const [endAddressInput, setEndAddressInputState] = useState<string>("")
-  const [isInputEnabled, setIsInputEnabledState] = useState<boolean>(true)
+  const [isInputEnabled, setIsInputEnabledState] = useState<boolean>(false)
 
   const setAddress = useCallback(
     (selected: IMapFeature, type: "start" | "end") => {
