@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Design System Foundation** - MTA-inspired theme with MUI overrides
 - [x] **Phase 2: Responsive Layout System** - Polished adaptive layout with gesture conflict resolution
 - [x] **Phase 3: Sidebar Redesign** - Compact sidebar with transit-inspired controls
-- [ ] **Phase 4: Route Display Polish** - Polished route cards and turn-by-turn with transit aesthetic
+- [x] **Phase 4: Route Display Polish** - Polished route cards and turn-by-turn with transit aesthetic
 - [ ] **Phase 5: Accessibility Audit** - WCAG 2.1 Level AA compliance verification
 
 ## Phase Details
@@ -82,7 +82,7 @@ Plans:
 **Plans**: 1 plan
 
 Plans:
-- [ ] 04-01-PLAN.md — Mode-specific color accents, active step highlighting, zoom cap, selectedStreet reset
+- [x] 04-01-PLAN.md — Mode-specific color accents, active step highlighting, zoom cap, selectedStreet reset
 
 ### Phase 5: Accessibility Audit
 **Goal**: Verify WCAG 2.1 Level AA compliance across all redesigned components
@@ -108,9 +108,9 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 1. Design System Foundation | 1/1 | Complete | 2026-02-13 |
 | 2. Responsive Layout System | 2/2 | Complete | 2026-02-13 |
 | 3. Sidebar Redesign | 2/2 | Complete | 2026-02-13 |
-| 4. Route Display Polish | 0/1 | Not started | - |
+| 4. Route Display Polish | 1/1 | Complete | 2026-02-13 |
 | 5. Accessibility Audit | 0/TBD | Not started | - |
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-13 after completing Phase 3*
+*Last updated: 2026-02-13 after completing Phase 4*
