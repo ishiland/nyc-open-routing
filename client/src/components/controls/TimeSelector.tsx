@@ -110,8 +110,9 @@ export function TimeSelector() {
         />
 
         <FormControl fullWidth size="small" disabled={isUsingCurrentTime}>
-          <InputLabel>Day of Week</InputLabel>
+          <InputLabel id="traffic-day-of-week-label">Day of Week</InputLabel>
           <Select
+            labelId="traffic-day-of-week-label"
             value={trafficDayOfWeek ?? (new Date().getDay() || 7)}
             onChange={handleDayChange}
             label="Day of Week"

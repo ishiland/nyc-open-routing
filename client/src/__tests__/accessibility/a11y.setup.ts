@@ -1,5 +1,9 @@
-import "vitest-axe/extend-expect"
+import { expect } from "vitest"
 import { configureAxe } from "vitest-axe"
+import * as vitestAxeMatchers from "vitest-axe/matchers"
+
+// Register toHaveNoViolations matcher with vitest
+expect.extend(vitestAxeMatchers)
 
 // Configure axe for WCAG 2.1 AA rules
 // color-contrast disabled because jsdom does not compute visual styles

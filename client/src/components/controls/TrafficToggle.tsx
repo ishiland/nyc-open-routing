@@ -32,7 +32,7 @@ export function TrafficToggle() {
           checked={useTraffic}
           onChange={e => setUseTraffic(e.target.checked)}
           color="primary"
-          inputProps={{ "aria-label": "Enable traffic routing" }}
+          slotProps={{ input: { "aria-label": "Enable traffic routing" } }}
         />
         <TrafficIcon fontSize="small" sx={{ color: "primary.main" }} />
         <Typography variant="caption" fontWeight={500}>
