@@ -1,4 +1,4 @@
-import { useEffect, useCallback } from "react"
+import { useEffect, useCallback, useRef } from "react"
 import { IMapFeature, TravelMode } from "../types/interfaces"
 
 interface RouteState {
@@ -46,6 +46,8 @@ export const useRouteStateSync = ({
   setTrafficHour,
   setTrafficDayOfWeek,
 }: RouteStateSyncProps) => {
+  const isInitialized = useRef(false)
+
   // Initialize state from URL on mount
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -104,11 +106,18 @@ export const useRouteStateSync = ({
         setAddress(feature, "end")
       }
     }
+
+    // Set initialized after React processes the state batch from init
+    queueMicrotask(() => {
+      isInitialized.current = true
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []) // Only run on mount
 
   // Update URL when state changes
   useEffect(() => {
+    if (!isInitialized.current) return
+
     const params = new URLSearchParams()
 
     // Add start coordinates and address label if available
