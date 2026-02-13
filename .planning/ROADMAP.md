@@ -64,10 +64,11 @@ Plans:
   4. Traffic and ferry toggles are visually compact and integrated into sidebar flow
   5. Zoom controls styled to match transit theme
   6. Geolocation button styled with transit theme
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD during phase planning
+- [ ] 03-01-PLAN.md — Compact mode selector (ToggleButtonGroup), inline toggles, tighter TitleBar and ControlsContainer
+- [ ] 03-02-PLAN.md — Compact search inputs (size="small"), tighter Sidebar spacing, transit-themed MapControls
 
 ### Phase 4: Route Display Polish
 **Goal**: Polished route cards and turn-by-turn directions with transit aesthetic
@@ -106,7 +107,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 |-------|----------------|--------|-----------|
 | 1. Design System Foundation | 1/1 | Complete | 2026-02-13 |
 | 2. Responsive Layout System | 2/2 | Complete | 2026-02-13 |
-| 3. Sidebar Redesign | 0/TBD | Not started | - |
+| 3. Sidebar Redesign | 0/2 | Not started | - |
 | 4. Route Display Polish | 0/TBD | Not started | - |
 | 5. Accessibility Audit | 0/TBD | Not started | - |
 
