@@ -93,10 +93,11 @@ Plans:
   2. All controls navigable via keyboard with visible focus indicators (3px outline, 3:1 contrast)
   3. All interactive elements have appropriate ARIA labels for screen readers
   4. Focus management works correctly when sidebar collapses and bottom sheet snaps
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: TBD during phase planning
+- [ ] 05-01-PLAN.md — Fix contrast, ARIA labels, touch targets, keyboard support, and focus management across 10 components
+- [ ] 05-02-PLAN.md — Install vitest-axe and write automated accessibility tests for WCAG AA compliance
 
 ## Progress
 
@@ -109,7 +110,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 | 2. Responsive Layout System | 2/2 | Complete | 2026-02-13 |
 | 3. Sidebar Redesign | 2/2 | Complete | 2026-02-13 |
 | 4. Route Display Polish | 1/1 | Complete | 2026-02-13 |
-| 5. Accessibility Audit | 0/TBD | Not started | - |
+| 5. Accessibility Audit | 0/2 | Not started | - |
 
 ---
 *Created: 2026-02-12*
