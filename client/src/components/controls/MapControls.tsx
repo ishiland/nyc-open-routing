@@ -47,9 +47,13 @@ export const MapControls: React.FC = () => {
           aria-label="Zoom in"
           sx={{
             bgcolor: "background.paper",
+            color: "primary.main",
             boxShadow: 2,
+            border: "1px solid",
+            borderColor: "divider",
             "&:hover": {
-              bgcolor: "action.hover",
+              bgcolor: "primary.main",
+              color: "primary.contrastText",
             },
             minWidth: 44,
             minHeight: 44,
@@ -67,9 +71,13 @@ export const MapControls: React.FC = () => {
           aria-label="Zoom out"
           sx={{
             bgcolor: "background.paper",
+            color: "primary.main",
             boxShadow: 2,
+            border: "1px solid",
+            borderColor: "divider",
             "&:hover": {
-              bgcolor: "action.hover",
+              bgcolor: "primary.main",
+              color: "primary.contrastText",
             },
             minWidth: 44,
             minHeight: 44,

@@ -1,6 +1,6 @@
 // Sidebar.tsx
 import React, { useContext } from "react"
-import { Box, IconButton, Tooltip, Card, Stack } from "@mui/material"
+import { Box, IconButton, Tooltip, Stack } from "@mui/material"
 import { SwapVert } from "@mui/icons-material"
 import { ControlsContainer } from "./ControlsContainer"
 import Search from "./controls/Search"
@@ -18,45 +18,41 @@ const Sidebar: React.FC = () => {
   return (
     <nav aria-label="Address input and routing">
       <ControlsContainer>
-        <Stack spacing={2}>
-          <Card sx={{ boxShadow: 1 }} elevation={0}>
-            <Box sx={{ p: 2 }}>
-              <Stack spacing={1}>
-                <Search type="Start" />
-                {/* Swap button between search inputs */}
-                <Box sx={{ display: "flex", justifyContent: "center" }}>
-                  <Tooltip title="Swap start and end addresses" placement="right">
-                    <span>
-                      <IconButton
-                        onClick={swapAddresses}
-                        disabled={!canSwap}
-                        size="small"
-                        aria-label="Swap start and end addresses"
-                        sx={{
-                          transform: "rotate(90deg)",
-                          bgcolor: "action.hover",
-                          transition: "all 0.2s ease-in-out",
-                          minWidth: 44,
-                          minHeight: 44,
-                          "&:hover": {
-                            bgcolor: "action.selected",
-                            transform: "rotate(90deg) scale(1.15)",
-                          },
-                          "&.Mui-disabled": {
-                            bgcolor: "transparent",
-                            transform: "rotate(90deg)",
-                          },
-                        }}
-                      >
-                        <SwapVert />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                </Box>
-                <Search type="End" />
-              </Stack>
+        <Stack spacing={1.5}>
+          <Stack spacing={1}>
+            <Search type="Start" />
+            {/* Swap button between search inputs */}
+            <Box sx={{ display: "flex", justifyContent: "center" }}>
+              <Tooltip title="Swap start and end addresses" placement="right">
+                <span>
+                  <IconButton
+                    onClick={swapAddresses}
+                    disabled={!canSwap}
+                    size="small"
+                    aria-label="Swap start and end addresses"
+                    sx={{
+                      transform: "rotate(90deg)",
+                      bgcolor: "action.hover",
+                      transition: "all 0.2s ease-in-out",
+                      minWidth: 32,
+                      minHeight: 32,
+                      "&:hover": {
+                        bgcolor: "action.selected",
+                        transform: "rotate(90deg) scale(1.15)",
+                      },
+                      "&.Mui-disabled": {
+                        bgcolor: "transparent",
+                        transform: "rotate(90deg)",
+                      },
+                    }}
+                  >
+                    <SwapVert fontSize="small" />
+                  </IconButton>
+                </span>
+              </Tooltip>
             </Box>
-          </Card>
+            <Search type="End" />
+          </Stack>
           <ButtonControls />
           <RouteList />
         </Stack>
