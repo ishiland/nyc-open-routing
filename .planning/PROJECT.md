@@ -1,4 +1,4 @@
-# NYC Open Routing — UI Polish
+# NYC Open Routing
 
 ## What This Is
 
@@ -27,20 +27,16 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 - ✓ Responsive layout: collapsible desktop sidebar, tablet, mobile bottom sheet — v1.0
 - ✓ Route display with mode-specific color accents and active step highlighting — v1.0
 - ✓ WCAG 2.1 AA compliance (contrast, ARIA, keyboard, focus management) — v1.0
+- ✓ Collapse button repositioned below TitleBar, no info button overlap — v1.1
+- ✓ Deep link mode parameter correctly restored on page load — v1.1
+- ✓ Mobile autocomplete visible above bottom sheet (z-index fix) — v1.1
+- ✓ Collapsed sidebar icon rail with travel mode indicator and tooltips — v1.1
+- ✓ Empty state "Get started" hint when no route calculated — v1.1
+- ✓ Map controls render immediately with disabled placeholders — v1.1
 
 ### Active
 
-## Current Milestone: v1.1 UI Polish
-
-**Goal:** Fix bugs and refine UX issues identified during v1.0 review
-
-**Target features:**
-- Fix info button click intercepted by collapse sidebar button
-- Fix deep link mode parameter ignored on page load
-- Improve empty sidebar state when no route is present
-- Smooth zoom controls appearance on initial load
-- Fix mobile autocomplete dropdown positioning relative to bottom sheet
-- Refine sidebar collapse toggle button and collapsed state content
+(None — define next milestone via `/gsd:new-milestone`)
 
 ### Out of Scope
 
@@ -53,13 +49,14 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ## Context
 
-- **Current:** v1.1 UI Polish — bugfixes + UX refinements from v1.0 review
-- **Shipped:** v1.0 UI Redesign (2026-02-13)
+- **Current:** Planning next milestone
+- **Shipped:** v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
 - **Stack:** React 18 + TypeScript + MUI 7 + MapLibre GL 5 + Vite
-- **LOC:** 6,546 TypeScript (client)
+- **LOC:** 6,613 TypeScript (client)
 - **State management:** React Context API (RoutingContext, MapInstanceContext, MessageContext)
 - **Theme:** MTA Blue #0039A6, Inter Variable font, 6px spacing, MODE_COLORS (drive=blue, bike=green, walk=orange)
-- **Layout:** AdaptiveLayout (desktop 400px sidebar, tablet 340px, mobile bottom sheet), collapsible to 56px
+- **Layout:** AdaptiveLayout (desktop 400px sidebar, tablet 340px, mobile bottom sheet), collapsible to 56px with icon rail
+- **Z-index hierarchy:** map controls 1050 < bottom sheet 1200 < dropdown 1210
 - **Testing:** 31 tests (13 component + 18 a11y) via Vitest + vitest-axe
 - **Codebase map:** `.planning/codebase/` for detailed architecture reference
 
@@ -82,6 +79,12 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 | MODE_COLORS as exported constant | Direct import simpler than useTheme() for mode colors | ✓ Good — used consistently across 6+ components |
 | 6px spacing base | 25% tighter than MUI default 8px for compact transit aesthetic | ✓ Good — compact without feeling cramped |
 | vitest-axe for a11y testing | axe-core via existing Vitest setup, no new test runner | ✓ Good — 18 a11y tests, catches regressions |
+| Collapse button at top:48 | 40px TitleBar height + 8px gap, avoids z-index overlap | ✓ Good — clean separation from header controls |
+| isInitialized ref guard for URL sync | Prevents URL update effect from overwriting deep link params during mount | ✓ Good — eliminates race condition cleanly |
+| DROPDOWN_Z_INDEX = 1210 | Sits above bottom sheet (1200) and map controls (1050) | ✓ Good — mobile autocomplete now visible |
+| disablePortal on Popper | Avoids iOS Safari stacking context clipping in SwipeableDrawer | ✓ Good — dropdown stays within drawer DOM tree |
+| Icon rail in collapsed sidebar | Shows current mode at a glance; reads RoutingContext directly | ✓ Good — collapsed state now informative |
+| Disabled placeholder pattern for MapControls | Render controls immediately with disabled state, enable when map loads | ✓ Good — eliminates pop-in flash |
 
 ---
-*Last updated: 2026-02-13 after v1.1 milestone start*
+*Last updated: 2026-02-13 after v1.1 milestone*

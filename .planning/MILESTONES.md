@@ -14,3 +14,19 @@
 
 ---
 
+
+## v1.1 UI Polish (Shipped: 2026-02-13)
+
+**Phases completed:** 1 phase, 3 plans | 6 files changed, +88/-21 lines | 6,613 LOC TypeScript
+**Git range:** e14bed9..597bcec (6 feat/fix commits)
+
+**Key accomplishments:**
+- Collapse button repositioned below TitleBar, eliminating info button click interception
+- Deep link mode race condition fixed with isInitialized ref guard + queueMicrotask
+- Mobile autocomplete z-index raised above bottom sheet (1210 > 1200) with disablePortal
+- Collapsed sidebar shows colored travel mode icon rail with tooltips
+- Empty state "Get started" hint with Directions icon guides new users
+- Map controls render disabled placeholders immediately, eliminating pop-in flash
+
+---
+
