@@ -12,8 +12,8 @@ Transform the NYC Open Routing app from functional-but-dated to polished-and-NYC
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Design System Foundation** - MTA-inspired theme with MUI overrides
-- [ ] **Phase 2: Responsive Layout System** - Polished adaptive layout with gesture conflict resolution
+- [x] **Phase 1: Design System Foundation** - MTA-inspired theme with MUI overrides
+- [x] **Phase 2: Responsive Layout System** - Polished adaptive layout with gesture conflict resolution
 - [ ] **Phase 3: Sidebar Redesign** - Compact sidebar with transit-inspired controls
 - [ ] **Phase 4: Route Display Polish** - Polished route cards and turn-by-turn with transit aesthetic
 - [ ] **Phase 5: Accessibility Audit** - WCAG 2.1 Level AA compliance verification
@@ -33,7 +33,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 1 plan
 
 Plans:
-- [ ] 01-01-PLAN.md — MTA design tokens, Inter font, compact spacing, mode colors, component overrides
+- [x] 01-01-PLAN.md — MTA design tokens, Inter font, compact spacing, mode colors, component overrides
 
 ### Phase 2: Responsive Layout System
 **Goal**: Deliver polished adaptive layout with tablet/mobile optimization and gesture conflict resolution
@@ -50,8 +50,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md — Consolidate width constants, fix viewport units (100dvh), harden bottom sheet gesture isolation
-- [ ] 02-02-PLAN.md — Desktop sidebar collapse/expand with CSS transition, responsive map control positioning
+- [x] 02-01-PLAN.md — Consolidate width constants, fix viewport units (100dvh), harden bottom sheet gesture isolation
+- [x] 02-02-PLAN.md — Desktop sidebar collapse/expand with CSS transition, responsive map control positioning
 
 ### Phase 3: Sidebar Redesign
 **Goal**: Compact, transit-inspired sidebar with polished search, mode selector, and map controls
@@ -104,12 +104,12 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Design System Foundation | 0/1 | Not started | - |
-| 2. Responsive Layout System | 0/2 | Not started | - |
+| 1. Design System Foundation | 1/1 | Complete | 2026-02-13 |
+| 2. Responsive Layout System | 2/2 | Complete | 2026-02-13 |
 | 3. Sidebar Redesign | 0/TBD | Not started | - |
 | 4. Route Display Polish | 0/TBD | Not started | - |
 | 5. Accessibility Audit | 0/TBD | Not started | - |
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-12 after initial roadmap creation*
+*Last updated: 2026-02-13 after completing Phase 2*
