@@ -1,7 +1,7 @@
 import { useCallback, useState } from "react"
 import { Point } from "geojson"
 
-import { IMapFeature, Route } from "../types/interfaces"
+import { IMapFeature, Route, RouteFeature } from "../types/interfaces"
 import { TravelMode } from "../contexts/RoutingContext"
 import { MessageContextType } from "../contexts/MessageContext"
 import debug from "../utils/debug"
@@ -15,6 +15,7 @@ interface UseRouteFetchArgs {
   trafficHour: number | null
   trafficDayOfWeek: number | null
   setRoute: (route: Route | null) => void
+  setSelectedStreet: (street: RouteFeature | null) => void
   displayMessage: MessageContextType["displayMessage"]
 }
 
@@ -27,6 +28,7 @@ export const useRouteFetch = ({
   trafficHour,
   trafficDayOfWeek,
   setRoute,
+  setSelectedStreet,
   displayMessage,
 }: UseRouteFetchArgs) => {
   const [isFetching, setIsFetching] = useState<boolean>(false)
@@ -113,6 +115,7 @@ export const useRouteFetch = ({
         const data: Route = await response.json()
         if (data.features && data.features.length > 0) {
           setRoute(data)
+          setSelectedStreet(null)
         } else {
           setRoute(null)
           displayMessage(
@@ -148,7 +151,7 @@ export const useRouteFetch = ({
     } finally {
       setIsFetching(false)
     }
-  }, [startAddress, endAddress, mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek, setRoute, displayMessage])
+  }, [startAddress, endAddress, mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek, setRoute, setSelectedStreet, displayMessage])
 
   return { fetchRoute: fetchRouteCallback, isFetching }
 }

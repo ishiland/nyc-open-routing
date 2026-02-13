@@ -19,7 +19,7 @@ import { useRouteFetch } from "../../hooks/useRouteFetch"
 import { useRouteStateSync } from "../../hooks/useRouteStateSync"
 
 export const ButtonControls: React.FC = () => {
-  const { clearAddresses, startAddress, endAddress, setRoute, mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek, setAddress, setMode, setUseTraffic, setAvoidFerries, setTrafficHour, setTrafficDayOfWeek } =
+  const { clearAddresses, startAddress, endAddress, setRoute, setSelectedStreet, mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek, setAddress, setMode, setUseTraffic, setAvoidFerries, setTrafficHour, setTrafficDayOfWeek } =
     useContext<RoutingContextType>(RoutingContext)
 
   const { displayMessage } = useContext<MessageContextType>(MessageContext)
@@ -33,6 +33,7 @@ export const ButtonControls: React.FC = () => {
     trafficHour,
     trafficDayOfWeek,
     setRoute,
+    setSelectedStreet,
     displayMessage,
   })
 

@@ -6,6 +6,7 @@ import { IMapFeature } from "../types/interfaces"
 
 interface UseMapZoomOptions {
   padding?: number
+  maxZoom?: number
   defaultCenter?: [number, number]
   defaultZoom?: number
 }
@@ -17,6 +18,7 @@ const useMapZoom = (
   map: maplibregl.Map | null,
   {
     padding = 50,
+    maxZoom = 17,
     defaultCenter = [-73.978159, 40.759975],
     defaultZoom = 10,
   }: UseMapZoomOptions = {},
@@ -44,12 +46,12 @@ const useMapZoom = (
       try {
         const fc = featureCollection(features)
         const bounds = extent(fc)
-        map.fitBounds(bounds, { padding })
+        map.fitBounds(bounds, { padding, maxZoom })
       } catch (error) {
         console.error("Error in zoomToExtent:", error)
       }
     },
-    [map, padding],
+    [map, padding, maxZoom],
   )
 
   /**
