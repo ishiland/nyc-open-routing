@@ -212,8 +212,9 @@ const SearchComponent: FC<SearchProps> = ({ type }) => {
     >
       <TextField
         fullWidth
-        label={type === "Start" ? "Starting location" : "Destination"}
-        placeholder="e.g., 350 5th Ave, Manhattan or 260 Broadway"
+        size="small"
+        label={type === "Start" ? "From" : "To"}
+        placeholder="e.g., 350 5th Ave, Manhattan"
         disabled={!isInputEnabled}
         inputRef={node => {
           inputRef.current = node
@@ -245,46 +246,48 @@ const SearchComponent: FC<SearchProps> = ({ type }) => {
         }
         aria-autocomplete="list"
         aria-expanded={suggestions.length > 0}
-        InputProps={{
-          endAdornment: (
-            <InputAdornment position="end">
-              <Tooltip title="Use my current location" placement="top">
-                <span>
-                  <IconButton
-                    onClick={handleUseMyLocation}
-                    disabled={!isInputEnabled || geoLoading}
-                    size="medium"
-                    edge="end"
-                    aria-label="Use my current location"
-                    sx={{
-                      minWidth: 44,
-                      minHeight: 44,
-                      color: 'primary.main',
-                      '&:hover': {
-                        color: 'primary.dark',
-                      },
-                      '&.Mui-disabled': {
-                        color: 'action.disabled',
-                      },
-                    }}
-                  >
-                    {geoLoading ? (
-                      <CircularProgress size={20} />
-                    ) : (
-                      <MyLocation fontSize="small" />
-                    )}
-                  </IconButton>
-                </span>
-              </Tooltip>
-            </InputAdornment>
-          ),
-        }}
-        inputProps={{
-          readOnly: isReadOnly,
-          autoComplete: randomAutoComplete,
-          autoCorrect: "off",
-          autoCapitalize: "off",
-          spellCheck: "false",
+        slotProps={{
+          input: {
+            endAdornment: (
+              <InputAdornment position="end">
+                <Tooltip title="Use my current location" placement="top">
+                  <span>
+                    <IconButton
+                      onClick={handleUseMyLocation}
+                      disabled={!isInputEnabled || geoLoading}
+                      size="medium"
+                      edge="end"
+                      aria-label="Use my current location"
+                      sx={{
+                        minWidth: 44,
+                        minHeight: 44,
+                        color: 'primary.main',
+                        '&:hover': {
+                          color: 'primary.dark',
+                        },
+                        '&.Mui-disabled': {
+                          color: 'action.disabled',
+                        },
+                      }}
+                    >
+                      {geoLoading ? (
+                        <CircularProgress size={20} />
+                      ) : (
+                        <MyLocation fontSize="small" />
+                      )}
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </InputAdornment>
+            ),
+          },
+          htmlInput: {
+            readOnly: isReadOnly,
+            autoComplete: randomAutoComplete,
+            autoCorrect: "off",
+            autoCapitalize: "off",
+            spellCheck: "false",
+          },
         }}
       />
       {((loading || error || suggestions.length > 0) &&

@@ -68,19 +68,19 @@ describe("Search Component", () => {
     )
   })
 
-  it("renders with placeholder text", () => {
+  it("renders with label text", () => {
     renderSearch("Start")
-    expect(screen.getByPlaceholderText("Enter NYC address")).toBeInTheDocument()
+    expect(screen.getByLabelText("From")).toBeInTheDocument()
   })
 
   it("is disabled when isInputEnabled is false", () => {
     renderSearch("Start", { isInputEnabled: false })
-    expect(screen.getByPlaceholderText("Enter NYC address")).toBeDisabled()
+    expect(screen.getByLabelText("From")).toBeDisabled()
   })
 
   it("updates input value correctly for Start type", async () => {
     renderSearch("Start")
-    const input = screen.getByPlaceholderText("Enter NYC address")
+    const input = screen.getByLabelText("From")
 
     await userEvent.type(input, "Broadway")
 
@@ -90,7 +90,7 @@ describe("Search Component", () => {
 
   it("updates input value correctly for End type", async () => {
     renderSearch("End")
-    const input = screen.getByPlaceholderText("Enter NYC address")
+    const input = screen.getByLabelText("To")
 
     await userEvent.type(input, "Times Square")
 
@@ -112,7 +112,7 @@ describe("Search Component", () => {
     )
 
     renderSearch("Start")
-    const input = screen.getByPlaceholderText("Enter NYC address")
+    const input = screen.getByLabelText("From")
 
     await userEvent.type(input, "Bro")
 
