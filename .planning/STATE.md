@@ -5,33 +5,34 @@
 See: .planning/PROJECT.md (updated 2026-02-12)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** Phase 1 - Design System Foundation
+**Current focus:** Phase 2 - Responsive Layout System
 
 ## Current Position
 
-Phase: 1 of 5 (Design System Foundation)
-Plan: 1 of 1 complete
-Status: Phase 1 complete
-Last activity: 2026-02-12 — Completed 01-01 MTA Design System Foundation
+Phase: 2 of 5 (Responsive Layout System)
+Plan: 1 of 2 complete
+Status: Executing phase 2
+Last activity: 2026-02-13 — Completed 02-01 Layout Constants and Gesture Isolation
 
-Progress: [██░░░░░░░░] 20%
+Progress: [███░░░░░░░] 30%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 1
+- Total plans completed: 2
 - Average duration: ~3 min
-- Total execution time: ~0.1 hours
+- Total execution time: ~0.2 hours
 
 **By Phase:**
 
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | 01-design-system-foundation | 1 | ~3 min | ~3 min |
+| 02-responsive-layout-system | 1 | ~2 min | ~2 min |
 
 **Recent Trend:**
-- Last 5 plans: 01-01 (~3 min)
-- Trend: baseline
+- Last 5 plans: 01-01 (~3 min), 02-01 (~2 min)
+- Trend: stable
 
 *Updated after each plan completion*
 
@@ -51,6 +52,10 @@ Recent decisions affecting current work:
 - 6px spacing base (25% tighter than MUI default 8px) for compact transit aesthetic
 - MODE_COLORS exported from theme.ts as single source of truth shared between theme.ts and style.ts
 - 44px minimum touch targets on interactive elements for accessibility
+- All sidebar widths from constants.ts single source of truth (SIDEBAR_WIDTH_PX=400, SIDEBAR_WIDTH_TABLET_PX=340, SIDEBAR_COLLAPSED_WIDTH_PX=56)
+- 100dvh for all full-height containers (not 100vh) to handle mobile browser chrome
+- MAP_CONTROLS_Z_INDEX=1050 centralized for map control layering
+- Belt-and-suspenders backdrop approach: hideBackdrop + slotProps.backdrop.invisible for MUI v5/v7 compat
 
 ### Pending Todos
 
@@ -62,10 +67,10 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-02-12
-Stopped at: Completed 01-01-PLAN.md (MTA Design System Foundation)
+Last session: 2026-02-13
+Stopped at: Completed 02-01-PLAN.md (Layout Constants and Gesture Isolation)
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-12 after completing 01-01 plan*
+*Last updated: 2026-02-13 after completing 02-01 plan*
