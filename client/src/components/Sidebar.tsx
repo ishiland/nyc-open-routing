@@ -16,7 +16,7 @@ const Sidebar: React.FC = () => {
   const canSwap = !!(startAddress?.geometry && endAddress?.geometry)
 
   return (
-    <nav aria-label="Address input and routing">
+    <nav aria-label="Address input and routing" style={{ height: "100%" }}>
       <ControlsContainer>
         <Stack spacing={1.5}>
           <Stack spacing={1}>
