@@ -324,4 +324,169 @@ def test_routing_service_sunday_conversion(mock_routing_service, mock_db_engine,
         # Verify Sunday was converted from 6 to 7
         call_args = conn.execute.call_args
         params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
-        assert params['day_of_week'] == 7, "Sunday should be 7 in SQL (1-7), not 6 (Python 0-6)" 
+        assert params['day_of_week'] == 7, "Sunday should be 7 in SQL (1-7), not 6 (Python 0-6)"
+
+
+# --- Waypoint routing service tests ---
+
+def test_waypoint_route_drive_two_stops(mock_routing_service, mock_db_engine):
+    """Test waypoint route with 2 waypoints in drive mode (1 leg)."""
+    conn = MagicMock()
+    result = MagicMock()
+    rows = [
+        MagicMock(
+            _mapping={
+                "seq": 1,
+                "street": "BROADWAY",
+                "distance": 500.0,
+                "travel_time": 10.0,
+                "traffic_factor": 1.2,
+                "geom": "0102000000020000000000000000405EC0CDCCCCCCCC104440000000000040"
+            }
+        )
+    ]
+    result.fetchall.return_value = rows
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with patch('api.utils.geo.dump_geo') as mock_dump_geo:
+        mock_dump_geo.return_value = {
+            "type": "LineString",
+            "coordinates": [[-73.9857, 40.7484], [-73.9950, 40.7352]]
+        }
+
+        response = mock_routing_service.get_waypoint_route(
+            waypoints=["-73.9857,40.7484", "-73.9950,40.7352"],
+            mode="drive"
+        )
+
+        assert len(response.legs) == 1
+        assert response.legs[0].leg == 0
+        assert response.summary.num_legs == 1
+        assert response.summary.total_distance > 0
+        assert response.summary.total_travel_time > 0
+
+
+def test_waypoint_route_drive_three_stops(mock_routing_service, mock_db_engine):
+    """Test waypoint route with 3 waypoints in drive mode (2 legs)."""
+    conn = MagicMock()
+    result = MagicMock()
+    rows = [
+        MagicMock(
+            _mapping={
+                "seq": 1,
+                "street": "5TH AVE",
+                "distance": 300.0,
+                "travel_time": 8.0,
+                "traffic_factor": 1.0,
+                "geom": "0102000000020000000000000000405EC0CDCCCCCCCC104440000000000040"
+            }
+        )
+    ]
+    result.fetchall.return_value = rows
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with patch('api.utils.geo.dump_geo') as mock_dump_geo:
+        mock_dump_geo.return_value = {
+            "type": "LineString",
+            "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]]
+        }
+
+        response = mock_routing_service.get_waypoint_route(
+            waypoints=["-73.9857,40.7484", "-73.9950,40.7352", "-74.0060,40.7128"],
+            mode="drive"
+        )
+
+        assert len(response.legs) == 2
+        assert response.legs[0].leg == 0
+        assert response.legs[1].leg == 1
+        assert response.summary.num_legs == 2
+
+
+def test_waypoint_route_bike(mock_routing_service, mock_db_engine):
+    """Test waypoint route with 2 waypoints in bike mode."""
+    conn = MagicMock()
+    result = MagicMock()
+    rows = [
+        MagicMock(
+            _mapping={
+                "seq": 1,
+                "street": "9TH AVE",
+                "distance": 150.0,
+                "travel_time": 20.0,
+                "traffic_factor": None,
+                "geom": "0102000000020000000000000000405EC0CDCCCCCCCC104440000000000040"
+            }
+        )
+    ]
+    result.fetchall.return_value = rows
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with patch('api.utils.geo.dump_geo') as mock_dump_geo:
+        mock_dump_geo.return_value = {
+            "type": "LineString",
+            "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]]
+        }
+
+        response = mock_routing_service.get_waypoint_route(
+            waypoints=["-73.9857,40.7484", "-73.9950,40.7352"],
+            mode="bike"
+        )
+
+        assert len(response.legs) == 1
+        assert len(response.legs[0].features) == 1
+        assert response.legs[0].features[0].properties.street == "9TH AVE"
+
+
+def test_waypoint_route_walk(mock_routing_service, mock_db_engine):
+    """Test waypoint route with 2 waypoints in walk mode."""
+    conn = MagicMock()
+    result = MagicMock()
+    rows = [
+        MagicMock(
+            _mapping={
+                "seq": 1,
+                "street": "W 42ND ST",
+                "distance": 50.0,
+                "travel_time": 15.0,
+                "traffic_factor": None,
+                "geom": "0102000000020000000000000000405EC0CDCCCCCCCC104440000000000040"
+            }
+        )
+    ]
+    result.fetchall.return_value = rows
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with patch('api.utils.geo.dump_geo') as mock_dump_geo:
+        mock_dump_geo.return_value = {
+            "type": "LineString",
+            "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]]
+        }
+
+        response = mock_routing_service.get_waypoint_route(
+            waypoints=["-73.9857,40.7484", "-73.9950,40.7352"],
+            mode="walk"
+        )
+
+        assert len(response.legs) == 1
+        assert len(response.legs[0].features) == 1
+        assert response.legs[0].features[0].properties.street == "W 42ND ST"
+
+
+def test_waypoint_route_leg_failure(mock_routing_service, mock_db_engine):
+    """Test waypoint route when a leg returns no rows (404)."""
+    conn = MagicMock()
+    result = MagicMock()
+    result.fetchall.return_value = []  # No route segments
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with pytest.raises(HTTPException) as excinfo:
+        mock_routing_service.get_waypoint_route(
+            waypoints=["-73.9857,40.7484", "-73.9950,40.7352"],
+            mode="drive"
+        )
+    assert excinfo.value.status_code == 404 

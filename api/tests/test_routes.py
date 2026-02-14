@@ -139,4 +139,79 @@ def test_address_search_success():
 def test_address_search_missing_query():
     """Test address search with missing query parameter."""
     response = client.get("/api/search")
+    assert response.status_code == 422  # FastAPI validation error
+
+
+# --- Waypoint routing endpoint tests ---
+
+@patch('api.services.routing.RoutingService.get_waypoint_route')
+def test_waypoint_route_endpoint_success(mock_get_waypoint_route):
+    """Test successful waypoint route retrieval."""
+    from api.models.schemas import (
+        WaypointRouteResponse, LegResponse, LegSummary,
+        WaypointRouteSummary, Feature, Properties
+    )
+
+    mock_response = WaypointRouteResponse(
+        legs=[LegResponse(
+            leg=0,
+            summary=LegSummary(distance=500.0, travel_time=10.0),
+            features=[Feature(
+                properties=Properties(seq=1, street="BROADWAY", distance=500.0, travel_time=10.0),
+                geometry={"type": "LineString", "coordinates": [[-73.98, 40.75], [-73.99, 40.76]]}
+            )]
+        )],
+        summary=WaypointRouteSummary(total_distance=500.0, total_travel_time=10.0, num_legs=1)
+    )
+    mock_get_waypoint_route.return_value = mock_response
+
+    response = client.get(
+        "/api/route/waypoints?waypoints=-73.9857,40.7484|-73.9950,40.7352&mode=drive"
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert "legs" in data
+    assert "summary" in data
+    assert len(data["legs"]) == 1
+    assert data["summary"]["num_legs"] == 1
+
+
+def test_waypoint_route_endpoint_too_few_waypoints():
+    """Test waypoint endpoint rejects fewer than 2 waypoints."""
+    response = client.get(
+        "/api/route/waypoints?waypoints=-73.9857,40.7484&mode=drive"
+    )
+    assert response.status_code == 400
+    assert "At least 2 waypoints" in response.json()["detail"]
+
+
+def test_waypoint_route_endpoint_too_many_waypoints():
+    """Test waypoint endpoint rejects more than 3 waypoints."""
+    response = client.get(
+        "/api/route/waypoints?waypoints=-73.98,40.75|-73.99,40.76|-74.00,40.77|-73.97,40.74&mode=drive"
+    )
+    assert response.status_code == 400
+    assert "Maximum 3 waypoints" in response.json()["detail"]
+
+
+def test_waypoint_route_endpoint_invalid_coordinates():
+    """Test waypoint endpoint rejects invalid coordinate format."""
+    response = client.get(
+        "/api/route/waypoints?waypoints=invalid|-73.99,40.76&mode=drive"
+    )
+    assert response.status_code == 400
+    assert "Invalid coordinate format" in response.json()["detail"]
+
+
+def test_waypoint_route_endpoint_missing_waypoints():
+    """Test waypoint endpoint requires waypoints parameter."""
+    response = client.get("/api/route/waypoints?mode=drive")
+    assert response.status_code == 422  # FastAPI validation error
+
+
+def test_waypoint_route_endpoint_missing_mode():
+    """Test waypoint endpoint requires mode parameter."""
+    response = client.get(
+        "/api/route/waypoints?waypoints=-73.98,40.75|-73.99,40.76"
+    )
     assert response.status_code == 422  # FastAPI validation error 
