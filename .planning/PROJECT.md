@@ -50,7 +50,8 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ### Active
 
-(None — planning next milestone)
+- [ ] Ferry routes isolated from bridge/tunnel nodes — only connect at terminals
+- [ ] Ferry edges remain bikeable/walkable, not driveable
 
 ### Out of Scope
 
@@ -64,7 +65,7 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ## Context
 
-- **Current State:** v2.2 shipped, planning next milestone
+- **Current Milestone:** v2.3 Ferry Route Fix
 - **Shipped:** v2.2 Edge Isochrones & Waypoints (2026-02-14), v2.1 Departure Time (2026-02-14), v2.0 Isochrone Reachability (2026-02-14), v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
 - **Stack:** React 18 + TypeScript + MUI 7 + MapLibre GL 5 + Vite
 - **State management:** React Context API (RoutingContext, IsochroneContext, MapInstanceContext, MessageContext)
@@ -108,4 +109,4 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 | View parameter dispatch for isochrone API | Single endpoint with polygon/edges switch via view= param | ✓ Good — backward compatible, clean separation |
 
 ---
-*Last updated: 2026-02-14 after v2.2 milestone completion*
+*Last updated: 2026-02-14 after v2.3 milestone start*
