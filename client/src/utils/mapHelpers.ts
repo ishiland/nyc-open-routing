@@ -2,6 +2,41 @@ import maplibregl from "maplibre-gl"
 import debug from "./debug"
 
 /**
+ * Canonical z-order for custom map layers (bottom to top).
+ * Isochrone fills at the bottom, address labels on top.
+ */
+export const CUSTOM_LAYER_ORDER = [
+  "isochroneFillLayer",
+  "isochroneOutlineLayer",
+  "isochroneEdgesLayer",
+  "routeHaloLayer",
+  "routeLayer",
+  "startPointLayer",
+  "endPointLayer",
+  "startPointLabelLayer",
+  "endPointLabelLayer",
+]
+
+/**
+ * Enforce the canonical layer order for all custom layers.
+ * Moves existing layers to match CUSTOM_LAYER_ORDER (bottom to top).
+ */
+export const enforceLayerOrder = (map: maplibregl.Map): void => {
+  if (!map || !map.getStyle()) return
+
+  const existing = CUSTOM_LAYER_ORDER.filter(id => map.getLayer(id))
+  if (existing.length < 2) return
+
+  for (let i = existing.length - 2; i >= 0; i--) {
+    try {
+      map.moveLayer(existing[i], existing[i + 1])
+    } catch {
+      // Layer may have been removed between check and move
+    }
+  }
+}
+
+/**
  * Safely removes a layer and its source from the map
  * @param map The MapLibre map instance
  * @param layerId The ID of the layer to remove
@@ -13,7 +48,7 @@ export const removeMapLayerAndSource = (
   layerId: string,
   sourceId: string,
 ): boolean => {
-  if (!map || !map.loaded()) return false
+  if (!map || !map.getStyle()) return false
 
   try {
     // First remove the layer if it exists

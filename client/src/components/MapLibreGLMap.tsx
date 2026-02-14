@@ -6,12 +6,15 @@ import {
   addressPointPaint,
   startPointColor,
   endPointColor,
-  routePaint,
   routeHaloPaint,
   getTrafficRoutePaint,
   getModeRoutePaint,
+  getIsochroneFillPaint,
+  getIsochroneOutlinePaint,
+  getIsochroneEdgePaint,
 } from "../utils/style"
 import { RoutingContext } from "../contexts/RoutingContext"
+import { IsochroneContext } from "../contexts/IsochroneContext"
 import { MapInstanceContext } from "../contexts/MapInstanceContext"
 import { IMapFeature } from "../types/interfaces"
 import {
@@ -22,7 +25,7 @@ import {
 import useMapInit from "../hooks/useMapInit"
 import useMapZoom from "../hooks/useMapZoom"
 import useGeoJsonLayer from "../hooks/useGeoJsonLayer"
-import { removeMapLayerAndSource } from "../utils/mapHelpers"
+import { removeMapLayerAndSource, enforceLayerOrder } from "../utils/mapHelpers"
 import debug from "../utils/debug"
 import { ZoomToRouteButton } from "./controls/ZoomToRouteButton"
 import { MapControls } from "./controls/MapControls"
@@ -43,6 +46,8 @@ const MapLibreGLMap: React.FC = () => {
     enableAddressInputs,
     mode,
   } = useContext(RoutingContext)
+
+  const { appMode, isochrone, isochroneView } = useContext(IsochroneContext)
 
   const { setMap: setMapInstance } = useContext(MapInstanceContext)
 
@@ -70,7 +75,7 @@ const MapLibreGLMap: React.FC = () => {
   )
 
   // Memoize paint objects to prevent unnecessary re-renders
-  const routePaint = useMemo(
+  const routePaintStyle = useMemo(
     () => (hasTrafficData ? getTrafficRoutePaint() : getModeRoutePaint(mode)),
     [hasTrafficData, mode]
   )
@@ -78,9 +83,9 @@ const MapLibreGLMap: React.FC = () => {
   const routeLayerOptions = useMemo(
     () => ({
       type: "line" as const,
-      paint: routePaint,
+      paint: routePaintStyle,
     }),
-    [routePaint]
+    [routePaintStyle]
   )
 
   const haloLayerOptions = useMemo(
@@ -91,29 +96,94 @@ const MapLibreGLMap: React.FC = () => {
     []
   )
 
-  // Add route halo layer FIRST (creates glow effect beneath route)
-  // Place it before routeLayer to ensure halo appears beneath the main route line
+  // Isochrone layer paint options
+  const isochroneFillOptions = useMemo(
+    () => ({
+      type: "fill" as const,
+      paint: getIsochroneFillPaint(),
+    }),
+    []
+  )
+
+  const isochroneOutlineOptions = useMemo(
+    () => ({
+      type: "line" as const,
+      paint: getIsochroneOutlinePaint(),
+    }),
+    []
+  )
+
+  const isochroneEdgeOptions = useMemo(
+    () => ({
+      type: "line" as const,
+      paint: getIsochroneEdgePaint(),
+    }),
+    []
+  )
+
+  // Polygon features: only when in polygon view
+  const isochronePolygonFeatures = appMode === "isochrone" && isochroneView === "polygon" && isochrone?.features
+    ? (isochrone.features as unknown as IMapFeature[])
+    : null
+
+  // Edge features: only when in edge view
+  const isochroneEdgeFeatures = appMode === "isochrone" && isochroneView === "edges" && isochrone?.features
+    ? (isochrone.features as unknown as IMapFeature[])
+    : null
+
+  // Route features: only show in route mode
+  const routeFeatures = appMode === "route" ? (route?.features || null) : null
+
+  // Layer ordering: hooks are declared bottom-to-top.
+  // enforceLayerOrder() (below) corrects z-order after every data change.
+
+  // Isochrone fill layer (bottom-most custom layer)
+  useGeoJsonLayer(
+    map,
+    "isochroneFillSource",
+    "isochroneFillLayer",
+    isochronePolygonFeatures,
+    isochroneFillOptions,
+  )
+
+  // Isochrone outline layer
+  useGeoJsonLayer(
+    map,
+    "isochroneOutlineSource",
+    "isochroneOutlineLayer",
+    isochronePolygonFeatures,
+    isochroneOutlineOptions,
+  )
+
+  // Isochrone edge layer (street segments)
+  useGeoJsonLayer(
+    map,
+    "isochroneEdgesSource",
+    "isochroneEdgesLayer",
+    isochroneEdgeFeatures,
+    isochroneEdgeOptions,
+  )
+
+  // Route halo layer (glow effect beneath route line)
   useGeoJsonLayer(
     map,
     "routeHaloSource",
     "routeHaloLayer",
-    route?.features || null,
+    routeFeatures,
     haloLayerOptions,
-    "routeLayer", // Halo goes before (beneath) route layer
   )
 
-  // Add main route layer on top of halo (but beneath markers)
-  // Place it before startPointLayer to ensure route appears beneath markers
+  // Main route layer (above halo, beneath markers)
   useGeoJsonLayer(
     map,
     "routeSource",
     "routeLayer",
-    route?.features || null,
+    routeFeatures,
     routeLayerOptions,
-    "startPointLayer", // Route goes before (beneath) marker layers
   )
 
   // Add markers AFTER route (so they appear on top)
+  // In isochrone mode, show start marker only
   useGeoJsonLayer(
     map,
     "startPointSource",
@@ -132,7 +202,7 @@ const MapLibreGLMap: React.FC = () => {
     map,
     "endPointSource",
     "endPointLayer",
-    endAddress as IMapFeature | null,
+    appMode === "route" ? (endAddress as IMapFeature | null) : null,
     {
       type: "circle",
       paint: {
@@ -168,7 +238,7 @@ const MapLibreGLMap: React.FC = () => {
     map,
     "endPointLabelSource",
     "endPointLabelLayer",
-    endAddress as IMapFeature | null,
+    appMode === "route" ? (endAddress as IMapFeature | null) : null,
     {
       type: "symbol",
       layout: {
@@ -184,6 +254,13 @@ const MapLibreGLMap: React.FC = () => {
       },
     },
   )
+
+  // Enforce canonical z-order after any layer data changes.
+  // Runs after all useGeoJsonLayer effects in this render cycle.
+  useEffect(() => {
+    if (!map) return
+    enforceLayerOrder(map)
+  }, [map, isochronePolygonFeatures, isochroneEdgeFeatures, routeFeatures, startAddress, endAddress, appMode])
 
   // Debug logging for address markers
   useEffect(() => {
@@ -209,6 +286,9 @@ const MapLibreGLMap: React.FC = () => {
     removeMapLayerAndSource(map, "endPointLabelLayer", "endPointLabelSource")
     removeMapLayerAndSource(map, "routeLayer", "routeSource")
     removeMapLayerAndSource(map, "routeHaloLayer", "routeHaloSource")
+    removeMapLayerAndSource(map, "isochroneFillLayer", "isochroneFillSource")
+    removeMapLayerAndSource(map, "isochroneOutlineLayer", "isochroneOutlineSource")
+    removeMapLayerAndSource(map, "isochroneEdgesLayer", "isochroneEdgesSource")
     resetZoom()
   }, [map, resetZoom])
 
@@ -220,7 +300,7 @@ const MapLibreGLMap: React.FC = () => {
     if (startAddress && startAddress.geometry) {
       features.push(startAddress as IMapFeature)
     }
-    if (endAddress && endAddress.geometry) {
+    if (appMode === "route" && endAddress && endAddress.geometry) {
       features.push(endAddress as IMapFeature)
     }
     if (features.length > 0) {
@@ -232,11 +312,11 @@ const MapLibreGLMap: React.FC = () => {
         return () => { map.off('idle', handler) }
       }
     }
-  }, [startAddress, endAddress, map, zoomToExtent])
+  }, [startAddress, endAddress, appMode, map, zoomToExtent])
 
   // Zoom to extent when route changes
   useEffect(() => {
-    if (!map) return
+    if (!map || appMode !== "route") return
 
     if (route && route.features && route.features.length > 0) {
       if (map.loaded()) {
@@ -250,7 +330,23 @@ const MapLibreGLMap: React.FC = () => {
     } else if (!route || !route.features) {
       clearMap()
     }
-  }, [route, map, zoomToExtent, clearMap])
+  }, [route, appMode, map, zoomToExtent, clearMap])
+
+  // Zoom to isochrone extent when data changes
+  useEffect(() => {
+    if (!map || appMode !== "isochrone") return
+
+    if (isochrone && isochrone.features && isochrone.features.length > 0) {
+      const isoFeatures = isochrone.features as unknown as IMapFeature[]
+      if (map.loaded()) {
+        zoomToExtent(isoFeatures)
+      } else {
+        const handler = () => zoomToExtent(isoFeatures)
+        map.once('idle', handler)
+        return () => { map.off('idle', handler) }
+      }
+    }
+  }, [isochrone, appMode, map, zoomToExtent])
 
   // Zoom to selected street
   useEffect(() => {
