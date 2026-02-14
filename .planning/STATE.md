@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** v2.2 Edge Isochrones & Waypoints — Phase 12 executing
+**Current focus:** v2.2 Edge Isochrones & Waypoints — COMPLETE
 
 ## Current Position
 
 Milestone: v2.2 Edge Isochrones & Waypoints
-Phase: 12 of 12 (Waypoint Routing Frontend) -- IN PROGRESS
-Plan: 2 of 3 plans executed
-Status: Plan 12-02 complete — sidebar waypoint UI, conditional route dispatch, map markers, leg-grouped directions
-Last activity: 2026-02-14 — Completed 12-02 (waypoint UI wiring)
+Phase: 12 of 12 (Waypoint Routing Frontend) -- COMPLETE
+Plan: 3 of 3 plans executed
+Status: All phases complete — milestone ready for archival
+Last activity: 2026-02-14 — Completed Phase 12 (waypoint routing frontend)
 
-Progress: [█████████░] 90%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -30,6 +30,7 @@ Progress: [█████████░] 90%
 - v2.2 Phase 11-02: 2 tasks, 3 files changed, 2 min
 - v2.2 Phase 12-01: 2 tasks, 7 files changed, 3 min
 - v2.2 Phase 12-02: 2 tasks, 6 files changed, 3 min
+- v2.2 Phase 12-03: 1 task (human verification), 1 bug fix, 1 file changed
 
 ## Accumulated Context
 
@@ -55,6 +56,7 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - Route features flattened via useMemo from waypoint legs into single IMapFeature array for map display
 - RouteList uses three-state conditional: waypointRoute -> regular route -> empty state
 - RouteSummaryCard computes waypoint arrival time inline rather than adding new format utility
+- Clear waypointRoute before dispatching regular fetchRoute to prevent stale data display
 
 ### Pending Todos
 
@@ -63,13 +65,14 @@ None.
 ### Blockers/Concerns
 
 - Edge-based isochrone payload size at scale (5K-15K edges) — may need geometry simplification
+- Minor: waypoint suggestion dropdown z-index can overlap with To field recent searches dropdown
 
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 12-02-PLAN.md
+Stopped at: Milestone v2.2 complete — ready for /gsd:complete-milestone
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after completing 12-02*
+*Last updated: 2026-02-14 after Phase 12 completion*

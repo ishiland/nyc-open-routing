@@ -16,7 +16,7 @@
 - [x] **Phase 9: Edge Isochrone SQL** - SQL functions return reachable edge geometries with cumulative travel time
 - [x] **Phase 10: Edge Isochrone Frontend** - Users toggle between polygon and edge visualization across all modes
 - [x] **Phase 11: Waypoint Routing Backend** - SQL functions and API endpoint calculate multi-stop routes with per-leg directions
-- [ ] **Phase 12: Waypoint Routing Frontend** - Users add, remove, and see waypoints in the sidebar and on the map
+- [x] **Phase 12: Waypoint Routing Frontend** - Users add, remove, and see waypoints in the sidebar and on the map
 
 ### Phase Details
 
@@ -77,9 +77,9 @@ Plans:
 **Plans:** 3 plans
 
 Plans:
-- [ ] 12-01-PLAN.md — Waypoint types, context state, fetch hook, WaypointSearch component
-- [ ] 12-02-PLAN.md — Wire Sidebar, ButtonControls, MapLibreGLMap, RouteList, RouteSummaryCard for waypoints
-- [ ] 12-03-PLAN.md — Human verification of end-to-end waypoint routing
+- [x] 12-01-PLAN.md — Waypoint types, context state, fetch hook, WaypointSearch component
+- [x] 12-02-PLAN.md — Wire Sidebar, ButtonControls, MapLibreGLMap, RouteList, RouteSummaryCard for waypoints
+- [x] 12-03-PLAN.md — Human verification of end-to-end waypoint routing
 
 ## Progress
 
@@ -90,7 +90,7 @@ Plans:
 | 9. Edge Isochrone SQL | 1/1 | Complete | 2026-02-14 |
 | 10. Edge Isochrone Frontend | 2/2 | Complete | 2026-02-14 |
 | 11. Waypoint Routing Backend | 2/2 | Complete | 2026-02-14 |
-| 12. Waypoint Routing Frontend | 0/3 | Not started | - |
+| 12. Waypoint Routing Frontend | 3/3 | Complete | 2026-02-14 |
 
 ---
-*Last updated: 2026-02-14 after Phase 12 planning*
+*Last updated: 2026-02-14 after Phase 12 completion*
