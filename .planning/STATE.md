@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 
 Milestone: v2.2 Edge Isochrones & Waypoints
 Phase: 12 of 12 (Waypoint Routing Frontend) -- IN PROGRESS
-Plan: 1 of 3 plans executed
-Status: Plan 12-01 complete — waypoint types, context state, fetch hook, WaypointSearch component
-Last activity: 2026-02-14 — Completed 12-01 (waypoint foundation)
+Plan: 2 of 3 plans executed
+Status: Plan 12-02 complete — sidebar waypoint UI, conditional route dispatch, map markers, leg-grouped directions
+Last activity: 2026-02-14 — Completed 12-02 (waypoint UI wiring)
 
-Progress: [████████░░] 80%
+Progress: [█████████░] 90%
 
 ## Performance Metrics
 
@@ -29,6 +29,7 @@ Progress: [████████░░] 80%
 - v2.2 Phase 11-01: 2 tasks, 2 files changed, 2 min
 - v2.2 Phase 11-02: 2 tasks, 3 files changed, 2 min
 - v2.2 Phase 12-01: 2 tasks, 7 files changed, 3 min
+- v2.2 Phase 12-02: 2 tasks, 6 files changed, 3 min
 
 ## Accumulated Context
 
@@ -50,6 +51,10 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - Separate useWaypointRouteFetch hook rather than extending useRouteFetch to preserve existing routing unchanged
 - WaypointSearch reuses useDebouncedFetch/SuggestionDropdown with simpler layout (no geolocation, no recent searches)
 - addWaypoint enforces max 1 intermediate waypoint matching backend 3-total-point constraint
+- Swap button disabled (not hidden) when waypoints present for discoverability
+- Route features flattened via useMemo from waypoint legs into single IMapFeature array for map display
+- RouteList uses three-state conditional: waypointRoute -> regular route -> empty state
+- RouteSummaryCard computes waypoint arrival time inline rather than adding new format utility
 
 ### Pending Todos
 
@@ -62,9 +67,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 12-01-PLAN.md
+Stopped at: Completed 12-02-PLAN.md
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after completing 12-01*
+*Last updated: 2026-02-14 after completing 12-02*
