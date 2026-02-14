@@ -15,7 +15,7 @@
 
 **Milestone Goal:** Prepare codebase for public release — clean code, clean repo, proper documentation.
 
-- [ ] **Phase 14: Code Quality Review** - Thorough KISS review of entire codebase, fix issues found
+- [x] **Phase 14: Code Quality Review** - Thorough KISS review of entire codebase, fix issues found
 - [ ] **Phase 15: Repo Cleanup** - Remove junk files, untrack dist/, update .gitignore, update CI workflow
 - [ ] **Phase 16: Documentation & Public Release** - README, LICENSE, CONTRIBUTING.md, clean docs/
 
@@ -34,8 +34,8 @@
 **Plans:** 2 plans
 
 Plans:
-- [ ] 14-01-PLAN.md — Backend code quality review (api/ + data-importer/ + scripts/)
-- [ ] 14-02-PLAN.md — Frontend code quality review (client/src/)
+- [x] 14-01-PLAN.md — Backend code quality review (api/ + data-importer/ + scripts/)
+- [x] 14-02-PLAN.md — Frontend code quality review (client/src/)
 
 ### Phase 15: Repo Cleanup
 **Goal**: Repository contains only files that belong in a public open-source project
@@ -74,7 +74,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 14. Code Quality Review | 0/2 | Not started | - |
+| 14. Code Quality Review | 2/2 | ✓ Complete | 2026-02-14 |
 | 15. Repo Cleanup | 0/TBD | Not started | - |
 | 16. Documentation & Public Release | 0/TBD | Not started | - |
 
