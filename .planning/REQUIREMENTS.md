@@ -61,11 +61,11 @@ Requirements for public release preparation. Each maps to roadmap phases.
 | CLEAN-03 | Phase 15 | Pending |
 | CLEAN-04 | Phase 15 | Pending |
 | CLEAN-05 | Phase 15 | Pending |
+| CI-01 | Phase 15 | Pending |
 | DOCS-01 | Phase 16 | Pending |
 | DOCS-02 | Phase 16 | Pending |
 | DOCS-03 | Phase 16 | Pending |
 | DOCS-04 | Phase 16 | Pending |
-| CI-01 | Phase 15 | Pending |
 
 **Coverage:**
 - v3.0 requirements: 12 total
@@ -74,4 +74,4 @@ Requirements for public release preparation. Each maps to roadmap phases.
 
 ---
 *Requirements defined: 2026-02-14*
-*Last updated: 2026-02-14 after initial definition*
+*Last updated: 2026-02-14 after roadmap creation*
