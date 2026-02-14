@@ -5,13 +5,14 @@
 See: .planning/PROJECT.md (updated 2026-02-13)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** Planning next milestone
+**Current focus:** v2.0 Isochrone Reachability
 
 ## Current Position
 
-Milestone: (none — define next via `/gsd:new-milestone`)
-Last completed: v1.1 UI Polish (2026-02-13)
-Status: Between milestones
+Milestone: v2.0 Isochrone Reachability
+Phase: Not started (defining requirements)
+Status: Defining requirements
+Last activity: 2026-02-13 — Milestone v2.0 started
 
 ## Performance Metrics
 
@@ -36,9 +37,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-13
-Stopped at: v1.1 milestone archived and tagged
+Stopped at: Milestone v2.0 started, defining requirements
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-13 after v1.1 milestone completion*
+*Last updated: 2026-02-13 after v2.0 milestone start*

@@ -36,12 +36,13 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ### Active
 
-(None — define next milestone via `/gsd:new-milestone`)
+- [ ] Isochrone SQL functions using pgr_drivingDistance + ST_ConcaveHull for drive/bike/walk modes
+- [ ] Isochrone API endpoint returning concentric time-band polygons
+- [ ] Frontend reachability mode with Route/Isochrone toggle, fill polygon map layers
+- [ ] Traffic-aware isochrones for drive mode
 
 ### Out of Scope
 
-- Backend/API changes — frontend-only redesign, routing logic untouched
-- New routing features (new modes, new algorithms) — UI only
 - Authentication or user accounts — POC stays anonymous
 - Dark mode — shipped one strong identity first
 - Custom map tiles/styles — MapLibre base map stays as-is
@@ -49,7 +50,8 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ## Context
 
-- **Current:** Planning next milestone
+- **Current Milestone:** v2.0 Isochrone Reachability — full-stack feature adding "how far can I go?" visualization
+- **Target features:** Concentric time-band polygons (5/10/15/20 min) from a single origin, all three travel modes, traffic-aware drive isochrones, Route/Reachability sidebar toggle
 - **Shipped:** v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
 - **Stack:** React 18 + TypeScript + MUI 7 + MapLibre GL 5 + Vite
 - **LOC:** 6,613 TypeScript (client)
@@ -87,4 +89,4 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 | Disabled placeholder pattern for MapControls | Render controls immediately with disabled state, enable when map loads | ✓ Good — eliminates pop-in flash |
 
 ---
-*Last updated: 2026-02-13 after v1.1 milestone*
+*Last updated: 2026-02-13 after v2.0 milestone start*
