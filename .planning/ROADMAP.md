@@ -58,10 +58,11 @@ Plans:
   2. API endpoint accepts a list of waypoints and returns a route response with per-leg directions and summaries
   3. Multi-stop routing works for all three modes (drive, bike, walk)
   4. Existing two-point routing continues to work unchanged
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 11-01: TBD
+- [ ] 11-01-PLAN.md — Pydantic response models + RoutingService.get_waypoint_route method (leg assembly)
+- [ ] 11-02-PLAN.md — /api/route/waypoints endpoint + unit tests (service + route layer)
 
 #### Phase 12: Waypoint Routing Frontend
 **Goal**: Users can build multi-stop routes by adding and removing intermediate waypoints in the sidebar, with markers visible on the map
@@ -86,7 +87,7 @@ Plans:
 |-------|---------------|--------|-----------|
 | 9. Edge Isochrone SQL | 1/1 | Complete | 2026-02-14 |
 | 10. Edge Isochrone Frontend | 2/2 | Complete | 2026-02-14 |
-| 11. Waypoint Routing Backend | 0/TBD | Not started | - |
+| 11. Waypoint Routing Backend | 0/2 | Not started | - |
 | 12. Waypoint Routing Frontend | 0/TBD | Not started | - |
 
 ---
