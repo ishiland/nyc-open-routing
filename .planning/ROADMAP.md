@@ -13,7 +13,7 @@
 
 ### Phases
 
-- [ ] **Phase 9: Edge Isochrone SQL** - SQL functions return reachable edge geometries with cumulative travel time
+- [x] **Phase 9: Edge Isochrone SQL** - SQL functions return reachable edge geometries with cumulative travel time
 - [ ] **Phase 10: Edge Isochrone Frontend** - Users toggle between polygon and edge visualization across all modes
 - [ ] **Phase 11: Waypoint Routing Backend** - SQL functions and API endpoint calculate multi-stop routes with per-leg directions
 - [ ] **Phase 12: Waypoint Routing Frontend** - Users add, remove, and see waypoints in the sidebar and on the map
@@ -31,7 +31,7 @@
 **Plans:** 1 plan
 
 Plans:
-- [ ] 09-01-PLAN.md — Create and validate edge-based isochrone SQL functions for all three modes
+- [x] 09-01-PLAN.md — Create and validate edge-based isochrone SQL functions for all three modes
 
 #### Phase 10: Edge Isochrone Frontend
 **Goal**: Users can see exactly which streets are reachable within each time band, rendered as colored line segments on the map
@@ -83,10 +83,10 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 9. Edge Isochrone SQL | 0/1 | Planned | - |
+| 9. Edge Isochrone SQL | 1/1 | Complete | 2026-02-14 |
 | 10. Edge Isochrone Frontend | 0/TBD | Not started | - |
 | 11. Waypoint Routing Backend | 0/TBD | Not started | - |
 | 12. Waypoint Routing Frontend | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after Phase 9 planning*
+*Last updated: 2026-02-14 after Phase 9 execution*

@@ -9,7 +9,7 @@ Requirements for edge-based isochrones and waypoint routing. Each maps to roadma
 
 ### Edge-Based Isochrones
 
-- [ ] **ISO-01**: SQL isochrone functions return reachable edge geometries with cumulative travel time
+- [x] **ISO-01**: SQL isochrone functions return reachable edge geometries with cumulative travel time
 - [ ] **ISO-02**: User can toggle between polygon and edge-based isochrone visualization
 - [ ] **ISO-03**: Edge-based isochrone displays reachable streets colored by time band (5/10/15/20 min)
 - [ ] **ISO-04**: Edge-based isochrones work for all three modes (drive, bike, walk) and respect traffic settings
@@ -42,7 +42,7 @@ Requirements for edge-based isochrones and waypoint routing. Each maps to roadma
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ISO-01 | Phase 9 | Pending |
+| ISO-01 | Phase 9 | Complete |
 | ISO-02 | Phase 10 | Pending |
 | ISO-03 | Phase 10 | Pending |
 | ISO-04 | Phase 10 | Pending |
@@ -58,4 +58,4 @@ Requirements for edge-based isochrones and waypoint routing. Each maps to roadma
 
 ---
 *Requirements defined: 2026-02-14*
-*Last updated: 2026-02-14 after roadmap creation — traceability complete*
+*Last updated: 2026-02-14 after Phase 9 completion*
