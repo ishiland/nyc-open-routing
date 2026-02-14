@@ -77,6 +77,7 @@ export const ButtonControls: React.FC = () => {
       if (hasValidWaypoints) {
         fetchWaypointRoute()
       } else {
+        setWaypointRoute(null)
         fetchRoute()
       }
     }
@@ -137,7 +138,14 @@ export const ButtonControls: React.FC = () => {
 
       <Stack direction="row" spacing={1.5} sx={{ mb: 2 }}>
         <Button
-          onClick={hasValidWaypoints ? fetchWaypointRoute : fetchRoute}
+          onClick={() => {
+            if (hasValidWaypoints) {
+              fetchWaypointRoute()
+            } else {
+              setWaypointRoute(null)
+              fetchRoute()
+            }
+          }}
           variant="contained"
           color="primary"
           disabled={isFetching || isFetchingWaypoints || !routeButtonEnabled}
