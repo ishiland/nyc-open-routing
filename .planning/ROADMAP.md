@@ -43,10 +43,11 @@ Plans:
   3. Edge-based isochrones render correctly for drive, bike, and walk modes
   4. Traffic toggle affects edge-based isochrone results in drive mode (same as polygon isochrones)
   5. Line width and visibility scale appropriately across zoom levels
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 10-01: TBD
+- [ ] 10-01-PLAN.md — Add edge isochrone API support (schemas, service method, view query parameter)
+- [ ] 10-02-PLAN.md — Wire edge isochrone into frontend (types, context, map layer, toggle UI, legend)
 
 #### Phase 11: Waypoint Routing Backend
 **Goal**: The routing engine calculates ordered multi-stop routes through intermediate waypoints with per-leg turn directions
@@ -84,9 +85,9 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 9. Edge Isochrone SQL | 1/1 | Complete | 2026-02-14 |
-| 10. Edge Isochrone Frontend | 0/TBD | Not started | - |
+| 10. Edge Isochrone Frontend | 0/2 | Planned | - |
 | 11. Waypoint Routing Backend | 0/TBD | Not started | - |
 | 12. Waypoint Routing Frontend | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after Phase 9 execution*
+*Last updated: 2026-02-14 after Phase 10 planning*
