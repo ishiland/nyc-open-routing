@@ -7,7 +7,10 @@ from fastapi import HTTPException
 from utils.geo import parse_coordinates, dump_geo
 from utils.clock import Clock
 from utils.cache import get_route_cache
-from models.schemas import Feature, Properties, RouteResponse
+from models.schemas import (
+    Feature, Properties, RouteResponse,
+    WaypointRouteResponse, LegResponse, LegSummary, WaypointRouteSummary
+)
 from exceptions import InvalidCoordinatesError, RouteNotFoundError, DatabaseError
 
 logger = logging.getLogger(__name__)
@@ -263,6 +266,133 @@ class RoutingService:
         self.cache.set(orig, dest, cache_key, features)
 
         return RouteResponse(features=features)
+
+    def get_waypoint_route(
+        self,
+        waypoints: List[str],
+        mode: str,
+        use_traffic: bool = True,
+        avoid_ferries: bool = False,
+        hour: Optional[int] = None,
+        day_of_week: Optional[int] = None
+    ) -> WaypointRouteResponse:
+        """
+        Get a multi-stop route through a list of waypoints.
+
+        Orchestrates per-leg routing by calling existing mode-specific methods
+        for each consecutive pair of waypoints.
+
+        Args:
+            waypoints: List of coordinate strings in "lon,lat" format (minimum 3)
+            mode: Travel mode ('drive', 'bike', 'walk')
+            use_traffic: Whether to use traffic-aware routing (drive mode only)
+            avoid_ferries: Whether to avoid ferry routes (bike/walk modes)
+            hour: Hour of day for time-specific traffic (0-23)
+            day_of_week: Day of week for time-specific traffic (1-7 Mon-Sun)
+
+        Returns:
+            WaypointRouteResponse with per-leg features and summaries
+
+        Raises:
+            HTTPException: If any leg cannot be routed or an error occurs
+        """
+        # Build cache key
+        waypoints_str = "|".join(waypoints)
+        if mode == "drive":
+            if hour is not None and day_of_week is not None:
+                cache_suffix = f"traffic-h{hour}-d{day_of_week}" if use_traffic else "no-traffic"
+            else:
+                cache_suffix = "traffic-static" if use_traffic else "no-traffic"
+            cache_key = f"waypoint-drive-{cache_suffix}"
+        elif mode == "bike":
+            cache_key = "waypoint-bike-no-ferry" if avoid_ferries else "waypoint-bike"
+        elif mode == "walk":
+            cache_key = "waypoint-walk-no-ferry" if avoid_ferries else "waypoint-walk"
+        else:
+            cache_key = f"waypoint-{mode}"
+
+        # Check cache
+        cached = self.cache.get(waypoints_str, "", cache_key)
+        if cached is not None:
+            logger.info(f"Cache hit for waypoint route ({cache_key})")
+            return WaypointRouteResponse(**cached) if isinstance(cached, dict) else cached
+
+        try:
+            legs = []
+            total_distance = 0.0
+            total_time = 0.0
+
+            for i in range(len(waypoints) - 1):
+                orig = waypoints[i]
+                dest = waypoints[i + 1]
+
+                # Dispatch to existing mode-specific methods
+                if mode == "drive":
+                    leg_response = self.get_driving_route(
+                        orig, dest,
+                        use_traffic=use_traffic,
+                        hour=hour,
+                        day_of_week=day_of_week
+                    )
+                elif mode == "bike":
+                    leg_response = self.get_biking_route(orig, dest, avoid_ferries=avoid_ferries)
+                elif mode == "walk":
+                    leg_response = self.get_walking_route(orig, dest, avoid_ferries=avoid_ferries)
+                else:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Unsupported travel mode: {mode}"
+                    )
+
+                # Validate leg has segments
+                if len(leg_response.features) == 0:
+                    raise HTTPException(
+                        status_code=404,
+                        detail=(
+                            f"No route found for leg {i + 1} "
+                            f"(waypoint {i + 1} to waypoint {i + 2}). "
+                            f"The entire route cannot be calculated."
+                        )
+                    )
+
+                # Compute per-leg totals
+                leg_distance = sum(
+                    f.properties.distance or 0 for f in leg_response.features
+                )
+                leg_time = sum(
+                    f.properties.travel_time or 0 for f in leg_response.features
+                )
+
+                legs.append(LegResponse(
+                    leg=i,
+                    summary=LegSummary(distance=leg_distance, travel_time=leg_time),
+                    features=leg_response.features
+                ))
+                total_distance += leg_distance
+                total_time += leg_time
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Error processing waypoint route: {e}")
+            raise HTTPException(
+                status_code=500,
+                detail="Error processing waypoint route request."
+            )
+
+        response = WaypointRouteResponse(
+            legs=legs,
+            summary=WaypointRouteSummary(
+                total_distance=total_distance,
+                total_travel_time=total_time,
+                num_legs=len(legs)
+            )
+        )
+
+        # Cache the result
+        self.cache.set(waypoints_str, "", cache_key, response)
+
+        return response
 
     def _format_route_response(self, rows, result, mode: str = 'drive') -> List[Feature]:
         """Format database result into a list of GeoJSON Features.
