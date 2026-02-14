@@ -22,6 +22,11 @@
 
 **Requirements:** FERRY-01, FERRY-02, FERRY-03, FERRY-04
 
+**Plans:** 1 plan
+
+Plans:
+- [ ] 13-01-PLAN.md — Ferry topology isolation SQL + integration verification
+
 **Success Criteria:**
 
 1. **Internal node isolation**: Ferry route internal nodes (mid-span) no longer share vertex IDs with bridge/tunnel nodes — routing cannot jump between them mid-crossing
