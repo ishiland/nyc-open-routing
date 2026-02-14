@@ -14,7 +14,7 @@
 ### Phases
 
 - [x] **Phase 9: Edge Isochrone SQL** - SQL functions return reachable edge geometries with cumulative travel time
-- [ ] **Phase 10: Edge Isochrone Frontend** - Users toggle between polygon and edge visualization across all modes
+- [x] **Phase 10: Edge Isochrone Frontend** - Users toggle between polygon and edge visualization across all modes
 - [ ] **Phase 11: Waypoint Routing Backend** - SQL functions and API endpoint calculate multi-stop routes with per-leg directions
 - [ ] **Phase 12: Waypoint Routing Frontend** - Users add, remove, and see waypoints in the sidebar and on the map
 
@@ -46,8 +46,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 10-01-PLAN.md — Add edge isochrone API support (schemas, service method, view query parameter)
-- [ ] 10-02-PLAN.md — Wire edge isochrone into frontend (types, context, map layer, toggle UI, legend)
+- [x] 10-01-PLAN.md — Add edge isochrone API support (schemas, service method, view query parameter)
+- [x] 10-02-PLAN.md — Wire edge isochrone into frontend (types, context, map layer, toggle UI, legend)
 
 #### Phase 11: Waypoint Routing Backend
 **Goal**: The routing engine calculates ordered multi-stop routes through intermediate waypoints with per-leg turn directions
@@ -85,9 +85,9 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 9. Edge Isochrone SQL | 1/1 | Complete | 2026-02-14 |
-| 10. Edge Isochrone Frontend | 0/2 | Planned | - |
+| 10. Edge Isochrone Frontend | 2/2 | Complete | 2026-02-14 |
 | 11. Waypoint Routing Backend | 0/TBD | Not started | - |
 | 12. Waypoint Routing Frontend | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after Phase 10 planning*
+*Last updated: 2026-02-14 after Phase 10 execution*
