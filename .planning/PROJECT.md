@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A multi-modal routing app for NYC with an MTA transit-inspired UI — compact, bold, and accessible. Built on pgRouting + LION street network with driving, walking, and biking routes. The interface features mode-specific color accents, responsive layout (desktop sidebar, tablet narrow sidebar, mobile bottom sheet), and WCAG 2.1 AA compliance.
+A multi-modal routing app for NYC with an MTA transit-inspired UI — compact, bold, and accessible. Built on pgRouting + LION street network with driving, walking, biking routes, isochrone reachability analysis (polygon and edge-based), and multi-stop waypoint routing. The interface features mode-specific color accents, responsive layout (desktop sidebar, tablet narrow sidebar, mobile bottom sheet), and WCAG 2.1 AA compliance.
 
 ## Core Value
 
@@ -42,11 +42,15 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 - ✓ Departure time picker with day/hour selection for traffic-aware routing — v2.1
 - ✓ API integration passing hour/day_of_week to route and isochrone endpoints — v2.1
 - ✓ URL persistence for departure time enabling shareable deep links — v2.1
+- ✓ Edge-based isochrone SQL functions returning per-street geometries with band assignment — v2.2
+- ✓ Edge isochrone API with view parameter and Fill/Streets frontend toggle — v2.2
+- ✓ Zoom-responsive colored street line rendering for edge-based isochrones — v2.2
+- ✓ Multi-stop waypoint routing backend with per-leg directions — v2.2
+- ✓ Waypoint frontend: Add Stop, WaypointSearch, numbered map markers, leg-grouped directions — v2.2
 
 ### Active
 
-- [ ] Edge-based isochrone visualization (color reachable streets by travel time)
-- [ ] Via points / waypoint routing (multi-stop routes: A → B → C)
+(None — planning next milestone)
 
 ### Out of Scope
 
@@ -54,18 +58,20 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 - Dark mode — shipped one strong identity first
 - Custom map tiles/styles — MapLibre base map stays as-is
 - Animation libraries (framer-motion, react-spring) — CSS transitions sufficient
+- More than 3 waypoints — each adds a routing call, cap keeps performance reasonable
+- Waypoint optimization (TSP) — traveling salesman adds significant complexity
+- Edge-based isochrone animation — no animation libraries constraint
 
 ## Context
 
-- **Current Milestone:** v2.2 Edge Isochrones & Waypoints
-- **Shipped:** v2.1 Departure Time (2026-02-14), v2.0 Isochrone Reachability (2026-02-14), v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
+- **Current State:** v2.2 shipped, planning next milestone
+- **Shipped:** v2.2 Edge Isochrones & Waypoints (2026-02-14), v2.1 Departure Time (2026-02-14), v2.0 Isochrone Reachability (2026-02-14), v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
 - **Stack:** React 18 + TypeScript + MUI 7 + MapLibre GL 5 + Vite
-- **LOC:** 6,613 TypeScript (client)
-- **State management:** React Context API (RoutingContext, MapInstanceContext, MessageContext)
+- **State management:** React Context API (RoutingContext, IsochroneContext, MapInstanceContext, MessageContext)
 - **Theme:** MTA Blue #0039A6, Inter Variable font, 6px spacing, MODE_COLORS (drive=blue, bike=green, walk=orange)
 - **Layout:** AdaptiveLayout (desktop 400px sidebar, tablet 340px, mobile bottom sheet), collapsible to 56px with icon rail
 - **Z-index hierarchy:** map controls 1050 < bottom sheet 1200 < dropdown 1210
-- **Testing:** 31 tests (13 component + 18 a11y) via Vitest + vitest-axe
+- **Testing:** 31 frontend tests (13 component + 18 a11y) via Vitest + vitest-axe; 11 backend waypoint unit tests
 - **Codebase map:** `.planning/codebase/` for detailed architecture reference
 
 ## Constraints
@@ -96,6 +102,10 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 | Three-state DepartureTimePicker UI | "Now" default → expanded selects → "Leave at Day Time" summary, matching compact control pattern | ✓ Good — minimal space usage, intuitive flow |
 | MUI Select variant="standard" for picker | No border/outline for visual compactness matching TrafficToggle inline style | ✓ Good — blends with existing controls |
 | Verification-only Phase 8 | All API/URL plumbing already existed from v2.0, just needed confirmation | ✓ Good — saved dev time, documented pre-existing wiring |
+| Exclusive band assignment for edge isochrones | Each edge in exactly one band prevents duplicate rendering | ✓ Good — clean visualization, no client dedup needed |
+| Separate useWaypointRouteFetch hook | Preserves existing useRouteFetch unchanged, parallel hook pattern | ✓ Good — zero regressions in existing routing |
+| Waypoint delegates to existing mode-specific methods | No new SQL needed, per-leg assembly reuses proven routing | ✓ Good — minimal backend changes, all modes work |
+| View parameter dispatch for isochrone API | Single endpoint with polygon/edges switch via view= param | ✓ Good — backward compatible, clean separation |
 
 ---
-*Last updated: 2026-02-14 after v2.2 milestone start*
+*Last updated: 2026-02-14 after v2.2 milestone completion*

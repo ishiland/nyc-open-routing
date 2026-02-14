@@ -56,3 +56,17 @@
 
 ---
 
+
+## v2.2 Edge Isochrones & Waypoints (Shipped: 2026-02-14)
+
+**Phases completed:** 4 phases, 8 plans | 24 files changed, +2881/-134 lines
+**Git range:** f8d28b2..b1baabd
+
+**Key accomplishments:**
+- Edge-based isochrone SQL functions returning per-street LineString geometries with band assignment for drive, bike, and walk modes
+- Edge isochrone API endpoint with view=edges parameter and Fill/Streets frontend toggle with zoom-responsive line widths
+- Multi-stop waypoint routing backend: Pydantic models, service layer, GET /api/route/waypoints endpoint, 11 unit tests
+- Waypoint frontend: Add Stop button, WaypointSearch autocomplete, blue numbered map markers, leg-grouped turn-by-turn directions
+- End-to-end browser verification with stale waypointRoute bug fix
+
+---
