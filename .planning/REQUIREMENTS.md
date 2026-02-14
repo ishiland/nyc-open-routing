@@ -12,8 +12,8 @@ Requirements for departure time feature. Each maps to roadmap phases.
 - [x] **TIME-01**: User can select a departure day and hour via a compact picker in the sidebar
 - [x] **TIME-02**: Picker defaults to "Now" (current time) and shows "Leave at [day] [time]" when a custom time is set
 - [x] **TIME-03**: User can reset to "Now" with a single action
-- [ ] **TIME-04**: Selected departure time is passed as `hour` and `day_of_week` to route and isochrone API calls
-- [ ] **TIME-05**: Departure time persists in URL query params for shareable deep links
+- [x] **TIME-04**: Selected departure time is passed as `hour` and `day_of_week` to route and isochrone API calls
+- [x] **TIME-05**: Departure time persists in URL query params for shareable deep links
 - [x] **TIME-06**: Departure time picker is only shown when traffic toggle is enabled (drive mode)
 
 ## Future Requirements
