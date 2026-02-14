@@ -42,10 +42,10 @@ Plans:
   2. Isochrone API calls include `hour` and `day_of_week` params matching the user's selected departure time
   3. Departure time is reflected in URL query params so the link can be shared and restored
   4. Opening a shared link with departure time params restores the picker to the correct day/hour
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 08-01: TBD
+- [ ] 08-01-PLAN.md — Verify pre-existing API and URL integration (no code changes)
 
 ## Progress
 
@@ -54,7 +54,7 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 7. Departure Time Picker | 1/1 | ✓ Complete | 2026-02-14 |
-| 8. API and URL Integration | 0/TBD | Not started | - |
+| 8. API and URL Integration | 0/1 | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after phase 7 execution*
+*Last updated: 2026-02-14 after phase 8 planning*
