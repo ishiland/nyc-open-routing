@@ -69,7 +69,7 @@ Plans:
 **Depends on**: Phase 11
 **Requirements**: WAY-01, WAY-03, WAY-04
 **Success Criteria** (what must be TRUE):
-  1. User can add up to 3 intermediate waypoints between origin and destination via the sidebar
+  1. User can add intermediate waypoints between origin and destination via the sidebar (1 intermediate max per backend 3-point limit; UI scales if backend limit is raised)
   2. Each waypoint appears as a numbered marker on the map at the correct location
   3. User can remove any individual waypoint and the route recalculates
   4. Turn-by-turn directions in the sidebar are grouped by leg (origin to waypoint 1, waypoint 1 to waypoint 2, etc.)
@@ -93,4 +93,4 @@ Plans:
 | 12. Waypoint Routing Frontend | 0/3 | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after Phase 11 execution*
+*Last updated: 2026-02-14 after Phase 12 planning*

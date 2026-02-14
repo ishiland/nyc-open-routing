@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** v2.2 Edge Isochrones & Waypoints — Phase 11 complete, Phase 12 next
+**Current focus:** v2.2 Edge Isochrones & Waypoints — Phase 12 planned, ready to execute
 
 ## Current Position
 
 Milestone: v2.2 Edge Isochrones & Waypoints
-Phase: 11 of 12 (Waypoint Routing Backend) -- COMPLETE
-Plan: 2 of 2 plans executed
-Status: Phase 11 complete (all backend waypoint routing: models, service, endpoint, tests)
-Last activity: 2026-02-14 — Executed Phase 11 Plan 02 (waypoint routing endpoint & tests)
+Phase: 12 of 12 (Waypoint Routing Frontend) -- PLANNED
+Plan: 0 of 3 plans executed
+Status: Phase 12 planned — ready for execution
+Last activity: 2026-02-14 — Planned Phase 12 (waypoint routing frontend)
 
-Progress: [██████░░░░] 60%
+Progress: [███████░░░] 70%
 
 ## Performance Metrics
 
@@ -58,9 +58,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 11-02-PLAN.md (waypoint routing endpoint & tests) -- Phase 11 fully complete
+Stopped at: Planned Phase 12 (waypoint routing frontend)
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after Phase 11 Plan 02 execution*
+*Last updated: 2026-02-14 after Phase 12 planning*
