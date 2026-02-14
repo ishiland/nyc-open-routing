@@ -5,15 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** v2.2 Edge Isochrones & Waypoints — defining requirements
+**Current focus:** v2.2 Edge Isochrones & Waypoints — Phase 9 ready to plan
 
 ## Current Position
 
 Milestone: v2.2 Edge Isochrones & Waypoints
-Phase: Not started (defining requirements)
+Phase: 9 of 12 (Edge Isochrone SQL)
 Plan: —
-Status: Defining requirements
-Last activity: 2026-02-14 — Milestone v2.2 started
+Status: Ready to plan
+Last activity: 2026-02-14 — Roadmap created for v2.2
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -34,14 +36,15 @@ None.
 
 ### Blockers/Concerns
 
-None.
+- pgr_trspVia runtime availability unverified — fallback to sequential pgr_trsp is viable (Phase 11)
+- Edge-based isochrone payload size at scale (5K-15K edges) — may need geometry simplification (Phase 10)
 
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Defining requirements for v2.2
+Stopped at: Roadmap created for v2.2, ready to plan Phase 9
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after v2.2 milestone start*
+*Last updated: 2026-02-14 after v2.2 roadmap creation*

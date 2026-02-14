@@ -42,20 +42,20 @@ Requirements for edge-based isochrones and waypoint routing. Each maps to roadma
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| ISO-01 | TBD | Pending |
-| ISO-02 | TBD | Pending |
-| ISO-03 | TBD | Pending |
-| ISO-04 | TBD | Pending |
-| WAY-01 | TBD | Pending |
-| WAY-02 | TBD | Pending |
-| WAY-03 | TBD | Pending |
-| WAY-04 | TBD | Pending |
+| ISO-01 | Phase 9 | Pending |
+| ISO-02 | Phase 10 | Pending |
+| ISO-03 | Phase 10 | Pending |
+| ISO-04 | Phase 10 | Pending |
+| WAY-01 | Phase 12 | Pending |
+| WAY-02 | Phase 11 | Pending |
+| WAY-03 | Phase 12 | Pending |
+| WAY-04 | Phase 12 | Pending |
 
 **Coverage:**
 - v2.2 requirements: 8 total
-- Mapped to phases: 0
-- Unmapped: 8
+- Mapped to phases: 8
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-14*
-*Last updated: 2026-02-14 after initial definition*
+*Last updated: 2026-02-14 after roadmap creation — traceability complete*
