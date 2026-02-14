@@ -5,13 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** Planning next milestone
+**Current focus:** v3.0 Public Release
 
 ## Current Position
 
-Milestone: v2.3 Ferry Route Fix (SHIPPED)
-Status: Milestone complete
-Last activity: 2026-02-14 — v2.3 milestone archived
+Milestone: v3.0 Public Release
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-14 — Milestone v3.0 started
 
 ## Performance Metrics
 
@@ -39,9 +41,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: v2.3 milestone archived
-Resume file: .planning/MILESTONES.md
+Stopped at: Defining v3.0 requirements
+Resume file: .planning/REQUIREMENTS.md
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after v2.3 milestone complete*
+*Last updated: 2026-02-14 after v3.0 milestone start*

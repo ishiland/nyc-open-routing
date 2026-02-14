@@ -52,7 +52,11 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ### Active
 
-(None — planning next milestone)
+- [ ] Professional README with hero screenshot, feature highlights, and quick start
+- [ ] MIT LICENSE file
+- [ ] Clean repo: remove junk files, untrack client/dist/, update .gitignore
+- [ ] Remove internal artifacts from git history (.planning/, CLAUDE.md, docs/ dev notes, screenshots)
+- [ ] Update CI workflow (current action versions, correct branch name)
 
 ### Out of Scope
 
@@ -66,7 +70,7 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ## Context
 
-- **Current Milestone:** Planning next milestone
+- **Current Milestone:** v3.0 Public Release
 - **Shipped:** v2.3 Ferry Route Fix (2026-02-14), v2.2 Edge Isochrones & Waypoints (2026-02-14), v2.1 Departure Time (2026-02-14), v2.0 Isochrone Reachability (2026-02-14), v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
 - **Stack:** React 18 + TypeScript + MUI 7 + MapLibre GL 5 + Vite
 - **State management:** React Context API (RoutingContext, IsochroneContext, MapInstanceContext, MessageContext)
@@ -112,4 +116,4 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 | TRIM(rw_type) for LION comparisons | LION stores rw_type as varchar(2) with leading spaces | ✓ Good — essential for correct bridge/tunnel detection |
 
 ---
-*Last updated: 2026-02-14 after v2.3 milestone complete*
+*Last updated: 2026-02-14 after v3.0 milestone start*
