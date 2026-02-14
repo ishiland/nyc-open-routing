@@ -70,3 +70,17 @@
 - End-to-end browser verification with stale waypointRoute bug fix
 
 ---
+
+## v2.3 Ferry Route Fix (Shipped: 2026-02-14)
+
+**Phases completed:** 1 phase, 1 plan, 2 tasks | 1 file changed, +175/-30 lines
+**Git range:** 698aca0..f06e755
+
+**Key accomplishments:**
+- Isolated 129 ferry internal nodes from bridge/tunnel topology, preventing invalid mid-crossing route transitions
+- Preserved 22 terminal nodes for street network connectivity at ferry boarding points
+- Updated 260 ferry edge source/target references to new isolated vertices
+- Verified SI Ferry crossing, all bridge/tunnel routes, and network integrity (99,404-node dominant component)
+
+---
+

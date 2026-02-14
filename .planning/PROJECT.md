@@ -47,11 +47,12 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 - ✓ Zoom-responsive colored street line rendering for edge-based isochrones — v2.2
 - ✓ Multi-stop waypoint routing backend with per-leg directions — v2.2
 - ✓ Waypoint frontend: Add Stop, WaypointSearch, numbered map markers, leg-grouped directions — v2.2
+- ✓ Ferry routes isolated from bridge/tunnel nodes — only connect at terminals — v2.3
+- ✓ Ferry edges remain bikeable/walkable, not driveable — v2.3
 
 ### Active
 
-- [ ] Ferry routes isolated from bridge/tunnel nodes — only connect at terminals
-- [ ] Ferry edges remain bikeable/walkable, not driveable
+(None — planning next milestone)
 
 ### Out of Scope
 
@@ -65,8 +66,8 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ## Context
 
-- **Current Milestone:** v2.3 Ferry Route Fix
-- **Shipped:** v2.2 Edge Isochrones & Waypoints (2026-02-14), v2.1 Departure Time (2026-02-14), v2.0 Isochrone Reachability (2026-02-14), v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
+- **Current Milestone:** Planning next milestone
+- **Shipped:** v2.3 Ferry Route Fix (2026-02-14), v2.2 Edge Isochrones & Waypoints (2026-02-14), v2.1 Departure Time (2026-02-14), v2.0 Isochrone Reachability (2026-02-14), v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
 - **Stack:** React 18 + TypeScript + MUI 7 + MapLibre GL 5 + Vite
 - **State management:** React Context API (RoutingContext, IsochroneContext, MapInstanceContext, MessageContext)
 - **Theme:** MTA Blue #0039A6, Inter Variable font, 6px spacing, MODE_COLORS (drive=blue, bike=green, walk=orange)
@@ -107,6 +108,8 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 | Separate useWaypointRouteFetch hook | Preserves existing useRouteFetch unchanged, parallel hook pattern | ✓ Good — zero regressions in existing routing |
 | Waypoint delegates to existing mode-specific methods | No new SQL needed, per-leg assembly reuses proven routing | ✓ Good — minimal backend changes, all modes work |
 | View parameter dispatch for isochrone API | Single endpoint with polygon/edges switch via view= param | ✓ Good — backward compatible, clean separation |
+| Post-topology node isolation for ferry edges | Create new vertices at same geometry, update only ferry edge references | ✓ Good — 129 nodes isolated, zero network fragmentation |
+| TRIM(rw_type) for LION comparisons | LION stores rw_type as varchar(2) with leading spaces | ✓ Good — essential for correct bridge/tunnel detection |
 
 ---
-*Last updated: 2026-02-14 after v2.3 milestone start*
+*Last updated: 2026-02-14 after v2.3 milestone complete*
