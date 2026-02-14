@@ -39,10 +39,13 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 - ✓ Traffic-aware isochrones for drive mode — v2.0
 - ✓ Turn restriction rewrite covering all edge-node combinations (35,454 restrictions) — v2.0
 - ✓ Centralized map layer z-ordering with enforceLayerOrder — v2.0
+- ✓ Departure time picker with day/hour selection for traffic-aware routing — v2.1
+- ✓ API integration passing hour/day_of_week to route and isochrone endpoints — v2.1
+- ✓ URL persistence for departure time enabling shareable deep links — v2.1
 
 ### Active
 
-- [ ] Departure time picker for traffic-aware routing and isochrones
+(None — next milestone not started)
 
 ### Out of Scope
 
@@ -53,8 +56,8 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ## Context
 
-- **Current Milestone:** v2.1 Departure Time — "Leave at" time picker for traffic-aware routing and isochrones
-- **Shipped:** v2.0 Isochrone Reachability (2026-02-14), v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
+- **Current Milestone:** None — planning next milestone
+- **Shipped:** v2.1 Departure Time (2026-02-14), v2.0 Isochrone Reachability (2026-02-14), v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
 - **Stack:** React 18 + TypeScript + MUI 7 + MapLibre GL 5 + Vite
 - **LOC:** 6,613 TypeScript (client)
 - **State management:** React Context API (RoutingContext, MapInstanceContext, MessageContext)
@@ -89,6 +92,9 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 | disablePortal on Popper | Avoids iOS Safari stacking context clipping in SwipeableDrawer | ✓ Good — dropdown stays within drawer DOM tree |
 | Icon rail in collapsed sidebar | Shows current mode at a glance; reads RoutingContext directly | ✓ Good — collapsed state now informative |
 | Disabled placeholder pattern for MapControls | Render controls immediately with disabled state, enable when map loads | ✓ Good — eliminates pop-in flash |
+| Three-state DepartureTimePicker UI | "Now" default → expanded selects → "Leave at Day Time" summary, matching compact control pattern | ✓ Good — minimal space usage, intuitive flow |
+| MUI Select variant="standard" for picker | No border/outline for visual compactness matching TrafficToggle inline style | ✓ Good — blends with existing controls |
+| Verification-only Phase 8 | All API/URL plumbing already existed from v2.0, just needed confirmation | ✓ Good — saved dev time, documented pre-existing wiring |
 
 ---
-*Last updated: 2026-02-14 after v2.1 milestone start*
+*Last updated: 2026-02-14 after v2.1 milestone completion*

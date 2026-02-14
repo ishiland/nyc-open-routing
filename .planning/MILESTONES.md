@@ -42,3 +42,17 @@
 - Map layer z-ordering: centralized enforceLayerOrder, null paint filtering for addLayer, dash pattern persistence fix
 
 ---
+
+## v2.1 Departure Time (Shipped: 2026-02-14)
+
+**Phases completed:** 2 phases, 2 plans, 4 tasks | 2 files changed, +220/-1 lines
+**Git range:** dd4da49..ccb4da0
+
+**Key accomplishments:**
+- Compact DepartureTimePicker with three-state UI: "Depart: Now" default, expanded day/hour selects, "Leave at [Day] [Time]" summary
+- Wired into sidebar between TrafficToggle and FerryToggle, auto-hides when not in drive+traffic mode
+- Verified API integration passes hour/day_of_week params to route and isochrone endpoints
+- Verified URL persistence enables shareable deep links with departure time restoration
+
+---
+
