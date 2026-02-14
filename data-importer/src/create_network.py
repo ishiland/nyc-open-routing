@@ -642,9 +642,6 @@ def main():
                         raise
 
                 conn.commit()
-                # if cur.execute("SELECT to_regclass('restrictions');"):
-                #     if cur.fetchone()[0]:
-                #         cur.execute("ANALYZE restrictions;")
 
     except Exception as e:
         logger.error(f"Network creation failed: {e}")
