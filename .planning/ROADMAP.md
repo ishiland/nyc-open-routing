@@ -54,7 +54,7 @@ Plans:
 **Depends on**: Nothing (independent of edge isochrone work)
 **Requirements**: WAY-02
 **Success Criteria** (what must be TRUE):
-  1. SQL functions accept arrays of coordinates and return route geometry with a leg identifier per waypoint-to-waypoint segment
+  1. Service layer accepts list of waypoints and calls existing SQL routing functions sequentially per leg, returning route geometry with a leg identifier per waypoint-to-waypoint segment
   2. API endpoint accepts a list of waypoints and returns a route response with per-leg directions and summaries
   3. Multi-stop routing works for all three modes (drive, bike, walk)
   4. Existing two-point routing continues to work unchanged
@@ -91,4 +91,4 @@ Plans:
 | 12. Waypoint Routing Frontend | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after Phase 10 execution*
+*Last updated: 2026-02-14 after Phase 11 planning*
