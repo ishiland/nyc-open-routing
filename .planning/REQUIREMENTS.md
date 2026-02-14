@@ -33,18 +33,18 @@ None identified.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TIME-01 | — | Pending |
-| TIME-02 | — | Pending |
-| TIME-03 | — | Pending |
-| TIME-04 | — | Pending |
-| TIME-05 | — | Pending |
-| TIME-06 | — | Pending |
+| TIME-01 | Phase 7 | Pending |
+| TIME-02 | Phase 7 | Pending |
+| TIME-03 | Phase 7 | Pending |
+| TIME-04 | Phase 8 | Pending |
+| TIME-05 | Phase 8 | Pending |
+| TIME-06 | Phase 7 | Pending |
 
 **Coverage:**
 - v2.1 requirements: 6 total
-- Mapped to phases: 0
-- Unmapped: 6 ⚠️
+- Mapped to phases: 6
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-14*
-*Last updated: 2026-02-14 after initial definition*
+*Last updated: 2026-02-14 after roadmap creation*

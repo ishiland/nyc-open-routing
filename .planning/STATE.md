@@ -2,17 +2,20 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-02-13)
+See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** v2.1 Departure Time
+**Current focus:** v2.1 Departure Time — Phase 7 (Departure Time Picker)
 
 ## Current Position
 
 Milestone: v2.1 Departure Time
-Phase: Not started (defining requirements)
-Status: Defining requirements
-Last activity: 2026-02-14 — Milestone v2.1 started
+Phase: 7 of 8 (Departure Time Picker)
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-02-14 — Roadmap created for v2.1
+
+Progress: [░░░░░░░░░░] 0%
 
 ## Performance Metrics
 
@@ -37,9 +40,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Milestone v2.1 started, defining requirements
+Stopped at: Roadmap created for v2.1 Departure Time milestone
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after v2.1 milestone start*
+*Last updated: 2026-02-14 after v2.1 roadmap creation*
