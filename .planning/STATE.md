@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 
 Milestone: v2.3 Ferry Route Fix
 Phase: 13 - Ferry Network Topology Isolation
-Plan: —
-Status: Planning phase
-Last activity: 2026-02-14 — Roadmap created, Phase 13 defined
+Plan: 01 (complete)
+Status: Phase complete
+Last activity: 2026-02-14 — Phase 13 Plan 01 executed (ferry topology isolation)
 
-Progress: [░░░░░░░░░░] 0% (0/1 phase)
+Progress: [██████████] 100% (1/1 phase)
 
 ## Performance Metrics
 
@@ -24,12 +24,15 @@ Progress: [░░░░░░░░░░] 0% (0/1 phase)
 - v1.1: 1 phase, 3 plans, 6 files changed, +88/-21 lines
 - v2.1: 2 phases, 2 plans, 2 files changed, +220/-1 lines
 - v2.2: 4 phases, 8 plans, 24 files changed, +2881/-134 lines
+- v2.3: 1 phase, 1 plan, 1 file changed, +175/-30 lines, 5min
 
 ## Accumulated Context
 
 ### Decisions
 
-Decisions are logged in PROJECT.md Key Decisions table.
+- Phase 13: Used TRIM(rw_type) for bridge/tunnel detection in ferry isolation SQL due to leading spaces in LION varchar data
+- Phase 13: Placed isolation logic in same file (09_ferry_connections.sql) as SI Ferry connections, organized as Part A/Part B
+- Phase 13: Used original_max_vertex_id tracking for efficient accessibility flag updates on all new vertices
 
 ### Pending Todos
 
@@ -37,16 +40,14 @@ None.
 
 ### Blockers/Concerns
 
-- Ferry route nodes shared with bridge/tunnel nodes (33 shared with Hugh L. Carey Tunnel, 12 with Verrazzano Bridge, etc.)
-- Root cause: pgr_createTopology matches nodes by 2D proximity, ignoring elevation differences between bridges and water-level ferry routes
-- Fix approach: Modify 09_ferry_connections.sql to disconnect ferry internal nodes from bridge/tunnel edges while preserving terminal connectivity
+None. Ferry topology isolation resolved the shared node issue (129 internal nodes isolated across 20 bridges/tunnels).
 
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Roadmap created for Phase 13
-Resume file: .planning/ROADMAP.md
+Stopped at: Completed 13-01-PLAN.md (ferry topology isolation)
+Resume file: .planning/phases/13-ferry-network-topology-isolation/13-01-SUMMARY.md
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after v2.3 roadmap creation*
+*Last updated: 2026-02-14 after v2.3 Phase 13 Plan 01 execution*
