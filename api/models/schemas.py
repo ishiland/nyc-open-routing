@@ -107,4 +107,30 @@ class RouteResponse(BaseModel):
                 ]
             }
         }
-    ) 
+    )
+
+
+class LegSummary(BaseModel):
+    """Summary statistics for a single waypoint-to-waypoint leg."""
+    distance: float
+    travel_time: float
+
+
+class LegResponse(BaseModel):
+    """A single waypoint-to-waypoint route segment."""
+    leg: int
+    summary: LegSummary
+    features: List[Feature]
+
+
+class WaypointRouteSummary(BaseModel):
+    """Overall summary for a multi-stop waypoint route."""
+    total_distance: float
+    total_travel_time: float
+    num_legs: int
+
+
+class WaypointRouteResponse(BaseModel):
+    """Response model for the waypoint routing endpoint."""
+    legs: List[LegResponse]
+    summary: WaypointRouteSummary
