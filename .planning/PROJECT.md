@@ -45,7 +45,8 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ### Active
 
-(None — next milestone not started)
+- [ ] Edge-based isochrone visualization (color reachable streets by travel time)
+- [ ] Via points / waypoint routing (multi-stop routes: A → B → C)
 
 ### Out of Scope
 
@@ -56,7 +57,7 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ## Context
 
-- **Current Milestone:** None — planning next milestone
+- **Current Milestone:** v2.2 Edge Isochrones & Waypoints
 - **Shipped:** v2.1 Departure Time (2026-02-14), v2.0 Isochrone Reachability (2026-02-14), v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
 - **Stack:** React 18 + TypeScript + MUI 7 + MapLibre GL 5 + Vite
 - **LOC:** 6,613 TypeScript (client)
@@ -97,4 +98,4 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 | Verification-only Phase 8 | All API/URL plumbing already existed from v2.0, just needed confirmation | ✓ Good — saved dev time, documented pre-existing wiring |
 
 ---
-*Last updated: 2026-02-14 after v2.1 milestone completion*
+*Last updated: 2026-02-14 after v2.2 milestone start*

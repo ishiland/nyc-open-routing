@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** Planning next milestone
+**Current focus:** v2.2 Edge Isochrones & Waypoints — defining requirements
 
 ## Current Position
 
-Milestone: None — v2.1 archived
-Phase: N/A
-Plan: N/A
-Status: Between milestones
-Last activity: 2026-02-14 — v2.1 Departure Time milestone archived
+Milestone: v2.2 Edge Isochrones & Waypoints
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-02-14 — Milestone v2.2 started
 
 ## Performance Metrics
 
@@ -39,9 +39,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: v2.1 milestone archived
+Stopped at: Defining requirements for v2.2
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after v2.1 milestone completion*
+*Last updated: 2026-02-14 after v2.2 milestone start*
