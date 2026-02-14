@@ -11,6 +11,8 @@ export const CUSTOM_LAYER_ORDER = [
   "isochroneEdgesLayer",
   "routeHaloLayer",
   "routeLayer",
+  "waypointPointLayer",
+  "waypointLabelLayer",
   "startPointLayer",
   "endPointLayer",
   "startPointLabelLayer",

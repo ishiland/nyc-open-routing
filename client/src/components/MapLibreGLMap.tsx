@@ -6,6 +6,7 @@ import {
   addressPointPaint,
   startPointColor,
   endPointColor,
+  waypointPointColor,
   routeHaloPaint,
   getTrafficRoutePaint,
   getModeRoutePaint,
@@ -45,6 +46,8 @@ const MapLibreGLMap: React.FC = () => {
     selectedStreet,
     enableAddressInputs,
     mode,
+    waypoints,
+    waypointRoute,
   } = useContext(RoutingContext)
 
   const { appMode, isochrone, isochroneView } = useContext(IsochroneContext)
@@ -131,8 +134,31 @@ const MapLibreGLMap: React.FC = () => {
     ? (isochrone.features as unknown as IMapFeature[])
     : null
 
-  // Route features: only show in route mode
-  const routeFeatures = appMode === "route" ? (route?.features || null) : null
+  // Route features: flatten waypoint legs or use regular route
+  const routeFeatures = useMemo(() => {
+    if (appMode !== "route") return null
+    if (waypointRoute?.legs) {
+      return waypointRoute.legs.flatMap(leg => leg.features) as unknown as IMapFeature[]
+    }
+    return (route?.features || null) as IMapFeature[] | null
+  }, [appMode, waypointRoute, route])
+
+  // Waypoint marker features with numbered labels
+  const waypointMarkerFeatures = useMemo(() => {
+    const validWaypoints = waypoints.filter(
+      wp =>
+        wp.geometry?.type === "Point" &&
+        (wp.geometry as GeoJSON.Point).coordinates[0] !== 0,
+    )
+    if (validWaypoints.length === 0) return null
+    return validWaypoints.map((wp, index) => ({
+      ...wp,
+      properties: {
+        ...wp.properties,
+        waypointNumber: String(index + 1),
+      },
+    })) as IMapFeature[]
+  }, [waypoints])
 
   // Layer ordering: hooks are declared bottom-to-top.
   // enforceLayerOrder() (below) corrects z-order after every data change.
@@ -180,6 +206,43 @@ const MapLibreGLMap: React.FC = () => {
     "routeLayer",
     routeFeatures,
     routeLayerOptions,
+  )
+
+  // Waypoint circle markers
+  useGeoJsonLayer(
+    map,
+    "waypointPointSource",
+    "waypointPointLayer",
+    waypointMarkerFeatures,
+    {
+      type: "circle",
+      paint: {
+        ...addressPointPaint,
+        "circle-color": waypointPointColor,
+      },
+    },
+  )
+
+  // Waypoint numbered labels
+  useGeoJsonLayer(
+    map,
+    "waypointLabelSource",
+    "waypointLabelLayer",
+    waypointMarkerFeatures,
+    {
+      type: "symbol",
+      layout: {
+        "text-field": ["get", "waypointNumber"],
+        "text-font": ["Open Sans Bold", "Arial Unicode MS Bold"],
+        "text-size": 14,
+        "text-anchor": "center",
+      },
+      paint: {
+        "text-color": "#ffffff",
+        "text-halo-color": waypointPointColor,
+        "text-halo-width": 1,
+      },
+    },
   )
 
   // Add markers AFTER route (so they appear on top)
@@ -260,7 +323,7 @@ const MapLibreGLMap: React.FC = () => {
   useEffect(() => {
     if (!map) return
     enforceLayerOrder(map)
-  }, [map, isochronePolygonFeatures, isochroneEdgeFeatures, routeFeatures, startAddress, endAddress, appMode])
+  }, [map, isochronePolygonFeatures, isochroneEdgeFeatures, routeFeatures, startAddress, endAddress, appMode, waypointMarkerFeatures])
 
   // Debug logging for address markers
   useEffect(() => {
@@ -286,6 +349,8 @@ const MapLibreGLMap: React.FC = () => {
     removeMapLayerAndSource(map, "endPointLabelLayer", "endPointLabelSource")
     removeMapLayerAndSource(map, "routeLayer", "routeSource")
     removeMapLayerAndSource(map, "routeHaloLayer", "routeHaloSource")
+    removeMapLayerAndSource(map, "waypointPointLayer", "waypointPointSource")
+    removeMapLayerAndSource(map, "waypointLabelLayer", "waypointLabelSource")
     removeMapLayerAndSource(map, "isochroneFillLayer", "isochroneFillSource")
     removeMapLayerAndSource(map, "isochroneOutlineLayer", "isochroneOutlineSource")
     removeMapLayerAndSource(map, "isochroneEdgesLayer", "isochroneEdgesSource")
@@ -318,19 +383,23 @@ const MapLibreGLMap: React.FC = () => {
   useEffect(() => {
     if (!map || appMode !== "route") return
 
-    if (route && route.features && route.features.length > 0) {
+    // Determine which route features to zoom to
+    const features = waypointRoute?.legs
+      ? (waypointRoute.legs.flatMap(leg => leg.features) as unknown as IMapFeature[])
+      : (route?.features || null)
+
+    if (features && features.length > 0) {
       if (map.loaded()) {
-        zoomToExtent(route.features)
+        zoomToExtent(features)
       } else {
-        const features = route.features
         const handler = () => zoomToExtent(features)
         map.once('idle', handler)
         return () => { map.off('idle', handler) }
       }
-    } else if (!route || !route.features) {
+    } else if (!route && !waypointRoute) {
       clearMap()
     }
-  }, [route, appMode, map, zoomToExtent, clearMap])
+  }, [route, waypointRoute, appMode, map, zoomToExtent, clearMap])
 
   // Zoom to isochrone extent when data changes
   useEffect(() => {

@@ -16,10 +16,11 @@ import {
   MessageContextType,
 } from "../../contexts/MessageContext"
 import { useRouteFetch } from "../../hooks/useRouteFetch"
+import { useWaypointRouteFetch } from "../../hooks/useWaypointRouteFetch"
 import { useRouteStateSync } from "../../hooks/useRouteStateSync"
 
 export const ButtonControls: React.FC = () => {
-  const { clearAddresses, startAddress, endAddress, setRoute, setSelectedStreet, mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek, setAddress, setMode, setUseTraffic, setAvoidFerries, setTrafficHour, setTrafficDayOfWeek } =
+  const { clearAddresses, startAddress, endAddress, setRoute, setSelectedStreet, mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek, setAddress, setMode, setUseTraffic, setAvoidFerries, setTrafficHour, setTrafficDayOfWeek, waypoints, setWaypointRoute } =
     useContext<RoutingContextType>(RoutingContext)
 
   const { displayMessage } = useContext<MessageContextType>(MessageContext)
@@ -32,6 +33,21 @@ export const ButtonControls: React.FC = () => {
     avoidFerries,
     trafficHour,
     trafficDayOfWeek,
+    setRoute,
+    setSelectedStreet,
+    displayMessage,
+  })
+
+  const { fetchWaypointRoute, isFetchingWaypoints } = useWaypointRouteFetch({
+    startAddress,
+    endAddress,
+    waypoints,
+    mode,
+    useTraffic,
+    avoidFerries,
+    trafficHour,
+    trafficDayOfWeek,
+    setWaypointRoute,
     setRoute,
     setSelectedStreet,
     displayMessage,
@@ -57,14 +73,20 @@ export const ButtonControls: React.FC = () => {
   // Provides better UX - similar to Google Maps behavior where mode changes immediately show new route
   useEffect(() => {
     if (startAddress?.geometry && endAddress?.geometry) {
-      fetchRoute()
+      const hasValidWaypoints = waypoints.length > 0 && waypoints.some(wp => wp.geometry?.type === "Point" && (wp.geometry as GeoJSON.Point).coordinates[0] !== 0)
+      if (hasValidWaypoints) {
+        fetchWaypointRoute()
+      } else {
+        fetchRoute()
+      }
     }
     // Note: Intentionally only depend on 'mode', 'useTraffic', 'trafficHour', and 'trafficDayOfWeek'
-    // The fetchRoute callback will use current startAddress/endAddress values
+    // The fetchRoute/fetchWaypointRoute callbacks will use current startAddress/endAddress/waypoints values
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek])
 
   const routeButtonEnabled = !!(startAddress?.geometry && endAddress?.geometry)
+  const hasValidWaypoints = waypoints.length > 0 && waypoints.some(wp => wp.geometry?.type === "Point" && (wp.geometry as GeoJSON.Point).coordinates[0] !== 0)
 
   // Handle copy link action
   const handleCopyLink = async () => {
@@ -77,8 +99,9 @@ export const ButtonControls: React.FC = () => {
   }
 
   const reset = (): void => {
-    clearAddresses()
+    clearAddresses() // Also clears waypoints per Plan 01 changes
     setRoute(null)
+    setWaypointRoute(null)
 
     // Return focus to start address input after clearing
     // Use setTimeout to ensure DOM updates have completed
@@ -109,32 +132,32 @@ export const ButtonControls: React.FC = () => {
           overflow: "hidden",
         }}
       >
-        {isFetching && "Calculating route..."}
+        {(isFetching || isFetchingWaypoints) && "Calculating route..."}
       </Box>
 
       <Stack direction="row" spacing={1.5} sx={{ mb: 2 }}>
         <Button
-          onClick={fetchRoute}
+          onClick={hasValidWaypoints ? fetchWaypointRoute : fetchRoute}
           variant="contained"
           color="primary"
-          disabled={isFetching || !routeButtonEnabled}
-          startIcon={isFetching ? <CircularProgress size={16} color="inherit" /> : <Directions />}
+          disabled={isFetching || isFetchingWaypoints || !routeButtonEnabled}
+          startIcon={(isFetching || isFetchingWaypoints) ? <CircularProgress size={16} color="inherit" /> : <Directions />}
           aria-label="Calculate route between selected addresses"
           fullWidth
           sx={{ minHeight: 44 }}
         >
-          {isFetching ? "Calculating..." : "Get Directions"}
+          {(isFetching || isFetchingWaypoints) ? "Calculating..." : "Get Directions"}
         </Button>
         <Button
           onClick={reset}
           variant="outlined"
-          disabled={isFetching}
+          disabled={isFetching || isFetchingWaypoints}
           aria-label="Clear all addresses and route"
           sx={{ minHeight: 44, minWidth: 44 }}
         >
           Clear
         </Button>
-        {routeButtonEnabled && !isFetching && (
+        {routeButtonEnabled && !isFetching && !isFetchingWaypoints && (
           <Tooltip title="Copy shareable link" placement="top">
             <IconButton
               onClick={handleCopyLink}
