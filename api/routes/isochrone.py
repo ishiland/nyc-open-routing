@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query
-from typing import Optional, List
+from typing import Optional
 
 from models.schemas import IsochroneResponse, TravelMode, IsochroneView
 from services.isochrone import IsochroneService

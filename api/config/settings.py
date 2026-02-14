@@ -1,7 +1,5 @@
-import os
-import logging
 from typing import List
-from pydantic import Field, PostgresDsn, ConfigDict
+from pydantic import Field, ConfigDict
 from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
@@ -71,14 +69,3 @@ class Settings(BaseSettings):
 
 # Create a settings instance to be imported
 settings = Settings()
-
-# For backwards compatibility
-API_TITLE = settings.API_TITLE
-API_DESCRIPTION = settings.API_DESCRIPTION
-API_VERSION = settings.API_VERSION
-LOG_LEVEL = settings.LOG_LEVEL
-LOGGING_CONFIG = settings.LOGGING_CONFIG
-DATABASE_URI = settings.DATABASE_URI
-ALLOW_ORIGINS = settings.ALLOW_ORIGINS
-ALLOW_METHODS = settings.ALLOW_METHODS
-ALLOW_HEADERS = settings.ALLOW_HEADERS 

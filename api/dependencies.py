@@ -1,5 +1,4 @@
-import os
-from typing import Generator, Dict, Any
+from typing import Dict
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
 import pathlib
@@ -10,6 +9,7 @@ from suggest import GeosupportSuggest
 from config.settings import settings
 from services.routing import RoutingService
 from services.search import SearchService
+from services.isochrone import IsochroneService
 from utils.clock import Clock
 
 # Load SQL queries from files
@@ -51,6 +51,7 @@ _geosupport_suggest = GeosupportSuggest(_geosupport)
 # Services
 _routing_service = RoutingService(_db_engine, _sql_queries, _clock)
 _search_service = SearchService(_geosupport_suggest)
+_isochrone_service = IsochroneService(_db_engine, _clock)
 
 def get_db_engine() -> Engine:
     """
@@ -58,23 +59,17 @@ def get_db_engine() -> Engine:
     """
     return _db_engine
 
-def get_sql_queries() -> Dict[str, str]:
-    """
-    Get the loaded SQL queries.
-    """
-    return _sql_queries
-
-def get_clock() -> Clock:
-    """
-    Get the clock instance.
-    """
-    return _clock
-
 def get_routing_service() -> RoutingService:
     """
     Get the routing service.
     """
     return _routing_service
+
+def get_isochrone_service() -> IsochroneService:
+    """
+    Get the isochrone service.
+    """
+    return _isochrone_service
 
 def get_search_service() -> SearchService:
     """
@@ -88,8 +83,3 @@ def get_geosupport() -> Geosupport:
     """
     return _geosupport
 
-def get_geosupport_suggest() -> GeosupportSuggest:
-    """
-    Get the GeosupportSuggest instance.
-    """
-    return _geosupport_suggest 

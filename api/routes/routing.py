@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, HTTPException
-from typing import List, Optional
+from typing import Optional
 
-from models.schemas import Feature, RouteResponse, TravelMode, WaypointRouteResponse
+from models.schemas import RouteResponse, TravelMode, WaypointRouteResponse
 from services.routing import RoutingService
 from dependencies import get_routing_service
 from utils.geo import parse_coordinates

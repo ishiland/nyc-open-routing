@@ -26,8 +26,3 @@ class RouteNotFoundError(RoutingError):
 class DatabaseError(RoutingError):
     """Raised when database operations fail."""
     pass
-
-
-class CacheError(RoutingError):
-    """Raised when cache operations fail (non-critical)."""
-    pass

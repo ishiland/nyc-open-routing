@@ -7,10 +7,8 @@ for frequently requested routes.
 
 import time
 import logging
-from typing import Any, Optional, Tuple
-from functools import lru_cache
+from typing import Any, Optional
 import hashlib
-import json
 
 logger = logging.getLogger(__name__)
 

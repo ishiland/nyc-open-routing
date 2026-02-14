@@ -1,5 +1,5 @@
 import logging
-from typing import List, Dict, Any, Tuple, Optional
+from typing import List, Dict, Any, Optional
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
 from fastapi import HTTPException
@@ -11,7 +11,6 @@ from models.schemas import (
     Feature, Properties, RouteResponse,
     WaypointRouteResponse, LegResponse, LegSummary, WaypointRouteSummary
 )
-from exceptions import InvalidCoordinatesError, RouteNotFoundError, DatabaseError
 
 logger = logging.getLogger(__name__)
 

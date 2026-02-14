@@ -1,7 +1,6 @@
 import pytest
-from unittest.mock import MagicMock, patch
+from unittest.mock import MagicMock
 from fastapi.testclient import TestClient
-from sqlalchemy import text
 
 from api.main import app
 from api.dependencies import get_db_engine
