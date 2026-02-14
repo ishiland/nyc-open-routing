@@ -42,39 +42,20 @@ const useGeoJsonLayer = (
 
   // Add or update layer
   useEffect(() => {
-    if (!map) {
-      console.log(`[useGeoJsonLayer] ${layerId}: Map not initialized`)
-      return
-    }
+    if (!map) return
 
     const normalizedData = normalizeData(data)
-    console.log(`[useGeoJsonLayer] ${layerId}:`, {
-      hasData: !!data,
-      dataType: Array.isArray(data) ? 'array' : typeof data,
-      dataLength: Array.isArray(data) ? data.length : 'N/A',
-      normalizedFeatures: normalizedData?.features?.length || 0,
-      firstFeature: normalizedData?.features?.[0],
-      mapLoaded: map.loaded(),
-      hasStyle: !!map.getStyle()
-    })
 
     const addOrUpdateLayer = () => {
-      // Check if style is loaded before attempting to add layers
-      if (!map.getStyle()) {
-        console.log(`[useGeoJsonLayer] ${layerId}: Style not loaded yet, waiting...`)
-        return false
-      }
+      if (!map.getStyle()) return false
 
       if (!normalizedData) {
-        // Remove layer and source if no data
-        console.log(`[useGeoJsonLayer] ${layerId}: No data, removing layer`)
         removeMapLayerAndSource(map, layerId, sourceId)
         return true
       }
 
       // If layer already exists, update both data and paint properties
       if (map.getLayer(layerId)) {
-        console.log(`[useGeoJsonLayer] ${layerId}: Updating existing layer`)
         const source = map.getSource(sourceId) as maplibregl.GeoJSONSource
         if (source) {
           source.setData(
@@ -97,16 +78,11 @@ const useGeoJsonLayer = (
           })
         }
 
-        // Re-order layer if beforeId is specified and the target layer exists
-        // This ensures correct z-order is maintained even when layers are updated
-        if (beforeId && map.getLayer(beforeId)) {
-          map.moveLayer(layerId, beforeId)
-        }
+        // Note: z-order is enforced by enforceLayerOrder() in MapLibreGLMap,
+        // not per-layer moveLayer calls (which can't handle all creation orderings)
 
         return true
       } else {
-        // Add new source and layer
-        console.log(`[useGeoJsonLayer] ${layerId}: Adding new layer`)
         try {
           // First add the source
           if (!map.getSource(sourceId)) {
@@ -116,19 +92,22 @@ const useGeoJsonLayer = (
             })
           }
 
-          // Then add the layer
+          // Then add the layer (filter out null paint values — addLayer rejects them;
+          // null is only meaningful for setPaintProperty resets on existing layers)
+          const cleanPaint = Object.fromEntries(
+            Object.entries(layerOptions.paint).filter(([, v]) => v != null)
+          )
           const mapLayer: maplibregl.LayerSpecification = {
             id: layerId,
             type: layerOptions.type,
             source: sourceId,
-            paint: layerOptions.paint,
+            paint: cleanPaint,
             ...(layerOptions.layout && { layout: layerOptions.layout }),
           }
 
           // Validate beforeId layer exists to prevent "Cannot add layer before non-existing layer" error
           const safeBeforeId = beforeId && map.getLayer(beforeId) ? beforeId : undefined
           map.addLayer(mapLayer, safeBeforeId)
-          console.log(`[useGeoJsonLayer] ${layerId}: Layer added successfully${safeBeforeId ? ` before ${safeBeforeId}` : ' at top'}`)
           return true
         } catch (error) {
           console.error(`[useGeoJsonLayer] ${layerId}: Error adding layer:`, error)
@@ -142,11 +121,7 @@ const useGeoJsonLayer = (
 
     // If style wasn't loaded, wait for it
     if (!success && !map.getStyle()) {
-      console.log(`[useGeoJsonLayer] ${layerId}: Waiting for styledata event...`)
-      const handleStyleData = () => {
-        console.log(`[useGeoJsonLayer] ${layerId}: Style loaded, adding layer`)
-        addOrUpdateLayer()
-      }
+      const handleStyleData = () => addOrUpdateLayer()
       map.once('styledata', handleStyleData)
 
       // Cleanup function to remove listener if component unmounts

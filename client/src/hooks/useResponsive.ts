@@ -1,5 +1,4 @@
 import { useMediaQuery, useTheme } from "@mui/material"
-import { Breakpoint } from "@mui/material/styles"
 
 /**
  * Hook for responsive breakpoint detection
@@ -21,7 +20,7 @@ export const useResponsive = () => {
   const isDesktop = useMediaQuery(theme.breakpoints.up("md")) // 905px+
   const isLargeDesktop = useMediaQuery(theme.breakpoints.up("lg")) // 1240px+
 
-  // Touch device detection (optional - supplements breakpoint)
+  // Touch device detection (supplements breakpoint)
   const isTouchDevice =
     typeof window !== "undefined" &&
     ("ontouchstart" in window || navigator.maxTouchPoints > 0)
@@ -42,40 +41,4 @@ export const useResponsive = () => {
           ? "large-desktop"
           : "desktop",
   }
-}
-
-/**
- * Hook to check if viewport is below a specific breakpoint
- *
- * @example
- * const isBelowMd = useBreakpointDown('md')
- */
-export const useBreakpointDown = (breakpoint: Breakpoint) => {
-  const theme = useTheme()
-  return useMediaQuery(theme.breakpoints.down(breakpoint))
-}
-
-/**
- * Hook to check if viewport is above a specific breakpoint
- *
- * @example
- * const isAboveSm = useBreakpointUp('sm')
- */
-export const useBreakpointUp = (breakpoint: Breakpoint) => {
-  const theme = useTheme()
-  return useMediaQuery(theme.breakpoints.up(breakpoint))
-}
-
-/**
- * Hook to check if viewport is between two breakpoints
- *
- * @example
- * const isTabletRange = useBreakpointBetween('sm', 'md')
- */
-export const useBreakpointBetween = (
-  start: Breakpoint,
-  end: Breakpoint,
-) => {
-  const theme = useTheme()
-  return useMediaQuery(theme.breakpoints.between(start, end))
 }

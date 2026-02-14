@@ -13,7 +13,6 @@ import {
 } from "../types/interfaces"
 import { areAddressesDifferent } from "../utils/coordinates"
 
-// Define TravelMode, can be moved to interfaces.ts later
 export type TravelMode = "drive" | "walk" | "bike"
 
 export interface RoutingContextType {

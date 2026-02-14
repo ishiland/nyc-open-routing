@@ -25,18 +25,12 @@ export const waypointPointColor = "#3b82f6"
 // 1.5-1.8 = Moderate congestion (orange)
 // 1.8-2.5 = Heavy congestion (red)
 // >2.5 = Severe congestion (dark red)
-export const trafficColorScale = {
+const trafficColorScale = {
   freeFlow: "#22c55e",      // Green
   light: "#facc15",         // Yellow
   moderate: "#f97316",      // Orange
   heavy: "#ef4444",         // Red
   severe: "#991b1b",        // Dark red
-}
-
-// Static route paint for non-traffic routes (default/fallback)
-export const routePaint = {
-  "line-width": 5,
-  "line-color": MODE_COLORS.drive,
 }
 
 // Mode-specific route paint styles

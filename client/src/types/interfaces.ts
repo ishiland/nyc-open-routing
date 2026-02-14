@@ -1,5 +1,5 @@
 // ./src/types/interfaces.ts
-import React from "react"
+import { ReactNode } from "react"
 
 // Address related interfaces
 export interface GeoPoint {
@@ -13,11 +13,6 @@ export interface IMapFeature
     GeoJSON.Geometry,
     { label?: string; [key: string]: unknown }
   > {}
-
-// An interface for route data, which contains an optional array of features.
-export interface IRouteData {
-  features?: IMapFeature[]
-}
 
 export interface AddressProperties {
   "House Number - Display Format"?: string
@@ -124,17 +119,9 @@ export type TravelMode = "drive" | "bike" | "walk"
 // Message related interfaces
 export type MessageLevel = "success" | "warning" | "error" | "info"
 
-export interface MessageContextType {
-  messageText: string
-  messageLevel: MessageLevel
-  messageOpen: boolean
-  displayMessage: (msg: string, level?: MessageLevel) => void
-  closeMessage: () => void
-}
-
 // Component props interfaces
 export interface ControlsContainerProps {
-  children: React.ReactNode
+  children: ReactNode
 }
 
 export interface SearchProps {
