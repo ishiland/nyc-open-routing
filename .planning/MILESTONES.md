@@ -30,3 +30,15 @@
 
 ---
 
+
+## v2.0 Isochrone Reachability (Shipped: 2026-02-14)
+
+**Key accomplishments:**
+- Isochrone SQL functions (pgr_drivingDistance + ST_ConcaveHull) for drive/bike/walk with bbox pre-filter optimization
+- Isochrone API endpoint (GET /api/isochrone) with traffic-aware drive mode, caching, and fallback
+- Frontend Route/Reachability toggle with concentric time-band polygon layers (5/10/15/20 min)
+- IsochroneContext for app mode state, useIsochroneFetch hook, isochrone summary in sidebar
+- Turn restriction fix: rewrote 04_restrictions.sql to cover all 4 edge-node combinations (8,842 → 35,454 restrictions)
+- Map layer z-ordering: centralized enforceLayerOrder, null paint filtering for addLayer, dash pattern persistence fix
+
+---

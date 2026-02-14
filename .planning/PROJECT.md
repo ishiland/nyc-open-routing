@@ -33,13 +33,16 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 - ✓ Collapsed sidebar icon rail with travel mode indicator and tooltips — v1.1
 - ✓ Empty state "Get started" hint when no route calculated — v1.1
 - ✓ Map controls render immediately with disabled placeholders — v1.1
+- ✓ Isochrone SQL functions using pgr_drivingDistance + ST_ConcaveHull for drive/bike/walk modes — v2.0
+- ✓ Isochrone API endpoint returning concentric time-band polygons — v2.0
+- ✓ Frontend reachability mode with Route/Isochrone toggle, fill polygon map layers — v2.0
+- ✓ Traffic-aware isochrones for drive mode — v2.0
+- ✓ Turn restriction rewrite covering all edge-node combinations (35,454 restrictions) — v2.0
+- ✓ Centralized map layer z-ordering with enforceLayerOrder — v2.0
 
 ### Active
 
-- [ ] Isochrone SQL functions using pgr_drivingDistance + ST_ConcaveHull for drive/bike/walk modes
-- [ ] Isochrone API endpoint returning concentric time-band polygons
-- [ ] Frontend reachability mode with Route/Isochrone toggle, fill polygon map layers
-- [ ] Traffic-aware isochrones for drive mode
+- [ ] Departure time picker for traffic-aware routing and isochrones
 
 ### Out of Scope
 
@@ -50,9 +53,8 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ## Context
 
-- **Current Milestone:** v2.0 Isochrone Reachability — full-stack feature adding "how far can I go?" visualization
-- **Target features:** Concentric time-band polygons (5/10/15/20 min) from a single origin, all three travel modes, traffic-aware drive isochrones, Route/Reachability sidebar toggle
-- **Shipped:** v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
+- **Current Milestone:** v2.1 Departure Time — "Leave at" time picker for traffic-aware routing and isochrones
+- **Shipped:** v2.0 Isochrone Reachability (2026-02-14), v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
 - **Stack:** React 18 + TypeScript + MUI 7 + MapLibre GL 5 + Vite
 - **LOC:** 6,613 TypeScript (client)
 - **State management:** React Context API (RoutingContext, MapInstanceContext, MessageContext)
@@ -89,4 +91,4 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 | Disabled placeholder pattern for MapControls | Render controls immediately with disabled state, enable when map loads | ✓ Good — eliminates pop-in flash |
 
 ---
-*Last updated: 2026-02-13 after v2.0 milestone start*
+*Last updated: 2026-02-14 after v2.1 milestone start*
