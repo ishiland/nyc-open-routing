@@ -10,10 +10,12 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 ## Current Position
 
 Milestone: v2.3 Ferry Route Fix
-Phase: Not started (defining requirements)
+Phase: 13 - Ferry Network Topology Isolation
 Plan: —
-Status: Defining requirements
-Last activity: 2026-02-14 — Milestone v2.3 started
+Status: Planning phase
+Last activity: 2026-02-14 — Roadmap created, Phase 13 defined
+
+Progress: [░░░░░░░░░░] 0% (0/1 phase)
 
 ## Performance Metrics
 
@@ -37,13 +39,14 @@ None.
 
 - Ferry route nodes shared with bridge/tunnel nodes (33 shared with Hugh L. Carey Tunnel, 12 with Verrazzano Bridge, etc.)
 - Root cause: pgr_createTopology matches nodes by 2D proximity, ignoring elevation differences between bridges and water-level ferry routes
+- Fix approach: Modify 09_ferry_connections.sql to disconnect ferry internal nodes from bridge/tunnel edges while preserving terminal connectivity
 
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Defining v2.3 requirements
-Resume file: None
+Stopped at: Roadmap created for Phase 13
+Resume file: .planning/ROADMAP.md
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after v2.3 milestone start*
+*Last updated: 2026-02-14 after v2.3 roadmap creation*
