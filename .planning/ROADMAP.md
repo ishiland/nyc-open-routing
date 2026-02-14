@@ -28,10 +28,10 @@
   2. Picker defaults to "Now" and displays "Leave at [day] [time]" when a custom departure is selected
   3. User can reset the picker back to "Now" with a single action (e.g., clear button)
   4. Picker is hidden when traffic toggle is off or when bike/walk mode is selected
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 07-01: TBD
+- [ ] 07-01-PLAN.md — DepartureTimePicker component and sidebar wiring
 
 ### Phase 8: API and URL Integration
 **Goal**: Selected departure time flows through to API calls and persists in shareable URLs
@@ -53,8 +53,8 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 7. Departure Time Picker | 0/TBD | Not started | - |
+| 7. Departure Time Picker | 0/1 | Not started | - |
 | 8. API and URL Integration | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after v2.1 roadmap creation*
+*Last updated: 2026-02-14 after phase 7 planning*
