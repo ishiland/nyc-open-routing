@@ -15,7 +15,7 @@
 
 - [x] **Phase 9: Edge Isochrone SQL** - SQL functions return reachable edge geometries with cumulative travel time
 - [x] **Phase 10: Edge Isochrone Frontend** - Users toggle between polygon and edge visualization across all modes
-- [ ] **Phase 11: Waypoint Routing Backend** - SQL functions and API endpoint calculate multi-stop routes with per-leg directions
+- [x] **Phase 11: Waypoint Routing Backend** - SQL functions and API endpoint calculate multi-stop routes with per-leg directions
 - [ ] **Phase 12: Waypoint Routing Frontend** - Users add, remove, and see waypoints in the sidebar and on the map
 
 ### Phase Details
@@ -61,8 +61,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 11-01-PLAN.md — Pydantic response models + RoutingService.get_waypoint_route method (leg assembly)
-- [ ] 11-02-PLAN.md — /api/route/waypoints endpoint + unit tests (service + route layer)
+- [x] 11-01-PLAN.md — Pydantic response models + RoutingService.get_waypoint_route method (leg assembly)
+- [x] 11-02-PLAN.md — /api/route/waypoints endpoint + unit tests (service + route layer)
 
 #### Phase 12: Waypoint Routing Frontend
 **Goal**: Users can build multi-stop routes by adding and removing intermediate waypoints in the sidebar, with markers visible on the map
@@ -87,8 +87,8 @@ Plans:
 |-------|---------------|--------|-----------|
 | 9. Edge Isochrone SQL | 1/1 | Complete | 2026-02-14 |
 | 10. Edge Isochrone Frontend | 2/2 | Complete | 2026-02-14 |
-| 11. Waypoint Routing Backend | 0/2 | Not started | - |
+| 11. Waypoint Routing Backend | 2/2 | Complete | 2026-02-14 |
 | 12. Waypoint Routing Frontend | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after Phase 11 planning*
+*Last updated: 2026-02-14 after Phase 11 execution*

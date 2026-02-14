@@ -17,7 +17,7 @@ Requirements for edge-based isochrones and waypoint routing. Each maps to roadma
 ### Waypoint Routing
 
 - [ ] **WAY-01**: User can add intermediate stops between origin and destination (up to 3 waypoints)
-- [ ] **WAY-02**: Route calculates through all waypoints in order with per-leg directions
+- [x] **WAY-02**: Route calculates through all waypoints in order with per-leg directions
 - [ ] **WAY-03**: Waypoint markers display on the map at each stop
 - [ ] **WAY-04**: User can remove individual waypoints
 
@@ -47,7 +47,7 @@ Requirements for edge-based isochrones and waypoint routing. Each maps to roadma
 | ISO-03 | Phase 10 | Complete |
 | ISO-04 | Phase 10 | Complete |
 | WAY-01 | Phase 12 | Pending |
-| WAY-02 | Phase 11 | Pending |
+| WAY-02 | Phase 11 | Complete |
 | WAY-03 | Phase 12 | Pending |
 | WAY-04 | Phase 12 | Pending |
 
@@ -58,4 +58,4 @@ Requirements for edge-based isochrones and waypoint routing. Each maps to roadma
 
 ---
 *Requirements defined: 2026-02-14*
-*Last updated: 2026-02-14 after Phase 10 completion*
+*Last updated: 2026-02-14 after Phase 11 completion*
