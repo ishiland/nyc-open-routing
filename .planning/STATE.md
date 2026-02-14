@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** v2.2 Edge Isochrones & Waypoints — Phase 11, Plan 01 complete
+**Current focus:** v2.2 Edge Isochrones & Waypoints — Phase 11 complete, Phase 12 next
 
 ## Current Position
 
 Milestone: v2.2 Edge Isochrones & Waypoints
-Phase: 11 of 12 (Waypoint Routing Backend) -- IN PROGRESS
-Plan: 1 of 2 plans executed
-Status: Plan 01 (models + service) complete, Plan 02 (endpoint + tests) next
-Last activity: 2026-02-14 — Executed Phase 11 Plan 01 (waypoint routing models & service)
+Phase: 11 of 12 (Waypoint Routing Backend) -- COMPLETE
+Plan: 2 of 2 plans executed
+Status: Phase 11 complete (all backend waypoint routing: models, service, endpoint, tests)
+Last activity: 2026-02-14 — Executed Phase 11 Plan 02 (waypoint routing endpoint & tests)
 
-Progress: [██████░░░░] 55%
+Progress: [██████░░░░] 60%
 
 ## Performance Metrics
 
@@ -27,6 +27,7 @@ Progress: [██████░░░░] 55%
 - v2.2 Phase 10-01: 2 tasks, 3 files changed, 2 min
 - v2.2 Phase 10-02: 2 tasks, 7 files changed, 4 min
 - v2.2 Phase 11-01: 2 tasks, 2 files changed, 2 min
+- v2.2 Phase 11-02: 2 tasks, 3 files changed, 2 min
 
 ## Accumulated Context
 
@@ -43,6 +44,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - Edge line width scales 1px->4px across zoom 10->16 for clarity at all scales
 - Leg index on LegResponse not on Feature properties -- avoids modifying existing Properties model
 - Waypoint routing delegates to existing mode-specific methods per leg -- no new SQL needed
+- Coordinate validation per-pair in endpoint before dispatching to service for consistency
+- Endpoint uses parse_coordinates for validation matching existing /api/route behavior
 
 ### Pending Todos
 
@@ -55,9 +58,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 11-01-PLAN.md (waypoint routing models & service)
+Stopped at: Completed 11-02-PLAN.md (waypoint routing endpoint & tests) -- Phase 11 fully complete
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after Phase 11 Plan 01 execution*
+*Last updated: 2026-02-14 after Phase 11 Plan 02 execution*
