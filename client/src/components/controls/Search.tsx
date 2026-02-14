@@ -124,17 +124,6 @@ const SearchComponent: FC<SearchProps> = ({ type }) => {
       onSelect: handleSuggestionSelect,
     })
 
-  // Debug logging (development only)
-  // debug.log("[Search Debug]", {
-  //   type,
-  //   query,
-  //   dataPresent: !!data,
-  //   featuresCount: data?.features?.length || 0,
-  //   suggestionsLength: suggestions.length,
-  //   hasAnchorEl: !!anchorEl,
-  //   willShowDropdown: !!(anchorEl && suggestions.length > 0),
-  // })
-
   // Cleanup timeout on unmount
   useEffect(() => {
     return () => {

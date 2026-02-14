@@ -5,10 +5,7 @@ import Toolbar from "@mui/material/Toolbar"
 import Typography from "@mui/material/Typography"
 import InfoModal from "./InfoModal"
 
-const StyledAppBar = styled(AppBar)(({ theme }) => ({
-  // Assuming primary color should come from the theme
-  // color: theme.palette.primary.main, // This sets text color, AppBar bg is primary by default
-}))
+const StyledAppBar = styled(AppBar)({})
 
 const StyledToolbar = styled(Toolbar)({
   minHeight: "40px",

@@ -6,11 +6,7 @@ import {
   BOTTOM_SHEET_DRAG_HANDLE_HEIGHT_PX,
   BOTTOM_SHEET_Z_INDEX,
 } from "../../utils/constants"
-import {
-  calculateBottomSheetHeight,
-  getNextSnapPoint,
-  getViewportDimensions,
-} from "../../utils/responsive"
+import { getNextSnapPoint } from "../../utils/responsive"
 import { useLocalStorage } from "../../hooks/useLocalStorage"
 
 interface BottomSheetProps {
@@ -41,7 +37,6 @@ export const BottomSheet: FC<BottomSheetProps> = ({
   const [snapPoint, setSnapPoint] = useState(initialSnapPoint)
   const [isDragging, setIsDragging] = useState(false)
   const [dragStartY, setDragStartY] = useState(0)
-  const [dragStartTime, setDragStartTime] = useState(0)
   const [hasSeenSwipeHint, setHasSeenSwipeHint] = useLocalStorage("bottom-sheet-swipe-hint-seen", false)
   const [showSwipeHint, setShowSwipeHint] = useState(!hasSeenSwipeHint)
 
@@ -56,27 +51,11 @@ export const BottomSheet: FC<BottomSheetProps> = ({
     }
   }, [showSwipeHint, setHasSeenSwipeHint])
 
-  // Calculate height based on current snap point
-  const { height: viewportHeight } = getViewportDimensions()
-  const sheetHeight = calculateBottomSheetHeight(snapPoint, viewportHeight)
-
-  // Update height on viewport resize
-  useEffect(() => {
-    const handleResize = () => {
-      // Force re-render with new viewport dimensions
-      setSnapPoint((prev) => prev)
-    }
-
-    window.addEventListener("resize", handleResize)
-    return () => window.removeEventListener("resize", handleResize)
-  }, [])
-
   // Handle drag start
   const handleDragStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
     setIsDragging(true)
     const clientY = "touches" in e ? e.touches[0].clientY : e.clientY
     setDragStartY(clientY)
-    setDragStartTime(Date.now())
   }, [])
 
   // Handle keyboard navigation on drag handle
@@ -120,10 +99,8 @@ export const BottomSheet: FC<BottomSheetProps> = ({
 
       const clientY = "changedTouches" in e ? e.changedTouches[0].clientY : e.clientY
       const deltaY = clientY - dragStartY
-      const deltaTime = Date.now() - dragStartTime
-      const velocity = deltaY / deltaTime // px/ms
 
-      // Determine swipe direction based on distance and velocity
+      // Determine swipe direction based on distance
       const direction = deltaY > 20 ? "down" : deltaY < -20 ? "up" : null
 
       if (direction) {
@@ -142,7 +119,7 @@ export const BottomSheet: FC<BottomSheetProps> = ({
 
       setIsDragging(false)
     },
-    [isDragging, dragStartY, dragStartTime, snapPoint, onClose],
+    [isDragging, dragStartY, snapPoint, onClose],
   )
 
   return (
