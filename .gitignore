@@ -1,8 +1,62 @@
+# OS files
+.DS_Store
+Thumbs.db
+Desktop.ini
+._*
+
+# Editor / IDE
 .idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.egg
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node / Client
 client/node_modules/
+client/dist/
 client/build/
 *.log
-__pycache__/
-.DS_Store
+
+# Environment files
+.env
+docker/dev/.env
+
+# API
 /api/gde
+
+# Data files
 *.csv
+
+# Debug / Test artifacts
+*.png
+*.jpeg
+*.jpg
+.playwright-mcp/
+
+# Exception: keep favicon in public/
+!client/public/favicon.png
+
+# GSD planning (internal dev)
+.planning/
+
+# Claude Code
+CLAUDE.md
+
+# Internal dev docs
+docs/
+
+# Misc junk
+todo.md
+lion meta.md
+ROUTING_ANALYSIS.md
