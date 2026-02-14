@@ -28,10 +28,10 @@
   1. SQL isochrone functions return edge geometries (LineStrings) with cumulative travel time for each reachable street segment
   2. Edge results include street name, travel time, and band index for downstream rendering
   3. Functions work for all three modes (drive, bike, walk) and respect traffic settings when applicable
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 09-01: TBD
+- [ ] 09-01-PLAN.md — Create and validate edge-based isochrone SQL functions for all three modes
 
 #### Phase 10: Edge Isochrone Frontend
 **Goal**: Users can see exactly which streets are reachable within each time band, rendered as colored line segments on the map
@@ -83,10 +83,10 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 9. Edge Isochrone SQL | 0/TBD | Not started | - |
+| 9. Edge Isochrone SQL | 0/1 | Planned | - |
 | 10. Edge Isochrone Frontend | 0/TBD | Not started | - |
 | 11. Waypoint Routing Backend | 0/TBD | Not started | - |
 | 12. Waypoint Routing Frontend | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after v2.2 roadmap creation*
+*Last updated: 2026-02-14 after Phase 9 planning*
