@@ -60,6 +60,41 @@ export interface Route {
   [key: string]: unknown
 }
 
+// Isochrone related interfaces
+export interface IsochroneBandProperties {
+  band_index: number
+  minutes: number
+  mode: string
+  node_count: number
+  [key: string]: unknown
+}
+
+export interface IsochroneFeature
+  extends GeoJSON.Feature<
+    GeoJSON.Polygon | GeoJSON.MultiPolygon,
+    IsochroneBandProperties
+  > {}
+
+export interface IsochroneEdgeProperties {
+  edge_id: number
+  band_index: number
+  agg_cost: number
+  street: string
+  [key: string]: unknown
+}
+
+export interface IsochroneEdgeFeature
+  extends GeoJSON.Feature<GeoJSON.LineString, IsochroneEdgeProperties> {}
+
+export type IsochroneView = "polygon" | "edges"
+
+export interface IsochroneResponse {
+  features: (IsochroneFeature | IsochroneEdgeFeature)[]
+  origin: { type: "Point"; coordinates: [number, number] }
+}
+
+export type AppMode = "route" | "isochrone"
+
 // Travel mode related interfaces
 export type TravelMode = "drive" | "bike" | "walk"
 

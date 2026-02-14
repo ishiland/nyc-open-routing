@@ -88,6 +88,57 @@ export const routeHaloPaint = {
   "line-blur": 1.5,  // Creates soft glow effect
 }
 
+// Isochrone band colors: green (5min) → yellow (10min) → orange (15min) → red (20min)
+export const ISOCHRONE_BAND_COLORS = ["#22c55e", "#facc15", "#f97316", "#ef4444"]
+
+export const getIsochroneFillPaint = () => ({
+  "fill-color": [
+    "match",
+    ["get", "band_index"],
+    1, "#22c55e",
+    2, "#facc15",
+    3, "#f97316",
+    4, "#ef4444",
+    "#94a3b8",
+  ] as any,
+  "fill-opacity": 0.25,
+})
+
+export const getIsochroneEdgePaint = () => ({
+  "line-color": [
+    "match",
+    ["get", "band_index"],
+    1, "#22c55e",
+    2, "#facc15",
+    3, "#f97316",
+    4, "#ef4444",
+    "#94a3b8",
+  ] as any,
+  "line-width": [
+    "interpolate",
+    ["linear"],
+    ["zoom"],
+    10, 1,
+    13, 2,
+    16, 4,
+  ] as any,
+  "line-opacity": 0.85,
+})
+
+export const getIsochroneOutlinePaint = () => ({
+  "line-color": [
+    "match",
+    ["get", "band_index"],
+    1, "#22c55e",
+    2, "#facc15",
+    3, "#f97316",
+    4, "#ef4444",
+    "#94a3b8",
+  ] as any,
+  "line-width": 2,
+  "line-opacity": 0.7,
+})
+
 // Traffic-aware route paint using MapLibre GL expressions
 // Uses interpolate to smoothly transition between colors based on traffic_factor
 export const getTrafficRoutePaint = () => ({
@@ -111,4 +162,5 @@ export const getTrafficRoutePaint = () => ({
     2.5, trafficColorScale.severe,
   ] as any,
   "line-opacity": 0.9,
+  "line-dasharray": null,  // Reset dashed pattern from bike/walk modes
 })
