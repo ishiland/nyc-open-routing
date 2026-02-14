@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** v2.2 Edge Isochrones & Waypoints — Phase 12 planned, ready to execute
+**Current focus:** v2.2 Edge Isochrones & Waypoints — Phase 12 executing
 
 ## Current Position
 
 Milestone: v2.2 Edge Isochrones & Waypoints
-Phase: 12 of 12 (Waypoint Routing Frontend) -- PLANNED
-Plan: 0 of 3 plans executed
-Status: Phase 12 planned — ready for execution
-Last activity: 2026-02-14 — Planned Phase 12 (waypoint routing frontend)
+Phase: 12 of 12 (Waypoint Routing Frontend) -- IN PROGRESS
+Plan: 1 of 3 plans executed
+Status: Plan 12-01 complete — waypoint types, context state, fetch hook, WaypointSearch component
+Last activity: 2026-02-14 — Completed 12-01 (waypoint foundation)
 
-Progress: [███████░░░] 70%
+Progress: [████████░░] 80%
 
 ## Performance Metrics
 
@@ -28,6 +28,7 @@ Progress: [███████░░░] 70%
 - v2.2 Phase 10-02: 2 tasks, 7 files changed, 4 min
 - v2.2 Phase 11-01: 2 tasks, 2 files changed, 2 min
 - v2.2 Phase 11-02: 2 tasks, 3 files changed, 2 min
+- v2.2 Phase 12-01: 2 tasks, 7 files changed, 3 min
 
 ## Accumulated Context
 
@@ -46,6 +47,9 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - Waypoint routing delegates to existing mode-specific methods per leg -- no new SQL needed
 - Coordinate validation per-pair in endpoint before dispatching to service for consistency
 - Endpoint uses parse_coordinates for validation matching existing /api/route behavior
+- Separate useWaypointRouteFetch hook rather than extending useRouteFetch to preserve existing routing unchanged
+- WaypointSearch reuses useDebouncedFetch/SuggestionDropdown with simpler layout (no geolocation, no recent searches)
+- addWaypoint enforces max 1 intermediate waypoint matching backend 3-total-point constraint
 
 ### Pending Todos
 
@@ -58,9 +62,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Planned Phase 12 (waypoint routing frontend)
+Stopped at: Completed 12-01-PLAN.md
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after Phase 12 planning*
+*Last updated: 2026-02-14 after completing 12-01*
