@@ -74,10 +74,12 @@ Plans:
   3. User can remove any individual waypoint and the route recalculates
   4. Turn-by-turn directions in the sidebar are grouped by leg (origin to waypoint 1, waypoint 1 to waypoint 2, etc.)
   5. Existing two-point routing UX remains unchanged when no waypoints are added
-**Plans**: TBD
+**Plans:** 3 plans
 
 Plans:
-- [ ] 12-01: TBD
+- [ ] 12-01-PLAN.md — Waypoint types, context state, fetch hook, WaypointSearch component
+- [ ] 12-02-PLAN.md — Wire Sidebar, ButtonControls, MapLibreGLMap, RouteList, RouteSummaryCard for waypoints
+- [ ] 12-03-PLAN.md — Human verification of end-to-end waypoint routing
 
 ## Progress
 
@@ -88,7 +90,7 @@ Plans:
 | 9. Edge Isochrone SQL | 1/1 | Complete | 2026-02-14 |
 | 10. Edge Isochrone Frontend | 2/2 | Complete | 2026-02-14 |
 | 11. Waypoint Routing Backend | 2/2 | Complete | 2026-02-14 |
-| 12. Waypoint Routing Frontend | 0/TBD | Not started | - |
+| 12. Waypoint Routing Frontend | 0/3 | Not started | - |
 
 ---
 *Last updated: 2026-02-14 after Phase 11 execution*
