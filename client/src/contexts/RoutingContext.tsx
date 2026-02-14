@@ -5,7 +5,12 @@ import React, {
   useCallback,
   useMemo,
 } from "react"
-import { IMapFeature, Route, RouteFeature } from "../types/interfaces"
+import {
+  IMapFeature,
+  Route,
+  RouteFeature,
+  WaypointRouteResponse,
+} from "../types/interfaces"
 import { areAddressesDifferent } from "../utils/coordinates"
 
 // Define TravelMode, can be moved to interfaces.ts later
@@ -23,6 +28,10 @@ export interface RoutingContextType {
   trafficHour: number | null
   trafficDayOfWeek: number | null
 
+  // Waypoint state
+  waypoints: IMapFeature[]
+  waypointRoute: WaypointRouteResponse | null
+
   // UI state (related to routing inputs)
   startAddressInput: string
   endAddressInput: string
@@ -37,6 +46,13 @@ export interface RoutingContextType {
   setAvoidFerries: (avoidFerries: boolean) => void
   setTrafficHour: (hour: number | null) => void
   setTrafficDayOfWeek: (day: number | null) => void
+
+  // Waypoint state modifiers
+  addWaypoint: (waypoint: IMapFeature) => void
+  removeWaypoint: (index: number) => void
+  updateWaypoint: (index: number, waypoint: IMapFeature) => void
+  clearWaypoints: () => void
+  setWaypointRoute: (route: WaypointRouteResponse | null) => void
 
   // UI state modifiers
   setAddressInput: (value: string, type: "start" | "end") => void
@@ -55,6 +71,8 @@ export const RoutingContext = createContext<RoutingContextType>({
   avoidFerries: false,
   trafficHour: null,
   trafficDayOfWeek: null,
+  waypoints: [],
+  waypointRoute: null,
   startAddressInput: "",
   endAddressInput: "",
   isInputEnabled: true,
@@ -66,6 +84,11 @@ export const RoutingContext = createContext<RoutingContextType>({
   setAvoidFerries: () => {},
   setTrafficHour: () => {},
   setTrafficDayOfWeek: () => {},
+  addWaypoint: () => {},
+  removeWaypoint: () => {},
+  updateWaypoint: () => {},
+  clearWaypoints: () => {},
+  setWaypointRoute: () => {},
   setAddressInput: () => {},
   clearAddresses: () => {},
   swapAddresses: () => {},
@@ -126,6 +149,10 @@ export function RoutingContextProvider({
       return null
     }
   })
+
+  const [waypoints, setWaypointsState] = useState<IMapFeature[]>([])
+  const [waypointRoute, setWaypointRouteState] =
+    useState<WaypointRouteResponse | null>(null)
 
   const [startAddressInput, setStartAddressInputState] = useState<string>("")
   const [endAddressInput, setEndAddressInputState] = useState<string>("")
@@ -212,11 +239,45 @@ export function RoutingContextProvider({
     [],
   )
 
+  const addWaypoint = useCallback((waypoint: IMapFeature) => {
+    setWaypointsState(prev => {
+      if (prev.length >= 1) return prev // Limit to 1 intermediate waypoint per backend constraint
+      return [...prev, waypoint]
+    })
+  }, [])
+
+  const removeWaypoint = useCallback((index: number) => {
+    setWaypointsState(prev => prev.filter((_, i) => i !== index))
+  }, [])
+
+  const updateWaypoint = useCallback(
+    (index: number, waypoint: IMapFeature) => {
+      setWaypointsState(prev =>
+        prev.map((wp, i) => (i === index ? waypoint : wp)),
+      )
+    },
+    [],
+  )
+
+  const clearWaypoints = useCallback(() => {
+    setWaypointsState([])
+    setWaypointRouteState(null)
+  }, [])
+
+  const setWaypointRoute = useCallback(
+    (route: WaypointRouteResponse | null) => {
+      setWaypointRouteState(route)
+    },
+    [],
+  )
+
   const clearAddresses = useCallback(() => {
     setStartAddressState(null)
     setEndAddressState(null)
     setStartAddressInputState("")
     setEndAddressInputState("")
+    setWaypointsState([])
+    setWaypointRouteState(null)
   }, [])
 
   const swapAddresses = useCallback(() => {
@@ -246,6 +307,8 @@ export function RoutingContextProvider({
       avoidFerries,
       trafficHour,
       trafficDayOfWeek,
+      waypoints,
+      waypointRoute,
       startAddressInput,
       endAddressInput,
       isInputEnabled,
@@ -257,6 +320,11 @@ export function RoutingContextProvider({
       setAvoidFerries,
       setTrafficHour,
       setTrafficDayOfWeek,
+      addWaypoint,
+      removeWaypoint,
+      updateWaypoint,
+      clearWaypoints,
+      setWaypointRoute,
       setAddressInput,
       clearAddresses,
       swapAddresses,
@@ -272,6 +340,8 @@ export function RoutingContextProvider({
       avoidFerries,
       trafficHour,
       trafficDayOfWeek,
+      waypoints,
+      waypointRoute,
       startAddressInput,
       endAddressInput,
       isInputEnabled,
@@ -283,6 +353,11 @@ export function RoutingContextProvider({
       setAvoidFerries,
       setTrafficHour,
       setTrafficDayOfWeek,
+      addWaypoint,
+      removeWaypoint,
+      updateWaypoint,
+      clearWaypoints,
+      setWaypointRoute,
       setAddressInput,
       clearAddresses,
       swapAddresses,

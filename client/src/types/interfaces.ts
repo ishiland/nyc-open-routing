@@ -93,6 +93,29 @@ export interface IsochroneResponse {
   origin: { type: "Point"; coordinates: [number, number] }
 }
 
+// Waypoint routing response types (matches backend WaypointRouteResponse)
+export interface LegSummary {
+  distance: number // feet
+  travel_time: number // minutes
+}
+
+export interface LegResponse {
+  leg: number
+  summary: LegSummary
+  features: RouteFeature[]
+}
+
+export interface WaypointRouteSummary {
+  total_distance: number
+  total_travel_time: number
+  num_legs: number
+}
+
+export interface WaypointRouteResponse {
+  legs: LegResponse[]
+  summary: WaypointRouteSummary
+}
+
 export type AppMode = "route" | "isochrone"
 
 // Travel mode related interfaces

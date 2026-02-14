@@ -26,6 +26,8 @@ const mockContextValue: RoutingContextType = {
   avoidFerries: false,
   trafficHour: null,
   trafficDayOfWeek: null,
+  waypoints: [],
+  waypointRoute: null,
   setAddress: vi.fn(),
   setAddressInput: vi.fn(),
   startAddressInput: "",
@@ -41,6 +43,11 @@ const mockContextValue: RoutingContextType = {
   setAvoidFerries: vi.fn(),
   setTrafficHour: vi.fn(),
   setTrafficDayOfWeek: vi.fn(),
+  addWaypoint: vi.fn(),
+  removeWaypoint: vi.fn(),
+  updateWaypoint: vi.fn(),
+  clearWaypoints: vi.fn(),
+  setWaypointRoute: vi.fn(),
 }
 
 const renderSearch = (type: "Start" | "End", contextOverrides = {}) => {

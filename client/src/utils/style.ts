@@ -15,6 +15,9 @@ export const startPointColor = "#22c55e"
 // Modern red for end marker
 export const endPointColor = "#ef4444"
 
+// Blue for waypoint markers (distinct from start green and end red)
+export const waypointPointColor = "#3b82f6"
+
 // Traffic color scale based on traffic engineering standards
 // Maps traffic_factor values to colors:
 // 1.0 = Free flow (green)
