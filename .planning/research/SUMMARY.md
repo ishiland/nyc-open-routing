@@ -1,270 +1,290 @@
 # Project Research Summary
 
-**Project:** NYC Open Routing - Transit-Inspired UI Redesign
-**Domain:** Multi-modal routing/mapping application (React + MUI + MapLibre GL)
-**Researched:** 2026-02-12
+**Project:** NYC Open Routing - Isochrone/Reachability Visualization
+**Domain:** Multi-modal routing application with pgRouting + PostGIS backend
+**Researched:** 2026-02-13
 **Confidence:** HIGH
 
 ## Executive Summary
 
-NYC Open Routing is a proof-of-concept multi-modal routing application built with React 18, MUI 7, and MapLibre GL. The UI redesign aims to apply a transit-inspired visual identity based on NYC's MTA design system while improving responsive behavior, accessibility, and polish. Research shows that mapping applications of this type should use centralized theming (MUI's global overrides pattern), maintain strict separation between map and UI interaction zones, and optimize React Context to prevent cascade re-renders during map interactions.
+Isochrone visualization answers the question "where can I reach from here within X minutes?" for the NYC Open Routing app. This feature requires **zero new dependencies** across the entire stack - no new Python packages, no new npm packages, and no Docker image changes. The entire implementation leverages existing capabilities: pgRouting's `pgr_drivingDistance` function for computing reachable nodes via Dijkstra's algorithm, PostGIS's `ST_ConcaveHull` for generating polygon boundaries from point clouds, the existing Shapely/Pydantic pipeline for GeoJSON serialization, and MapLibre GL's `fill` layer type for polygon rendering.
 
-The recommended approach is a **phased theme-first redesign**: establish design tokens and component overrides before touching layout or custom components. This prevents rework and ensures consistency. The stack is already optimal — no new libraries needed beyond what's installed (MUI 7 with Emotion, tss-react for complex styles). Use Emotion keyframes for animations rather than external animation libraries; the transit UI needs simple, functional transitions (slide, fade, expand), not physics-based effects.
+The recommended approach follows the existing routing architecture pattern exactly: SQL functions encapsulate all graph computation logic, a service layer handles caching and coordinate transformation, FastAPI endpoints expose the functionality via REST, and React Context manages frontend state with custom hooks for data fetching and map layer rendering. The only architectural deviation is creating a separate `IsochroneContext` rather than extending `RoutingContext` - this prevents re-render cascades and keeps routing and isochrone state cleanly separated despite their shared use of travel mode selection.
 
-Key risks include MUI theme override specificity conflicts, MapLibre z-index battles with React overlays, and Context API performance collapse from excessive re-renders. These are mitigated by: (1) investigating default CSS specificity before writing overrides, (2) establishing a z-index scale early (map=0, UI=100s, modals=1300+), and (3) splitting contexts by update frequency (high-frequency map state separated from low-frequency route data). Real device testing is critical for mobile bottom sheet interactions — gesture conflicts between map panning and sheet dragging manifest differently on iOS vs Android.
+Key risks are manageable with known mitigations. Performance concerns (pgr_drivingDistance on a 177k-edge graph can take 1-3 seconds) are addressed through aggressive caching, spatial bounding boxes to limit the search space, and computing all time bands in a single database call. Visual rendering artifacts from overlapping transparent polygons are solved by using PostGIS `ST_Difference` to create true concentric donut rings rather than overlapping circles. The most critical finding from pitfalls research: the isochrone SQL must use `time_drive`/`time_bike`/`time_walk` columns (pure travel times) rather than `cost_drive`/`cost_bike`/`cost_walk` columns (which include routing preference penalties) - using cost columns distorts the reachable area and produces misleading isochrones. The only uncertainty is the GEOS version in the Docker image (likely 3.9.0), which affects `ST_ConcaveHull` performance but not functionality, with a clear upgrade path if needed.
 
 ## Key Findings
 
 ### Recommended Stack
 
-Research confirms the current stack is well-chosen for this domain. MUI 7 provides excellent theming with CSS variables, Emotion is performance-optimized and React 18-ready, and tss-react gives type-safe styling for complex components. No additional libraries are needed.
+**No new dependencies required.** The isochrone feature is built entirely on capabilities already present in the existing stack. The database layer uses pgRouting 3.8's `pgr_drivingDistance` function to compute all nodes reachable within a time threshold (proven Dijkstra implementation, stable since pgRouting 2.0), and PostGIS 3.5's `ST_ConcaveHull` to generate polygon boundaries from the resulting point clouds. The API layer reuses the existing FastAPI/Pydantic/Shapely pipeline without modification. The frontend layer uses MapLibre GL 5.3.0's existing `fill` layer type with data-driven styling (`["get", "color"]` expressions), rendered via the existing `useGeoJsonLayer` hook.
 
 **Core technologies:**
-- **MUI 7.3.2** (Material UI): Component library with centralized theming via `createTheme()` and `styleOverrides` — already integrated, high source reputation (30.7k stars)
-- **Emotion 11.x** (@emotion/react + @emotion/styled): CSS-in-JS engine, faster than styled-components, GPU-accelerated keyframes for animations — already installed, React Concurrent Mode ready
-- **tss-react 4.x**: Type-safe makeStyles-style API powered by Emotion — already installed, useful for multi-class components with theme access
-- **Inter font** (Google Fonts): Primary UI font with superior screen legibility, 414B annual requests, designed for UIs with tall x-height — add via CDN or npm
-- **Official MTA Pantone colors**: Subway line colors as design tokens (e.g., `#0039A6` MTA Blue for primary, `#EE352E` Red for secondary, `#FF6319` Orange for accents)
+- **pgr_drivingDistance (pgRouting 3.8)**: Dijkstra-based reachability computation returning all nodes within cost threshold - reuses existing edge cost columns (`time_drive`/`time_bike`/`time_walk`) and mode accessibility flags
+- **ST_ConcaveHull (PostGIS 3.5)**: Polygon generation from node geometries with tunable concavity parameter (0.7 recommended for street network isochrones) - faster with GEOS 3.11+ but functional with older versions
+- **MapLibre GL fill layers**: Semi-transparent polygon rendering with per-feature color/opacity via data-driven paint properties - existing `useGeoJsonLayer` hook supports this layer type without modification
 
-**Key decision:** Use Emotion keyframes for all animations. DO NOT install framer-motion or react-spring — overkill for transit UI's simple transitions, adds bundle size unnecessarily.
+**GEOS version uncertainty:** The Docker image `pgrouting/pgrouting:17-3.5-3.8` likely ships with GEOS 3.9.0 based on similar tag examples. PostGIS 3.3+ with GEOS 3.11+ provides a faster native `ST_ConcaveHull` implementation, but the legacy PL/pgSQL fallback is functional and adequate for proof-of-concept (100-500ms per polygon vs 10-50ms native). This must be verified with `SELECT postgis_geos_compiled_version()` during development. Upgrade path exists: change to `pgrouting:17-3.6-3.8` (PostGIS 3.6 with GEOS 3.11+) as a drop-in replacement.
 
 ### Expected Features
 
-Mapping applications have well-established table stakes. Users expect responsive layouts, turn-by-turn directions, touch-friendly controls (44x44px minimum), and accessibility compliance (WCAG 2.1 Level AA). The current implementation has many foundational features but needs visual polish and mobile optimization.
+**Table stakes (users expect from any isochrone tool):**
+- Single-origin isochrone polygons with concentric time bands (5/10/15/20 minutes standard across Mapbox, Valhalla, TravelTime)
+- Multi-modal support (drive/bike/walk) matching the existing routing modes
+- Color-coded polygon fills with transparency (green-to-red sequential palette, decreasing opacity for outer bands)
+- Origin selection via address search (reuse existing Geosupport integration) and click-on-map
+- Loading state during computation (pgr_drivingDistance is slower than point-to-point routing)
+- Clear/reset to dismiss overlay
+- Correct rendering order (largest polygon rendered first, smallest on top, to avoid opacity blending artifacts)
 
-**Must have (table stakes):**
-- Responsive sidebar (desktop: 400px, tablet: 340px) and mobile bottom sheet — **partially implemented, needs polish**
-- Turn-by-turn directions list with current step highlighting — **implemented, needs visual redesign**
-- Route summary card (distance, duration, ETA) — **implemented, needs transit-inspired styling**
-- Touch-friendly controls (44x44px minimum, 8px spacing) — **current theme complies, audit needed**
-- Accessible color contrast (4.5:1 text, 3:1 graphics) — **WCAG compliance required, needs verification**
-- Screen reader support and keyboard navigation — **partial implementation, needs enhancement**
-- Mobile-optimized layout with bottom sheet pattern — **implemented, needs gesture conflict resolution**
+**Differentiators (unique value propositions):**
+- **Traffic-aware isochrones (drive mode)**: Apply existing traffic factors to isochrone costs to show realistic rush-hour vs off-peak reachability - unique for self-hosted tools, most use free-flow speeds
+- **Edge-based visualization**: Color individual street segments by time band instead of polygon blobs - more accurate, shows exactly which streets are reachable, avoids concave hull "swallowing" unreachable areas
+- **Time slider**: Drag slider to adjust max time dynamically (requires fast backend <1s or client-side caching)
+- **Deep links**: URL sharing with origin/mode/time params (extends existing route deep link pattern)
+- **Summary statistics**: Area covered, street count within each band
 
-**Should have (competitive):**
-- MTA transit-inspired visual identity — **differentiator, core value proposition of redesign**
-- Compact, polished route cards with clear hierarchy — **differentiator, shows design attention**
-- Mode-specific turn restrictions surfaced in UI — **backend implemented, needs UI affordance**
-- Static traffic awareness toggle (pragmatic vs expensive real-time APIs) — **implemented, needs value surfacing**
-- Ferry routing integration (NYC-specific) — **backend implemented, needs UI affordances**
-- Route step focusing on map (click step → highlight segment) — **not implemented, valuable addition**
+**Anti-features (explicit scope exclusions):**
+- Reverse isochrone ("where can reach ME in X minutes") - computationally expensive, niche use case
+- Multi-origin merge/intersection - analytics feature beyond PoC scope
+- Isodistance (distance-based instead of time-based) - time is more intuitive and useful
+- POI overlay/demographic analysis - requires external data integration (separate project)
+- Real-time updates while dragging origin - requires sub-100ms response times (not feasible with pgr_drivingDistance on 177k edges)
+- Public transit mode - requires GTFS integration and schedule-aware routing (massive scope increase)
 
-**Defer (v2+):**
-- Real-time traffic data (cost-prohibitive for POC; static traffic factors sufficient)
-- Turn-by-turn voice navigation (scope creep; focus on pre-trip visual review)
-- Multi-stop routing (algorithmic complexity, UX burden)
-- Offline maps (100+ MB downloads, cache management complexity)
-- Route customization (avoid highways/tolls — diminishing returns, adds UI complexity)
+**MVP scope:** Core polygon visualization (pgr_drivingDistance SQL → API endpoint → concentric fill layers) + origin selection (address search + map click) + mode selection. Defer traffic-aware variant, time slider, edge-based view, deep links, and summary stats to post-MVP phases.
 
 ### Architecture Approach
 
-The existing architecture is sound: Context API for state management (RoutingContext, MapInstanceContext, MessageContext), React hooks for behavior (useRouteFetch, useGeoJsonLayer, useMapZoom), and AdaptiveLayout for responsive switching. The redesign requires a **theme-first approach** — define all visual styling in a centralized theme file via MUI's `createTheme()` and `components.styleOverrides`.
+Isochrone visualization integrates as a parallel feature to routing with the same database, API patterns, and map rendering infrastructure, but fundamentally different query shape (routing finds a path between two points; isochrones find all reachable nodes from one point and generate a polygon boundary).
 
 **Major components:**
-1. **Theme Foundation Layer** — Design tokens (palette, typography, spacing, shape) extended with custom properties (transit colors, map colors)
-2. **Component Override Layer** — Global MUI component styles (Card, List, Tabs, Button) with transit aesthetic (border-left accents, compact padding, bold typography)
-3. **Responsive Layer** — Breakpoint-specific overrides (mobile tighter spacing, desktop expanded controls) coordinated with AdaptiveLayout
-4. **Custom Component Layer** — RouteSummaryCard, RouteList, TravelModeSelect updated to use new theme tokens
+1. **Database layer**: `getisochrone()` SQL function encapsulating `pgr_drivingDistance` + edge geometry collection + `ST_ConcaveHull` + coordinate transformation (2263→4326). Reuses existing `getnearestXXXnode()` functions for origin snapping and `time_*` cost columns for accurate travel time computation.
+2. **API layer**: `IsochroneService` class mirroring `RoutingService` pattern (cache-first, parse coordinates, execute SQL, format GeoJSON, cache result) + `/api/isochrone` endpoint with Pydantic request/response models. Reuses `parse_coordinates()`, `dump_geo()`, `RouteCache`, and `get_db_engine()` dependencies.
+3. **Frontend layer**: `IsochroneContext` for state management (separate from `RoutingContext` to avoid re-render cascade) + `useIsochroneFetch` hook for API calls + `useGeoJsonLayer` hook for fill/outline layer rendering (existing hook supports fill layers). Layer z-ordering places isochrones beneath route layers.
+4. **UI controls**: `IsochroneControls` component for origin picker, time band selector, and mode toggle. Integrates with existing sidebar layout as a distinct mode from routing (not layered on top).
 
-**Key patterns:**
-- **Centralized theming (global overrides)** is recommended over component wrapping — single source of truth, automatic propagation, easier maintenance
-- **sx prop hierarchy**: Prefer `sx` prop for styling (most optimized), use `tss-react makeStyles` for complex multi-class components, avoid `styled()` unless truly needed
-- **Context separation by update frequency**: High-frequency map state (store as ref, not state), medium-frequency route data (current RoutingContext), low-frequency theme/preferences (separate if added)
-- **MapLibre integration**: Map colors reference theme tokens (theme.map namespace), control buttons use MuiIconButton overrides, overlays positioned via theme-based CSS
+**Build order (linear dependencies):**
+- **Phase 1**: SQL function (testable directly in psql, validates pgRouting + PostGIS pipeline)
+- **Phase 2**: API endpoint (testable via Swagger/curl, validates service layer and GeoJSON conversion)
+- **Phase 3**: Frontend rendering (testable with hardcoded data, validates MapLibre fill layers)
+- **Phase 4**: UI controls (most subjective, built last after core visualization works)
 
-**Architecture sequence:**
-1. Define theme tokens (palette, typography, spacing)
-2. Apply global component overrides (MuiCard, MuiList, MuiTabs)
-3. Add responsive breakpoint overrides
-4. Update custom components to consume theme
+**Pattern alignment with existing code:**
+- SQL functions encapsulate all routing logic (matches `getdrivingroute()` pattern)
+- Service layer uses cache-first with mode-specific keys (matches `RoutingService`)
+- WKB-to-GeoJSON conversion via `dump_geo()` (matches route response)
+- Context separation for independent features (prevents context bloat)
+- `useGeoJsonLayer` hook for all map layer management (already supports fill layers)
 
 ### Critical Pitfalls
 
-Research identified 7 critical pitfalls specific to MUI + MapLibre + React mapping applications. The top pitfalls are theme specificity conflicts, z-index battles, and Context performance issues.
+1. **Cost unit mismatch between pgr_drivingDistance and edge costs**: The `cost_drive`/`cost_bike`/`cost_walk` columns include routing preference penalties (100x for wrong-way one-ways, 3x-5x for no-bike-lane streets, 50x for highways). Using these as isochrone costs produces wildly distorted reachable areas. **Prevention:** Use `time_drive`/`time_bike`/`time_walk` columns (pure travel times in seconds) as cost input to pgr_drivingDistance, while still filtering by mode accessibility flags (`WHERE driveable=TRUE`). This gives accurate physical reachability without preference distortion.
 
-1. **MUI Theme Override Specificity Conflicts** — Custom styles fail to apply because MUI's state selectors (`.Mui-focused`, `.Mui-disabled`) have higher specificity than theme overrides. **Avoidance:** Investigate default slot structure before writing overrides, match specificity when targeting states, enable `modularCssLayers` for cascade control.
+2. **pgr_drivingDistance performance on 177k-edge graph without spatial bounds**: Unoptimized calls run Dijkstra on the entire graph, taking 2-5 seconds for large time bands. **Prevention:** Filter the edge query with a spatial bounding box (`WHERE the_geom && ST_Expand(origin_point, buffer_meters)`) to reduce the search space from 177k to ~30-50k edges. Compute all time bands in a single call (use max time, filter results by `agg_cost`) rather than multiple sequential calls. Add covering index on `(source, target, time_drive) WHERE driveable=TRUE`. Cache aggressively.
 
-2. **MapLibre z-index Conflicts with React UI Overlays** — Sidebars, bottom sheets, modals render behind MapLibre canvas or get clipped. Map interactions interfere with UI gestures. **Avoidance:** Establish z-index scale early (map=0, UI=100-199, modals=1300+), use MUI Portal for overlays, implement "gutter space" pattern for gesture zones.
+3. **SRID mismatch between vertex geometry (2263), ST_ConcaveHull, and GeoJSON output (4326)**: Vertices are stored in SRID 2263 (NY State Plane feet). Running ST_ConcaveHull on 2263 geometries and returning without transformation produces polygons at coordinates like (981000, 196000) instead of (-73.99, 40.73). **Prevention:** Run ST_ConcaveHull on SRID 2263 geometries (correct - projected coordinate system where distances are Euclidean), then transform the final polygon to 4326 as the last step. Return GeoJSON using `ST_AsGeoJSON()` on the 4326 polygon.
 
-3. **React Context Performance Collapse** — Map interactions (60fps) trigger cascade re-renders in unrelated UI components, degrading to 20-30fps. **Avoidance:** Split contexts by update frequency, store map instance as ref (not state), use React.memo + useMemo/useCallback, profile with React DevTools.
+4. **ST_ConcaveHull fails or produces degenerate geometry for sparse node sets**: Short time bands (1-2 minutes) or origins near water/parks may return only 3-15 nodes, causing ST_ConcaveHull to return a POINT, LINESTRING, or EMPTY GEOMETRYCOLLECTION instead of a POLYGON. MapLibre fill layers silently ignore non-polygon geometry. **Prevention:** Add ST_Buffer fallback for degenerate results. Check geometry type after ST_ConcaveHull and apply a 50-foot buffer if the result is not a polygon. Set minimum node count threshold (use ST_ConvexHull + ST_Buffer for <4 nodes).
 
-4. **CSS Variables Theme Migration Breaking Existing Styles** — Enabling `cssVariables: true` changes theme structure from nested objects to CSS custom properties, breaking type declarations and color references. **Avoidance:** Migrate incrementally, create parallel theme file, run official codemods, update TypeScript module augmentation for both Theme and ThemeOptions interfaces.
-
-5. **MapLibre Event Handler Memory Leaks** — Map event handlers (`.on()`) accumulate on each component mount without cleanup, causing memory growth and crashes. **Avoidance:** ALWAYS return cleanup function from useEffect when registering map listeners: `return () => map.off('move', handler)`, use `map.once()` for one-time listeners.
-
-6. **Mobile Bottom Sheet Gesture Ambiguity** — Swipe-up to view route details triggers map pan instead. Touch events propagate from bottom sheet to MapLibre canvas. **Avoidance:** Use `disableDiscovery` prop on SwipeableDrawer, implement gutter space pattern (opaque background full width), drag handle minimum 44x44px, test on real devices.
-
-7. **Keyboard Navigation Focus Traps** — Keyboard users tab into map but cannot tab out. Custom controls lack ARIA labels. Bottom sheet doesn't trap/restore focus properly. **Avoidance:** Add `role="button"`, `aria-label`, `tabIndex={0}`, `onKeyDown` handlers to custom controls, implement focus trap in modals, test with keyboard-only navigation.
+5. **Overlapping isochrone polygons create opacity stacking artifacts**: Concentric bands (5/10/15 min) rendered as overlapping semi-transparent fills produce a "bullseye" effect where the center (most accessible area) appears darkest due to stacked opacity. **Prevention:** Use PostGIS `ST_Difference` to create true concentric donut rings (15-min ring = 15-min polygon MINUS 10-min polygon) so no polygons overlap. Alternatively, render all bands in a single fill layer with data-driven styling to avoid cross-layer blending. Render bands from outermost to innermost (largest polygon first).
 
 ## Implications for Roadmap
 
-Based on research, a **4-phase architecture-driven approach** is recommended. The phases follow the natural dependency order discovered in research: theme foundation → responsive layout → component polish → accessibility audit.
+Based on research, suggested phase structure follows the data flow from database to frontend, ensuring each layer can be tested independently before building the next.
 
-### Phase 1: Design System Foundation
-**Rationale:** Theme tokens must exist before components can consume them. MUI's global override pattern requires centralized theme definition. Establishing design tokens early prevents rework and ensures consistency across all phases.
+### Phase 1: SQL Foundation (pgr_drivingDistance + ST_ConcaveHull)
 
-**Delivers:** Complete transit-inspired theme with MUI overrides
-- MTA-inspired color palette (subway line colors as design tokens)
-- Typography scale (Inter font, compact sizing, bold weights for transit aesthetic)
-- Global component overrides (Card, List, Tabs, Button)
-- Custom theme extensions (map colors, transit colors)
-- TypeScript module augmentation for custom properties
+**Rationale:** The database layer is the foundation for all isochrone functionality. Nothing works without this. Building it first allows validation that pgRouting's reachability algorithm works correctly with the existing edge table, that mode-specific cost columns produce sensible results, and that ST_ConcaveHull generates displayable polygons. This phase can be tested directly in the database container with psql queries without any API or frontend changes.
 
-**Addresses (from FEATURES.md):**
-- MTA visual identity (differentiator)
-- Touch-friendly controls (44x44px minimum via MuiButton overrides)
-- Accessible color contrast (WCAG 4.5:1 text, 3:1 graphics)
+**Delivers:** `getisochrone()` SQL function in `05_functions.sql` returning GeoJSON-ready polygons (SRID 4326) for all requested time bands. Function accepts lon/lat origin, travel mode, and time band array, returning a table with `time_minutes`, `node_count`, `area_sq_ft`, and `geom` columns.
 
-**Avoids (from PITFALLS.md):**
-- Theme override specificity conflicts (investigate before writing overrides)
-- CSS Variables migration breaking styles (test in isolation before rollout)
-- Context performance issues (define context separation strategy early)
+**Addresses:** Core reachability computation using pgr_drivingDistance, mode-specific graph filtering (drive/bike/walk), polygon generation from edge geometries, coordinate system transformation.
 
-**Research flag:** Standard patterns — MUI theming is well-documented. Skip phase research.
+**Avoids:**
+- Cost unit mismatch pitfall (uses `time_*` columns not `cost_*`)
+- SRID confusion pitfall (runs ST_ConcaveHull in 2263, transforms result to 4326)
+- Degenerate geometry pitfall (ST_Buffer fallback for sparse node sets)
+- Performance pitfall (spatial bounding box on edge query, single call for all bands)
 
-### Phase 2: Responsive Layout System
-**Rationale:** Responsive layout depends on theme tokens (breakpoints, spacing). Desktop sidebar and mobile bottom sheet must share component styles via theme. Z-index conflicts and gesture ambiguity are resolved at the layout level, not per-component.
+**Test:** Direct SQL execution in psql: `SELECT * FROM getisochrone(-73.985, 40.748, 'drive', ARRAY[5, 10, 15])`. Validate polygon coordinates are in lon/lat range, area values are reasonable, and ST_AsText shows valid POLYGON geometry.
 
-**Delivers:** Polished adaptive layout with gesture conflict resolution
-- Review/refine AdaptiveLayout component (currently functional but needs polish)
-- Establish z-index scale (map=0, UI=100-199, modals=1300+)
-- Resolve mobile bottom sheet gesture conflicts (disableDiscovery, gutter space)
-- Responsive breakpoint overrides in theme (mobile: tighter spacing, desktop: expanded controls)
-- MapLibre control overlay positioning via theme
+**Research needed:** No - pgr_drivingDistance is well-documented in pgRouting 3.8 manual, ST_ConcaveHull is standard PostGIS with clear parameter documentation.
 
-**Addresses (from FEATURES.md):**
-- Responsive sidebar (desktop 400px, tablet 340px, mobile bottom sheet)
-- Mobile-optimized layout (bottom sheet pattern)
-- Real-time map + controls coexistence (z-index management)
+### Phase 2: API Endpoint (Service Layer + Response Models)
 
-**Avoids (from PITFALLS.md):**
-- MapLibre z-index conflicts (z-index scale, MUI Portal usage)
-- Bottom sheet gesture ambiguity (real device testing, gutter space)
-- MapLibre event handler memory leaks (cleanup pattern enforcement)
+**Rationale:** With the SQL function working, wrap it in the existing service layer pattern to provide HTTP access. This phase enables independent testing via Swagger UI or curl without requiring any frontend changes. It validates that WKB-to-GeoJSON conversion works correctly, that caching prevents redundant computation, and that error handling covers edge cases (invalid coordinates, no reachable nodes, etc.).
 
-**Research flag:** Needs phase research — Mobile gesture handling is device-specific and requires testing patterns. Consider `/gsd:research-phase` for bottom sheet interaction patterns.
+**Delivers:** `GET /api/isochrone` endpoint accepting `origin` (lon,lat), `mode` (drive/bike/walk), and `times` (comma-separated minutes) query parameters, returning `IsochroneResponse` with GeoJSON FeatureCollection of polygons. `IsochroneService` class in `api/services/isochrone.py` handles business logic. Pydantic models in `api/models/schemas.py` define request/response structure.
 
-### Phase 3: Component Polish
-**Rationale:** Components depend on theme foundation (Phase 1) and responsive layout (Phase 2). With theme and layout stable, focus shifts to visual polish and data presentation. This is where the transit-inspired aesthetic becomes tangible.
+**Uses:**
+- `parse_coordinates()` for input validation (existing utility)
+- `dump_geo()` for WKB-to-GeoJSON conversion (existing utility)
+- `RouteCache` for caching (existing utility with mode-specific keys)
+- `get_db_engine()` for database access (existing dependency injection)
 
-**Delivers:** Polished route cards and directions with transit aesthetic
-- RouteSummaryCard redesign (border-left accent, transit-style badge, stats grid)
-- RouteList redesign (step number badges like transit stops, compact ListItemButton)
-- TravelModeSelect visual alignment with MTA theme (prominent indicator, bold typography)
-- Turn icons with color + shape differentiation (accessibility)
-- Progressive disclosure in route cards (expand/collapse with smooth transitions)
-- Route step focusing on map (click step → highlight segment)
+**Implements:** `IsochroneService` class following `RoutingService` pattern (cache-first → parse → SQL → format → cache result). Response includes per-feature color and opacity properties so frontend can use data-driven styling.
 
-**Addresses (from FEATURES.md):**
-- Polished route cards (differentiator)
-- Turn-by-turn directions list (table stakes, visual redesign)
-- Route summary card (table stakes, transit-inspired styling)
-- Route step focusing (differentiator, connects list + map context)
-- Current step highlighting (navigation enhancement)
+**Avoids:**
+- Performance issues (aggressive caching with 5-minute TTL)
+- Validation gaps (Pydantic models enforce coordinate ranges, mode enum, time limits)
 
-**Avoids (from PITFALLS.md):**
-- Inline styles everywhere (use theme overrides as foundation, sx prop for exceptions)
-- Creating styled components inside render (move definitions outside)
-- Not memoizing expensive computations (useMemo for GeoJSON transformations)
+**Test:** `curl "http://localhost:5001/api/isochrone?origin=-73.985,40.748&mode=drive&times=5,10,15"`. Validate response structure, GeoJSON geometry types, color/opacity properties, cache headers.
 
-**Research flag:** Standard patterns — Route card design and turn-by-turn UI are well-documented in mapping apps. Skip phase research.
+**Research needed:** No - mirrors existing `/api/route` endpoint pattern exactly, uses same utilities and patterns.
 
-### Phase 4: Accessibility Audit
-**Rationale:** Accessibility verification must happen after all components and layouts are implemented. WCAG compliance is table stakes for 2026 public entity applications. Phase 4 is not "add accessibility" (that happens throughout) but "verify nothing broke."
+### Phase 3: Frontend Rendering (Context + Map Layers)
 
-**Delivers:** WCAG 2.1 Level AA compliance verified
-- Screen reader testing (VoiceOver, TalkBack) with route calculation workflow
-- Keyboard navigation audit (Tab through interface, verify no traps, test Escape key)
-- Focus indicator verification (3px outline, 3:1 contrast minimum)
-- Color contrast audit (automated + manual verification)
-- Touch target audit (all interactive elements ≥ 44x44px)
-- Motion preferences testing (`prefers-reduced-motion` respected)
+**Rationale:** With a working API serving GeoJSON, focus on visualization. The existing `useGeoJsonLayer` hook already supports fill layers with data-driven styling, so rendering is straightforward. This phase establishes the state management pattern (separate IsochroneContext) and layer z-ordering (isochrones beneath routes). Building this before UI controls allows testing with hardcoded data or browser console to validate rendering before adding interaction complexity.
 
-**Addresses (from FEATURES.md):**
-- Screen reader support (table stakes)
-- Keyboard navigation (table stakes)
-- Accessible color contrast (table stakes)
-- Visual hierarchy (typography, color, spacing)
+**Delivers:**
+- `IsochroneContext` for state management (origin, time bands, mode, polygon data, isActive flag)
+- `useIsochroneFetch` hook for API calls (mirrors `useRouteFetch` pattern)
+- Isochrone fill and outline layers in `MapLibreGLMap.tsx` using existing `useGeoJsonLayer` hook
+- Layer z-ordering with `beforeId: "routeHaloLayer"` to place isochrones beneath routes
 
-**Avoids (from PITFALLS.md):**
-- Keyboard navigation focus traps (WCAG 2.1.2 No Keyboard Trap)
-- Overriding accessibility features (maintain focus indicators, touch targets)
-- Insufficient contrast (WCAG 2.1 Level AA requirements)
+**Uses:**
+- `useGeoJsonLayer` for fill and line layer rendering (existing hook, supports fill type and beforeId)
+- `MapInstanceContext` for map instance access (existing)
+- `MessageContext` for error display (existing)
+- `removeMapLayerAndSource` utility for cleanup (existing)
 
-**Research flag:** Standard patterns — WCAG 2.1 testing procedures are well-documented. Use automated tools (axe DevTools, Lighthouse) + manual testing. Skip phase research.
+**Implements:**
+- Separate `IsochroneContext` (not extending `RoutingContext` to avoid re-render cascade)
+- Fill layer with data-driven `fill-color` and `fill-opacity` via `["get", "property"]` expressions
+- Optional outline layer for crisp boundaries
+
+**Avoids:**
+- Context bloat pitfall (separate IsochroneContext prevents re-renders in route components)
+- Opacity stacking artifacts (polygons use ST_Difference donut rings from Phase 1 SQL)
+- Layer z-order issues (beforeId ensures isochrones render beneath routes)
+
+**Test:** Hardcoded GeoJSON data first, then API integration. Validate fill colors match properties, transparency is correct, layers appear beneath route, clearing works.
+
+**Research needed:** No - MapLibre fill layers are standard, existing `useGeoJsonLayer` hook provides all needed functionality, pattern from Stadia Maps/Mapbox tutorials.
+
+### Phase 4: UI Controls (Origin Selection + Mode Toggle)
+
+**Rationale:** The most subjective part. With the core visualization pipeline working (SQL → API → rendering), UI controls are the final integration piece. Building this last allows iteration on UX without touching the data pipeline. The controls integrate with existing components (Search, TravelModeSelect) and add new interactions (click-on-map origin).
+
+**Delivers:**
+- `IsochroneControls` component with origin picker, time band selector, and clear button
+- Map click handler for origin selection
+- Integration with existing Search component (single-address mode)
+- Mode toggle between "Directions" and "Reachability" in sidebar
+
+**Addresses:**
+- Click-on-map origin (standard isochrone interaction pattern)
+- Address search integration (reuse existing Geosupport Search)
+- Fixed time band presets (5/10/15/20 min - standard across all isochrone tools)
+
+**Avoids:**
+- Over-engineering pitfall (fixed presets not custom time entry initially)
+- Mode switching stale layers pitfall (explicit cleanup when toggling between route/isochrone modes)
+
+**Test:** Manual UX testing - address search, map click, mode switching, clear button. Validate state flows correctly through IsochroneContext.
+
+**Research needed:** No - standard UI controls, existing component patterns.
+
+### Deferred to Future Phases
+
+**Traffic-aware isochrones (HIGH value but adds complexity):** Apply `traffic_factor` multiplication to edge costs in pgr_drivingDistance SQL (same pattern as `getdrivingroute_with_traffic`). Requires testing the traffic factor pipeline with isochrone queries and validating that time-of-day factors produce realistic results. Defer until basic isochrones are validated.
+
+**Time slider (nice UX but requires performance optimization):** Dynamic slider adjusting max time requires either sub-500ms API response times (aggressive optimization) or client-side caching of the full node set with front-end polygon computation. Fixed presets work fine for v1.
+
+**Edge-based visualization (alternative view mode):** Color individual street segments by time band instead of generating polygons. Simpler (no ST_ConcaveHull needed) but less conventional. Add after polygon approach is solid to offer both visualization modes.
+
+**Deep links (low complexity but not MVP-critical):** Encode origin, mode, time bands in URL params. Extends existing `useRouteStateSync` pattern. Low-hanging fruit for post-MVP.
+
+**Summary statistics (requires additional SQL aggregation):** Area covered (ST_Area on polygon), street count (COUNT from pgr_drivingDistance result), estimated population (requires census data overlay). Adds sidebar UI work.
+
+**Animated expansion (pure polish):** Sequential opacity transitions on each band layer with staggered delays. Add last if time permits.
 
 ### Phase Ordering Rationale
 
-- **Phase 1 must come first** because all subsequent phases depend on theme tokens. Writing components before theme exists leads to hardcoded values that require refactoring.
-- **Phase 2 follows Phase 1** because responsive overrides are theme-based (breakpoints, spacing). Layout must be stable before polishing components.
-- **Phase 3 depends on Phases 1+2** because component redesigns consume theme tokens and responsive layout structure. Polish is the last visual layer.
-- **Phase 4 is verification, not implementation** — accessibility is addressed throughout (Phase 1 contrast, Phase 2 keyboard nav, Phase 3 ARIA labels), but audit confirms nothing broke during integration.
+- **Linear dependencies enforce build order**: Each phase requires the previous to be complete before testing the next. SQL function must exist before API can call it. API must work before frontend can fetch data. Rendering must work before controls can trigger it.
 
-**Dependency chain:**
-```
-Phase 1 (Theme) → Phase 2 (Layout) → Phase 3 (Components) → Phase 4 (Verify)
-       ↓                ↓                    ↓
-   All phases          All phases       All phases
-```
+- **Independent testing at each layer**: Database queries can be tested in psql. API can be tested with curl/Swagger. Rendering can be tested with hardcoded data. This incremental validation reduces debugging complexity.
+
+- **Architecture pattern matching reduces risk**: Every phase mirrors an existing pattern in the codebase (SQL functions like `getdrivingroute`, service classes like `RoutingService`, contexts like `RoutingContext`, hooks like `useRouteFetch`). No novel architectural patterns needed.
+
+- **Critical pitfall avoidance built into Phase 1**: The most severe pitfalls (cost unit mismatch, SRID confusion, degenerate geometry, unbounded performance) are all addressed in the SQL function design. Getting Phase 1 right prevents cascading issues in later phases.
 
 ### Research Flags
 
-**Phases likely needing deeper research during planning:**
-- **Phase 2 (Responsive Layout)** — Mobile bottom sheet gesture handling is device-specific (iOS vs Android behavior differs). Real device testing patterns and `disableDiscovery` prop configuration may benefit from targeted research if issues arise.
-
 **Phases with standard patterns (skip research-phase):**
-- **Phase 1 (Design System)** — MUI 7 theming is exceptionally well-documented with official examples. Stack research already covered specificity and CSS variables migration.
-- **Phase 3 (Component Polish)** — Route card design and turn-by-turn UI are established patterns in mapping applications (Google Maps, Apple Maps, Citymapper). Feature research already identified design patterns.
-- **Phase 4 (Accessibility)** — WCAG 2.1 testing procedures are standardized. Use automated tools (axe, Lighthouse) + manual keyboard/screen reader testing. No novel domain-specific accessibility challenges.
+- **Phase 1 (SQL)**: pgr_drivingDistance is documented in pgRouting 3.8 manual with clear examples, ST_ConcaveHull is standard PostGIS with parameter documentation
+- **Phase 2 (API)**: Exact pattern match with existing RoutingService, uses same utilities and dependency injection
+- **Phase 3 (Rendering)**: MapLibre fill layers are established pattern, existing `useGeoJsonLayer` hook provides complete abstraction
+- **Phase 4 (Controls)**: Standard UI components, existing Search/TravelModeSelect patterns
+
+**Runtime verification needed (not research):**
+- **GEOS version check**: `SELECT postgis_geos_compiled_version()` during Phase 1 to determine if fast native ST_ConcaveHull is available (affects performance not functionality)
+- **Performance benchmarking**: Actual pgr_drivingDistance timing with spatial bounds and varying time bands to validate caching strategy
+- **ST_ConcaveHull param tuning**: Test `param_pctconvex` values (0.3, 0.5, 0.7) with real NYC street network data to find best balance of shape quality vs computation time
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | MUI 7 + Emotion + tss-react verified via official docs (Context7 /websites/v6_mui_material-ui) and project package.json. No new libraries needed. Inter font from Google Fonts (414B annual requests). MTA colors from official data sources. |
-| Features | HIGH | Mapping app patterns well-established via competitor analysis (Google Maps, Apple Maps, Citymapper). Table stakes vs differentiators clearly distinguished. MVP already has foundational features (responsive layout, route calculation, search). |
-| Architecture | HIGH | MUI theming architecture from official docs + community best practices (wrapping vs global overrides comparison). Transit UI patterns from transportation app UX research. Context performance patterns from React optimization guides. |
-| Pitfalls | HIGH | All 7 critical pitfalls sourced from official MUI docs, MapLibre/deck.gl discussions, React performance guides, and WCAG specifications. Context performance and theme specificity issues well-documented in community. |
+| Stack | HIGH | Zero new dependencies required - all capabilities exist in current packages. Only uncertainty is GEOS version affecting ST_ConcaveHull performance (not functionality), with clear upgrade path. |
+| Features | MEDIUM-HIGH | Table stakes derived from Mapbox/Valhalla/TravelTime API documentation and production isochrone tool patterns. Differentiators validated against existing traffic data pipeline. Some UX preferences inferred from industry patterns. |
+| Architecture | HIGH | Direct codebase analysis shows exact pattern matches with existing routing implementation. All integration points verified (edge table schema, service layer pattern, context architecture, hook patterns, map layer management). |
+| Pitfalls | HIGH | All pitfalls verified against pgRouting 3.8 documentation, PostGIS 3.5 documentation, MapLibre style specification, and actual codebase constraints (SRID 2263, edge cost columns, layer z-ordering). Cost unit mismatch validated by inspecting `03_cost.sql` penalty logic. |
 
 **Overall confidence:** HIGH
 
-Research covered all four dimensions with authoritative sources. Stack is already optimal (no speculative library additions). Architecture patterns are well-documented in both MUI and transit UI domains. Pitfalls are specific, actionable, and sourced from official documentation or credible technical discussions.
+Research is comprehensive across all domains with primary sources (official documentation, verified codebase analysis). The only low-confidence area is GEOS version in the Docker image (inferred from similar tag examples rather than verified), but this affects only performance optimization, not core functionality, and has a documented upgrade path.
 
 ### Gaps to Address
 
-**Typography fine-tuning:** Inter font recommended but Roboto is acceptable alternative (used in NYC Subway countdown clocks). Decision should be made during Phase 1 based on visual testing. Both are Google Fonts with excellent screen legibility.
+**GEOS version verification (Phase 1):**
+- Run `SELECT postgis_geos_compiled_version()` in the database container during Phase 1 development
+- If result is >= 3.11.0: Native fast ST_ConcaveHull implementation is available (optimal, 10-50ms per polygon)
+- If result is < 3.11.0: Legacy PL/pgSQL implementation will be used (100-500ms per polygon, acceptable for PoC)
+- If performance is insufficient: Upgrade Docker image from `pgrouting/pgrouting:17-3.5-3.8` to `pgrouting/pgrouting:17-3.6-3.8` (drop-in replacement with PostGIS 3.6 + GEOS 3.11+)
 
-**Dark mode support:** Research covered dark mode implementation (CSS variables, `useColorScheme()` hook) but project currently light mode only. If dark mode is added later, transit colors must maintain high contrast in both modes. Defer to post-MVP unless explicitly requested.
-
-**Real-time features:** Backend supports ferry routing and static traffic factors, but real-time transit (MTA BusTime API) is explicitly out of scope. UI should surface existing backend features (ferry toggle, traffic toggle) prominently but not imply real-time updates.
-
-**Bottom sheet snap points:** Current implementation uses 40/60/90% snap points. Research validates this approach (summary/directions/controls). If user feedback suggests different percentages, adjust during Phase 2 based on real device testing.
-
-**MapLibre v5 specifics:** Research used generic MapLibre GL patterns. Project uses MapLibre v5 with ESNext build target (no transpilation). Verify event handler cleanup patterns work identically in v5 vs earlier versions during Phase 2 implementation.
+**No other gaps identified:** Research covered all integration points, validated against actual codebase structure, and identified clear mitigations for all critical pitfalls.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- **Context7: /websites/v6_mui_material-ui** — MUI 7 theming, component overrides, CSS variables, breakpoints
-- **Context7: /visgl/react-map-gl** — MapLibre event handler cleanup patterns, React integration
-- **MUI Material UI v7.3.2 Documentation** (GitHub) — Official theme customization, style overrides, responsive breakpoints
-- **Emotion Documentation** (GitHub) — Keyframes, styled components, performance best practices
-- **MapLibre GL JS Documentation** — Event system, map instance management
-- **MTA Colors Official Data** (GitHub: jsvine/mta-colors) — Subway line Pantone/hex color specifications
-- **WCAG 2.1 Specification** — Accessibility requirements (Level AA compliance)
+
+**Stack research:**
+- [pgr_drivingDistance - pgRouting Manual 3.8](https://docs.pgrouting.org/latest/en/pgr_drivingDistance.html) - Function signature, parameters, return columns, version compatibility
+- [ST_ConcaveHull - PostGIS Documentation](https://postgis.net/docs/ST_ConcaveHull.html) - Function parameters, GEOS 3.11+ enhancement, edge cases
+- [MapLibre GL JS Style Spec - Layers](https://maplibre.org/maplibre-style-spec/layers/) - Fill layer paint properties, data-driven styling
+- [pgr_alphaShape Deprecation - pgRouting Issue #2749](https://github.com/pgRouting/pgrouting/issues/2749) - Confirmed deprecated in 3.8
+- [pgRouting Docker Repository](https://github.com/pgRouting/docker-pgrouting) - Image tag conventions and version matrix
+
+**Features research:**
+- [Mapbox Isochrone API Documentation](https://docs.mapbox.com/api/navigation/isochrone/) - 4-contour standard, time limits, profile options
+- [Valhalla Isochrone API Reference](https://valhalla.github.io/valhalla/api/isochrone/api-reference/) - Contour parameters, costing models
+- [pgr_drivingDistance - pgRouting Manual 3.8](https://docs.pgrouting.org/latest/en/pgr_drivingDistance.html) - Reachability algorithm documentation
+
+**Architecture research:**
+- Direct codebase analysis of all integration points - HIGH confidence (actual file inspection)
+- [MapLibre GL JS Style Spec](https://maplibre.org/maplibre-style-spec/layers/) - Fill layer specification
+- [pgr_drivingDistance documentation](https://docs.pgrouting.org/latest/en/pgr_drivingDistance.html) - Algorithm details
+- [PostGIS ST_ConcaveHull](https://postgis.net/docs/ST_ConcaveHull.html) - Polygon generation
+
+**Pitfalls research:**
+- Direct codebase analysis of `03_cost.sql`, `05_functions.sql`, edge table schema, layer management code
+- [ST_ConcaveHull edge cases - PostGIS #1973](https://trac.osgeo.org/postgis/ticket/1973) - Empty geometry bug
+- [MapLibre opacity blending - Mapbox #859](https://github.com/mapbox/mapbox-gl-js/issues/859) - Fill layer opacity stacking
 
 ### Secondary (MEDIUM confidence)
-- Map UI Patterns (mapuipatterns.com) — Comprehensive pattern library for mapping interfaces
-- Nielsen Norman Group — Bottom sheet UX guidelines, modal vs non-modal patterns
-- LogRocket Blog — React Context performance optimization, bottom sheet UX design
-- Transportation App UI/UX Research (Fuselabs, AltexSoft, STX Next) — Transit-specific design patterns
-- Google Fonts Inter Specimen (rsms.me/inter) — Typography specifications, usage data
-- MTA Graphics Standards Manual (1970 Vignelli) — Historical design guide, Helvetica usage
 
-### Tertiary (LOW confidence)
-- 2026 Design Trends Articles (UX Pilot, Contentsquare) — General web app design patterns, context-aware UIs
-- App Market Research (Industry Research, AppsHunter) — Map app market growth trends, offline map apps
+- [Stadia Maps Isochrone Tutorial](https://docs.stadiamaps.com/tutorials/display-isochrones-on-a-map/) - MapLibre fill layer implementation pattern
+- [Maptoolkit Isochrone Example](https://www.maptoolkit.com/doc/routing/isochrone-example-maplibre/) - Fill + line layer pattern
+- [ColorBrewer](https://colorbrewer2.org/) - Sequential palette recommendations
+- [GraphHopper High-Precision Reachability](https://www.graphhopper.com/blog/2018/07/04/high-precision-reachability/) - Edge-based vs polygon visualization
+- [Isochrone UX Patterns](https://ux-patterns.webgeodatavore.com/isochrone-map/index.html) - Common interaction patterns
+
+### Tertiary (LOW confidence - needs validation)
+
+- GEOS version in `pgrouting/pgrouting:17-3.5-3.8` inferred as 3.9.0 from similar tag examples - must verify with `postgis_geos_compiled_version()`
 
 ---
-*Research completed: 2026-02-12*
+*Research completed: 2026-02-13*
 *Ready for roadmap: yes*

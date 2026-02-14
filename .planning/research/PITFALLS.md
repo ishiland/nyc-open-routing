@@ -1,405 +1,494 @@
-# Pitfalls Research
+# Domain Pitfalls: Isochrone/Reachability Visualization
 
-**Domain:** Mapping/Routing App UI Redesign (React + MUI + MapLibre GL)
-**Researched:** 2026-02-12
-**Confidence:** HIGH
+**Domain:** pgRouting isochrone generation + PostGIS polygon conversion + MapLibre GL rendering on existing multi-modal routing app
+**Researched:** 2026-02-13
+**Confidence:** HIGH (codebase analysis + verified pgRouting/PostGIS/MapLibre documentation)
+
+**Scope:** Pitfalls specific to adding isochrone visualization to the NYC Open Routing app with its 177k-edge pgRouting graph (SRID 2263), existing 8-layer MapLibre map, and React Context-based state management. Every pitfall references actual code, table schemas, or configuration in this codebase.
+
+---
 
 ## Critical Pitfalls
 
-### Pitfall 1: MUI Theme Override Specificity Conflicts
+Mistakes that cause incorrect results, multi-second query times, or require architectural rework.
+
+### Pitfall 1: Cost Unit Mismatch Between pgr_drivingDistance and Edge Costs
 
 **What goes wrong:**
-Redesigned styles fail to apply because MUI's component state selectors (`.Mui-focused`, `.Mui-disabled`, `.Mui-selected`) have higher CSS specificity than custom theme overrides. Styles appear in rendered CSS but produce no visible change.
+The `distance` parameter in `pgr_drivingDistance(edges_sql, root_vid, distance)` is in **edge cost units**, not meters/feet/seconds. If you pass `distance=5` thinking "5 minutes" but your edge costs are in different units, the isochrone will be wildly wrong -- either covering all of NYC or a single block.
 
 **Why it happens:**
-MUI applies state styles (hover, focus, disabled) with elevated specificity by design. When customizing themes, developers target base component slots without matching the specificity level of state selectors, causing overrides to be ignored by the cascade.
+The codebase uses time-based costs in minutes, but the units vary by mode and include penalty multipliers that make them **not** pure minutes:
 
-**How to avoid:**
-- **Phase 1 (Design System)**: Investigate default slot structure BEFORE writing overrides
-- Use browser DevTools to identify where styles are initially applied
-- Match specificity when targeting state selectors (e.g., use nested selectors: `& .Mui-focused`)
-- Enable `modularCssLayers` in theme config for cascade layer control (MUI v6+)
-- Document specificity requirements in design system
+| Mode | Cost Column | Unit | Gotcha |
+|------|------------|------|--------|
+| Drive | `cost_drive` | minutes (base) | Set from `time_drive` in `03_cost.sql` line 85-86. One-way penalties multiply by 100x (line 92, 98). |
+| Bike | `cost_bike` | minutes (weighted) | Includes bike lane class multipliers: 0.8x for greenways, 3.0-5.0x for no-lane roads, 50x for stairs (`03_cost.sql` lines 115-216). A "5 minute" isochrone won't represent 5 real minutes. |
+| Walk | `cost_walk` | minutes (weighted) | Includes highway penalties (50x), speed penalties (1.2x for arterials), ferry penalties (5x) (`03_cost.sql` lines 233-256). |
 
-**Warning signs:**
-- Styles visible in DevTools but not affecting appearance
-- Inconsistent styling between default and hover/focus states
-- Theme overrides work on some components but not others
+The `pgr_drivingDistance` function treats these costs as abstract units for the Dijkstra cutoff. Passing `distance=5.0` for driving means "aggregate cost <= 5.0 cost units" which IS approximately 5 minutes for bidirectional streets. But for biking, a cost of 5.0 on a no-bike-lane road represents only ~1.67 real minutes (5.0 / 3.0 penalty factor).
 
-**Phase to address:**
-Phase 1: Design System Foundation
+**Consequences:**
+- Bike isochrones appear unrealistically small because cost penalties compress the reachable area
+- Walk isochrones exclude areas behind a single highway segment (50x penalty consumes the entire budget)
+- Drive isochrones on one-way street networks show asymmetric shapes that confuse users (correct behavior, but needs UX explanation)
+- Users comparing drive vs walk isochrones see sizes that don't match their real-world experience
 
-**Source confidence:** HIGH
-- [3 Common Pitfalls of Theme Customization with Material UI](https://www.dmcinfo.com/blog/17372/3-common-pitfalls-of-theme-customization-with-material-ui/)
-- [CSS Layers - Material UI](https://mui.com/material-ui/customization/css-layers/)
-- [Themed components - Material UI](https://mui.com/material-ui/customization/theme-components/)
+**Prevention:**
+1. **Use `time_drive`/`time_bike`/`time_walk` columns as cost in the edges SQL passed to pgr_drivingDistance, NOT `cost_drive`/`cost_bike`/`cost_walk`.** The `cost_*` columns include routing preference penalties that distort isochrone boundaries. For isochrones, you want physical reachability, not routing preference.
+2. **BUT: still filter by mode accessibility flags.** Use `WHERE driveable=TRUE` with `time_drive` as cost. The mode filter ensures the graph only includes traversable edges while the time column gives undistorted travel times.
+3. **Handle one-way streets via the `directed` parameter.** Pass `directed := TRUE` and use `time_drive` for cost and a reverse cost column. For one-way edges (`one_way='FT'`), set `reverse_cost` to a large value (1000000) rather than using the 100x penalty from `cost_drive`.
+4. **Document in the API response what the isochrone represents.** E.g., "Area reachable within 5 minutes of driving at posted speeds" -- not "5 minutes of biking preference-weighted cost."
+
+**Detection (warning signs):**
+- 5-minute drive isochrone covers a single block (cost units too large)
+- 5-minute drive isochrone covers all of Manhattan (cost units too small)
+- Bike and walk isochrones are nearly identical in size (penalty factors not differentiated)
+- Isochrone has sharp straight edges (one-way streets blocking expansion, which may be correct but worth verifying)
+
+**Phase relevance:** Must be resolved in Phase 1 (SQL function design). Getting the cost column wrong makes ALL downstream work invalid.
 
 ---
 
-### Pitfall 2: MapLibre GL z-index Conflicts with React UI Overlays
+### Pitfall 2: pgr_drivingDistance Performance on 177k-Edge Graph Without Bounded Subgraph
 
 **What goes wrong:**
-Custom React UI elements (sidebars, bottom sheets, modals, tooltips) render behind the MapLibre GL canvas or get clipped by map container overflow. Map interactions interfere with UI gestures (swipe-to-close vs. pan-map).
+`pgr_drivingDistance` runs Dijkstra on the entire edge set passed in the SQL query. With 177k edges and ~240k vertices, an unoptimized call scans the full graph. For large distance values (15+ minutes), this can take 2-5 seconds -- too slow for interactive use when users drag the origin point.
 
 **Why it happens:**
-MapLibre GL creates a WebGL canvas with specific stacking context. React portals, MUI modals, and bottom sheets may render in different stacking contexts. Map event listeners can capture touch/mouse events before React components receive them, causing gesture conflicts.
+Dijkstra's algorithm has complexity O(V log V + E) with a binary heap. For V=240,000 and E=177,000:
+- Best case (small distance, early termination): ~50-200ms
+- Worst case (large distance, dense NYC grid): ~2-5 seconds
 
-**How to avoid:**
-- **Phase 2 (Responsive Layout)**: Establish z-index scale in CSS custom properties
-- Reserve z-index ranges: Map (0), UI overlays (100-199), Modals (1300+ per MUI defaults)
-- Use MUI's Portal component for overlays to escape map's stacking context
-- Implement "gutter space" pattern: leave map-free zones at screen edges for scroll gestures
-- Set `maplibregl.Map` options: `touchPitch: false`, `touchZoomRotate: 'center'`
-- For bottom sheets: use `disableDiscovery` prop to prevent map gesture interference
-- Verify map markers/popups have z-index ≥ 2 when using overlay libraries (deck.gl, custom)
+The existing routing functions (`getdrivingroute`, etc.) use `pgr_trsp` which terminates when it reaches the destination node. `pgr_drivingDistance` has no destination -- it explores outward until ALL nodes within the cost budget are found. This means it always does more work than point-to-point routing.
 
-**Warning signs:**
-- Sidebar visible in DOM inspector but not on screen
-- Bottom sheet swipe gestures trigger map panning
-- Modal backdrop obscures content but modal itself is behind map
-- Map controls render behind custom UI elements
+Additionally, the edges SQL query (`SELECT id, source, target, cost, reverse_cost FROM edges WHERE driveable=TRUE`) loads ALL ~120k driveable edges into memory for Dijkstra, even if the isochrone only reaches 5,000 of them.
 
-**Phase to address:**
-Phase 2: Responsive Layout System
+**Consequences:**
+- API response times of 2-5 seconds for larger time bands (10-15 minutes)
+- Request timeouts if multiple time bands are computed sequentially (e.g., 5, 10, 15 minutes = 3 separate calls)
+- Memory pressure on the PostgreSQL Docker container (default memory may be insufficient)
+- Users perceive the app as broken when isochrone takes 5x longer than route calculation
 
-**Source confidence:** HIGH
-- [Maplibre popup rendering below the map - deck.gl Discussion](https://github.com/visgl/deck.gl/discussions/9132)
-- [6 Mistakes to Avoid When Designing Maps for Apps](https://www.iotforall.com/designing-maps-interface-for-apps)
-- MUI Portal documentation (via Context7)
+**Prevention:**
+1. **Bound the edge query with a spatial envelope.** Before calling pgr_drivingDistance, calculate a generous bounding box around the origin point (e.g., 2x the maximum expected travel distance) and filter edges: `WHERE driveable=TRUE AND the_geom && ST_Expand(ST_SetSRID(ST_MakePoint(lon, lat), 2263), buffer_meters)`. For a 15-minute drive at 30mph, buffer = ~12,000 meters. This reduces the edge set from 177k to ~30-50k.
+2. **Compute all time bands in a single call.** Use the largest time band (e.g., 15 minutes) and filter the results by `agg_cost` thresholds. pgr_drivingDistance returns `agg_cost` for each node -- filter in SQL: `WHERE agg_cost <= 5` for the 5-min band, etc. Do NOT call pgr_drivingDistance three times for three bands.
+3. **Add a covering index for the isochrone query pattern.** The existing covering indexes (`idx_edges_drive_covering` in `06_performance_indexes.sql`) include `cost_drive`/`rcost_drive` but the isochrone query will use `time_drive`/`time_drive` (per Pitfall 1). A new index is needed:
+   ```sql
+   CREATE INDEX IF NOT EXISTS idx_edges_drive_isochrone
+   ON edges(source, target, time_drive)
+   WHERE driveable = TRUE;
+   ```
+4. **Cache isochrone results aggressively.** Isochrones from the same origin + mode + time bands change rarely. Cache the PostGIS polygon result (not just nodes) keyed on `(origin_node_id, mode, max_time)`. The existing `utils/cache.py` pattern can be extended.
+5. **Consider async/loading state.** Even with optimization, 500ms-1s is realistic. The frontend must show a loading indicator specific to isochrone calculation.
+
+**Detection (warning signs):**
+- API logs show pgr_drivingDistance taking >1 second
+- PostgreSQL `work_mem` warnings in logs (Dijkstra spilling to disk)
+- Response times increase linearly with the time band value
+- Multiple sequential pgr_drivingDistance calls in the same request
+
+**Phase relevance:** Must be addressed in Phase 1 (SQL function). Optimization cannot be retroactively bolted on without changing the function signature.
 
 ---
 
-### Pitfall 3: React Context Performance Collapse in Map Apps
+### Pitfall 3: SRID Mismatch Between Vertex Geometry, ST_ConcaveHull, and GeoJSON Output
 
 **What goes wrong:**
-Smooth 60fps map interactions degrade to 20-30fps. Every map pan/zoom triggers re-renders in unrelated UI components (search autocomplete, route list, travel mode selector). Performance degrades linearly with component count.
+The vertex table `edges_vertices_pgr.geom` stores coordinates in SRID 2263 (NY State Plane, feet). If you pass these directly to `ST_ConcaveHull`, the polygon is in SRID 2263. If you then return this as GeoJSON without transforming to SRID 4326 (WGS84 lon/lat), MapLibre will render the polygon in the wrong location (somewhere in the Atlantic Ocean or not at all).
+
+Conversely, if you transform vertices to 4326 BEFORE running ST_ConcaveHull, the `param_pctconvex` parameter behaves differently because edge lengths in degrees are tiny (~0.00001) vs feet (~200-5000), potentially producing different hull shapes.
 
 **Why it happens:**
-Context API updates trigger re-renders in ALL consuming components, regardless of which value changed. Map state (viewport, zoom, features) updates 60+ times/second during user interaction. Putting map instance, route data, and UI state in a single context causes cascade re-renders.
+The codebase has a dual-SRID architecture:
+- `edges.the_geom`: SRID 2263 (used by pgRouting, topology, spatial queries)
+- `edges.geom_4326`: SRID 4326 (cached WGS84, used by route response to frontend)
+- `edges_vertices_pgr.geom`: SRID 2263 (matches `the_geom`)
+- `getnearestdrivenode()` transforms input from 4326 to 2263 for KNN search (line 25 of `05_functions.sql`)
 
-**How to avoid:**
-- **Phase 1 (Design System)**: Split contexts by update frequency
-  - **Low-frequency**: Theme, authentication, preferences (rarely change)
-  - **Medium-frequency**: Route data, search results, travel mode (user actions)
-  - **High-frequency**: Map instance only (never mutate, use ref pattern)
-- Use `React.memo` + `useMemo`/`useCallback` for child components consuming context
-- For MapLibre instance: Store in context as ref, not state (avoids re-renders)
-- Implement selector pattern for granular subscriptions (or use Zustand for complex state)
-- Avoid creating components inside render functions (remount penalty)
-- Profile with React DevTools Profiler to identify cascade re-render trees
+pgr_drivingDistance returns node IDs. Joining to get geometry gives SRID 2263 points. ST_ConcaveHull operates on these 2263 points. The result must be transformed to 4326 for the GeoJSON API response.
 
-**Warning signs:**
-- Frame drops during map panning (check Performance tab: scripting time > 16ms)
-- Unrelated UI components re-rendering when map moves (React DevTools Profiler)
-- useEffect dependency arrays include entire context objects
-- 30-60% increase in scripting time vs. baseline performance
+**Consequences:**
+- Polygon appears at coordinates like (981000, 196000) instead of (-73.99, 40.73) -- invisible on MapLibre
+- ST_ConcaveHull produces slightly different shapes depending on input SRID (because the pctconvex parameter is relative to edge lengths in the Delaunay triangulation)
+- If you accidentally mix SRIDs (some vertices in 2263, some in 4326), PostGIS may silently produce garbage geometry or throw `ST_ConcaveHull: Input geometry has wrong SRID`
 
-**Phase to address:**
-Phase 1: Design System Foundation + Phase 3: State Optimization
+**Prevention:**
+1. **Run ST_ConcaveHull on SRID 2263 geometries.** This is correct because 2263 is a projected coordinate system (feet) where distances are Euclidean. ConcaveHull on 4326 (degrees) produces distorted results at NYC's latitude.
+2. **Transform the final polygon to 4326 as the last step.** Pattern:
+   ```sql
+   ST_Transform(
+     ST_ConcaveHull(ST_Collect(v.geom), 0.3),
+     4326
+   )
+   ```
+3. **Return GeoJSON using `ST_AsGeoJSON()` on the 4326 polygon.** This matches the existing pattern where `05_functions.sql` returns `geom_4326` for route edges.
+4. **Validate SRID in the function.** Add an assertion at the start of the isochrone function:
+   ```sql
+   IF ST_SRID((SELECT geom FROM edges_vertices_pgr LIMIT 1)) != 2263 THEN
+     RAISE EXCEPTION 'Unexpected vertex SRID';
+   END IF;
+   ```
 
-**Source confidence:** HIGH
-- [How to Handle React Context Performance Issues](https://oneuptime.com/blog/post/2026-01-24-react-context-performance-issues/view)
-- [Optimizing React Context for Performance](https://www.tenxdeveloper.com/blog/optimizing-react-context-performance)
-- [Pitfalls of overusing React Context](https://blog.logrocket.com/pitfalls-of-overusing-react-context/)
+**Detection (warning signs):**
+- Isochrone polygon coordinates have values >1000 (SRID 2263 feet, not 4326 degrees)
+- Polygon renders at (0,0) or in the ocean on MapLibre
+- ST_ConcaveHull returns a very small polygon (degree-based distances compress the triangulation)
+- `ST_IsValid()` returns false on the output polygon
+
+**Phase relevance:** Must be correct in Phase 1 (SQL function). An SRID bug will not produce an obvious error -- it will produce a plausible-looking but geographically wrong polygon.
 
 ---
 
-### Pitfall 4: CSS Variables Theme Migration Breaking Existing Styles
+### Pitfall 4: ST_ConcaveHull Fails or Produces Degenerate Geometry for Sparse Node Sets
 
 **What goes wrong:**
-Enabling `cssVariables: true` in MUI theme causes existing custom styles to break. Colors render incorrectly, component spacing changes, breakpoints behave differently. Type errors proliferate in TypeScript files using custom theme properties.
+For short time bands (1-2 minutes) or from locations with sparse connectivity (e.g., near water, parks, highway interchanges), pgr_drivingDistance may return very few nodes (3-15 points). ST_ConcaveHull with these inputs can:
+1. Return a `POINT` (1 node reachable) or `LINESTRING` (2-3 collinear nodes) instead of a `POLYGON`
+2. Return an `EMPTY GEOMETRYCOLLECTION` (documented PostGIS bug [#1973](https://trac.osgeo.org/postgis/ticket/1973))
+3. Produce a polygon so small it's invisible at the map's current zoom level
 
 **Why it happens:**
-CSS variables mode fundamentally changes theme structure from nested objects to flattened CSS custom properties. Migration requires replacing `palette.mode` conditionals with new `colorSchemes` API. Module augmentation for custom theme properties must update both `Theme` and `ThemeOptions` interfaces. Specificity rules change when `modularCssLayers` is enabled.
+Per PostGIS documentation:
+- "The concave hull of two or more collinear points is a two-point LineString"
+- "The concave hull of one or more identical points is a Point"
+- ST_ConcaveHull has a historical issue where it "returns sometimes empty geometry collection" for certain inputs
 
-**How to avoid:**
-- **Phase 1 (Design System)**: Migrate incrementally, not all-at-once
-- Create parallel theme file with CSS variables, test in isolation
-- Update custom property type declarations: extend both `Theme` AND `ThemeOptions` interfaces
-- Replace `theme.palette.mode` checks with `theme.applyStyles()` utility
-- Run official codemods: `npx @mui/codemod@latest v6.0.0/theme-v6 <path>`
-- Test theme in Storybook/isolated environment before app-wide rollout
-- Document breaking changes in design system README
-- Enable `cssVariables: true` AFTER verifying existing custom styles work
+NYC's street grid has many locations where short-time reachability is linear (following a single avenue) rather than area-based. At 1 minute of walking (about 265 feet), you might reach only 3-4 nodes along a single street -- producing a line, not a polygon.
 
-**Warning signs:**
-- TypeScript errors: "Property 'map' does not exist on type 'Theme'"
-- Colors render as `undefined` in styled components
-- Dark mode toggle stops working after CSS variables enabled
-- Custom theme properties accessible in `createTheme()` but not in components
+**Consequences:**
+- API returns a GeoJSON Feature with geometry type "LineString" or "Point" instead of "Polygon" -- the MapLibre fill layer silently ignores non-polygon geometry
+- Empty geometry causes a runtime error if the API tries to calculate area or perform ST_Difference for concentric bands
+- Users see nothing on the map for short time bands, thinking the feature is broken
+- ST_Difference between an inner LineString and outer Polygon throws a topology exception
 
-**Phase to address:**
-Phase 1: Design System Foundation
+**Prevention:**
+1. **Add a ST_Buffer fallback for degenerate results.** After ST_ConcaveHull, check the geometry type:
+   ```sql
+   CASE
+     WHEN ST_GeometryType(hull) IN ('ST_Point', 'ST_LineString', 'ST_GeometryCollection')
+       OR ST_IsEmpty(hull)
+     THEN ST_Buffer(ST_Collect(points), 50)  -- 50-foot buffer in SRID 2263
+     ELSE hull
+   END
+   ```
+   This ensures you always return a polygon, even if it's a buffered approximation.
+2. **Set a minimum node count threshold.** If pgr_drivingDistance returns fewer than 4 nodes, skip ST_ConcaveHull entirely and use ST_ConvexHull + ST_Buffer instead (convex hull of 3+ non-collinear points always produces a polygon, and the buffer adds area for visual presence).
+3. **Validate geometry type before returning.** The isochrone SQL function should enforce `RETURNS GEOMETRY(POLYGON, 4326)` or `GEOMETRY(MULTIPOLYGON, 4326)` and cast/wrap accordingly.
+4. **Include the origin point in the node set.** Always add the starting node to the point collection even if pgr_drivingDistance doesn't return it (edge case: isolated node with no outgoing edges within budget).
 
-**Source confidence:** HIGH
-- [Migrating to CSS theme variables - Material UI](https://mui.com/material-ui/experimental-api/css-theme-variables/migration/)
-- [Breaking changes in v5 - Material UI](https://mui.com/material-ui/migration/v5-style-changes/)
-- [Extending the theme in Material UI with TypeScript](https://www.bergqvist.it/blog/2020/6/26/extending-theme-material-ui-with-typescript/)
+**Detection (warning signs):**
+- MapLibre fill layer shows nothing for 1-2 minute isochrones
+- API response has `geometry.type` as "LineString" or "Point" (check in browser Network tab)
+- PostGIS logs contain "Empty geometry" or "TopologyException" errors
+- ST_Area() returns 0 or NULL for the isochrone polygon
+
+**Phase relevance:** Must be handled in Phase 1 (SQL function) with explicit geometry type validation and fallback logic.
 
 ---
 
-### Pitfall 5: MapLibre Event Handler Memory Leaks in React
+### Pitfall 5: Overlapping Isochrone Polygons Create Opacity Stacking Artifacts on MapLibre
 
 **What goes wrong:**
-Map performance degrades over time. Browser DevTools shows growing memory usage. Map event handlers fire multiple times per interaction. App crashes after route changes or component unmounts.
+When rendering concentric isochrone bands (5, 10, 15 minutes) as overlapping fill layers with transparency, the overlapping regions (where 5-min polygon overlaps with 10-min polygon) render with doubled opacity, creating a visual "bullseye" effect with jarring color banding instead of smooth concentric rings.
 
 **Why it happens:**
-MapLibre event handlers (`.on()`) are not automatically cleaned up when React components unmount. Each component mount attaches new listeners without removing old ones. `useEffect` hooks that register map listeners without return cleanup functions accumulate handlers. Map instance persists across component lifecycles in context/ref, but handlers are component-scoped.
+MapLibre GL applies `fill-opacity` per layer, not per pixel. When two semi-transparent polygons overlap:
+- The 15-min polygon (opacity 0.3, red) renders first
+- The 10-min polygon (opacity 0.3, orange) renders on top -- where they overlap, effective opacity is ~0.51
+- The 5-min polygon (opacity 0.3, green) renders on top of both -- center opacity is ~0.66
 
-**How to avoid:**
-- **Phase 2 (Responsive Layout)**: Enforce cleanup pattern in all map event hooks
-- ALWAYS return cleanup function from `useEffect` when registering map listeners:
-  ```tsx
-  useEffect(() => {
-    if (!map) return
-    const handler = () => { /* ... */ }
-    map.on('move', handler)
-    return () => map.off('move', handler)  // CRITICAL
-  }, [map])
-  ```
-- Use `map.once()` for one-time listeners (auto-cleanup)
-- Store handlers in refs for stable identity: `const handlerRef = useRef(handler)`
-- Prefer `react-map-gl` wrapper components (handle cleanup internally)
-- Profile memory with Chrome DevTools: Take heap snapshots before/after route changes
-- Check map listener count: `map.listens('move')` should return reasonable values
+This is a [known MapLibre/Mapbox behavior](https://github.com/mapbox/mapbox-gl-js/issues/859). The fill-opacity is per-layer, and overlapping features within the same layer also blend.
 
-**Warning signs:**
-- Memory usage grows after navigating between routes
-- Map event handlers fire 2x, 3x, 4x times (multiplying on each mount)
-- Console warnings: "Cannot remove listener, map already destroyed"
-- Browser tab crashes after extended use
+The existing codebase renders routes as line layers (`routeHaloLayer`, `routeLayer`) which don't have this problem because lines don't overlap. Fill layers behave fundamentally differently.
 
-**Phase to address:**
-Phase 2: Responsive Layout System + Phase 3: State Optimization
+**Consequences:**
+- Center of isochrone (origin area) is visually darkest/most saturated -- the OPPOSITE of what users expect (origin should be most accessible, visually lightest)
+- Color-coded time bands become illegible because blended colors don't match the legend
+- On mobile (smaller screen), the opacity stacking makes the entire isochrone look like a dark blob
+- Accessibility contrast ratios become unpredictable due to color blending
 
-**Source confidence:** MEDIUM
-- [MapView Error: Unsupported event type - MapLibre React Native](https://github.com/maplibre/maplibre-react-native/issues/1165)
-- [Event System - MapLibre GL JS](https://deepwiki.com/maplibre/maplibre-gl-js/2.3-event-system)
-- react-map-gl Context7 documentation (cleanup patterns)
+**Prevention:**
+1. **Use ST_Difference to create true concentric rings (donut polygons) on the server side.** Before returning to the frontend:
+   ```sql
+   -- 15-min ring = 15-min polygon MINUS 10-min polygon
+   ST_Difference(polygon_15min, polygon_10min)
+   -- 10-min ring = 10-min polygon MINUS 5-min polygon
+   ST_Difference(polygon_10min, polygon_5min)
+   -- 5-min polygon stays as-is (innermost)
+   ```
+   This way, no polygons overlap and each pixel is covered by exactly one layer.
+2. **If ST_Difference fails (topology exception from irregular polygons), fall back to rendering all bands in a single fill layer with data-driven styling.** Use a single GeoJSON source with multiple features, each having a `time_band` property, and use a MapLibre expression:
+   ```js
+   "fill-color": ["match", ["get", "time_band"],
+     5, "#22c55e",
+     10, "#facc15",
+     15, "#ef4444",
+     "#888888"
+   ]
+   ```
+   Single-layer rendering avoids cross-layer blending (though within-layer overlaps still blend if ST_Difference wasn't applied).
+3. **Render bands from outermost to innermost.** The 15-min band should be the bottom layer, 5-min on top. Use the `beforeId` parameter in `useGeoJsonLayer` (which already supports this, line 102-103 of `useGeoJsonLayer.ts`).
+4. **Use `fill-opacity: 1.0` with pre-mixed semi-transparent colors** (e.g., `rgba(34, 197, 94, 0.3)` as `fill-color` with `fill-opacity: 1.0`). This renders each pixel exactly once with the correct color, eliminating blending math.
+
+**Detection (warning signs):**
+- Isochrone center is visually darker than the outer ring
+- Colors don't match the legend/key
+- Increasing `fill-opacity` makes the problem worse instead of better
+- The 5-min band is barely visible because it's obscured by stacked opacity from all three bands
+
+**Phase relevance:** Must be decided in Phase 1 (architecture). The ST_Difference approach is a SQL-side decision; the rendering approach is a frontend decision. Both must be coordinated.
 
 ---
 
-### Pitfall 6: Mobile Bottom Sheet Gesture Ambiguity
+## Moderate Pitfalls
+
+Mistakes that cause subtle visual bugs or performance degradation without breaking core functionality.
+
+### Pitfall 6: MapLibre Layer Z-Ordering -- Isochrone Polygons Obscure Route and Markers
 
 **What goes wrong:**
-Users swipe up to view route details but map pans instead. Bottom sheet drag handle doesn't respond. Scrolling directions list triggers map zoom. Users unable to access content "hidden" below visible area.
+Isochrone fill polygons, being area-based, will visually cover the route line layers and address markers if not placed in the correct z-order. The current layer stack in `MapLibreGLMap.tsx` is:
+
+```
+(bottom) routeHaloLayer -> routeLayer -> startPointLayer -> endPointLayer -> startPointLabelLayer -> endPointLabelLayer (top)
+```
+
+If isochrone fill layers are added without specifying `beforeId`, they render ON TOP of everything, hiding the route and markers.
 
 **Why it happens:**
-Touch events propagate from bottom sheet through to MapLibre canvas. Both components compete for the same gestures (vertical swipe, pinch, drag). Without clear visual/spatial boundaries, users don't know which area controls which interaction. Insufficient drag handle size falls below WCAG minimum touch target (44x44px).
+The `useGeoJsonLayer` hook (line 129-130) uses `addLayer(mapLayer, safeBeforeId)` where `beforeId` controls z-ordering. If `beforeId` is not specified or the referenced layer doesn't exist yet, the new layer goes to the top of the stack. The hook validates that `beforeId` exists (line 129: `const safeBeforeId = beforeId && map.getLayer(beforeId) ? beforeId : undefined`), so if the route layer hasn't been added yet, the isochrone layer falls through to the top.
 
-**How to avoid:**
-- **Phase 2 (Responsive Layout)**: Design clear interaction zones
-- Implement "gutter space" pattern: Bottom sheet has opaque background extending full width
-- Drag handle: minimum 44x44px touch target (WCAG 2.5.5)
-- MUI SwipeableDrawer: use `disableDiscovery` prop to prevent map gesture interference
-- Bottom sheet content: use `overflow: auto` on content container, NOT on drawer itself
-- Visual affordance: Show drag handle + "Swipe up" hint on first use (localStorage flag)
-- Disable map interactions when bottom sheet is expanded >60% (optional)
-- Test on real devices: Gesture conflicts manifest differently on iOS vs Android
+Additionally, the existing `clearMap()` function in `MapLibreGLMap.tsx` (lines 204-213) removes all 6 route-related layers. If isochrone layers are not included in this cleanup, they will persist when the user clears addresses.
 
-**Warning signs:**
-- User complaints about "can't scroll directions"
-- Bottom sheet difficult to drag (small touch target)
-- Map pans when user intends to expand bottom sheet
-- Content clipped with no scroll indicator visible
+**Prevention:**
+1. **Add isochrone layers BEFORE `routeHaloLayer` in the z-order.** Use `beforeId: "routeHaloLayer"` when calling `useGeoJsonLayer` for isochrone polygons. This places the fill beneath all route layers.
+2. **Create a layer ordering constant.** Define the expected layer stack in `constants.ts`:
+   ```ts
+   export const MAP_LAYER_ORDER = [
+     'isochrone15Layer',  // bottom
+     'isochrone10Layer',
+     'isochrone5Layer',
+     'routeHaloLayer',
+     'routeLayer',
+     'startPointLayer',
+     'endPointLayer',
+     'startPointLabelLayer',
+     'endPointLabelLayer', // top
+   ] as const
+   ```
+3. **Handle the timing issue.** If isochrone mode is active and route layers don't exist yet, the `beforeId` will be undefined and the isochrone layer goes to top. When route layers are later added, they must be placed above the isochrone layers. This requires the route layer `useGeoJsonLayer` calls to use isochrone-aware `beforeId` values, or a re-ordering step after all layers are added.
+4. **Extend `clearMap()` to include isochrone layers.** If isochrone layers are managed separately from route layers, add them to the cleanup function.
 
-**Phase to address:**
-Phase 2: Responsive Layout System
+**Detection (warning signs):**
+- Route line is invisible when isochrone is displayed (covered by fill polygon)
+- Address markers disappear behind the isochrone fill
+- Clearing the route leaves isochrone polygons on the map
+- Switching from isochrone mode to route mode shows both overlaid
 
-**Source confidence:** HIGH
-- [How to design bottom sheets for optimized user experience](https://blog.logrocket.com/ux-design/bottom-sheets-optimized-ux/)
-- [Bottom Sheets: Definition and UX Guidelines - NN/G](https://www.nngroup.com/articles/bottom-sheet/)
-- [6 Mistakes to Avoid When Designing Maps](https://www.iotforall.com/designing-maps-interface-for-apps)
+**Phase relevance:** Phase 2 (frontend rendering). Can be addressed independently of SQL function design.
 
 ---
 
-### Pitfall 7: Keyboard Navigation Focus Traps in Map UI
+### Pitfall 7: RoutingContext Bloat -- Adding Isochrone State to an Already-Large Context
 
 **What goes wrong:**
-Keyboard users tab into map but cannot tab out. Focus disappears when interacting with map controls. Screen reader announces incorrect element labels. Modal dialogs trap focus permanently.
+Adding isochrone-related state (`isochrones`, `isochroneOrigin`, `isochroneTimeBands`, `isochroneMode`, `isIsochroneActive`, `isochroneFetching`) directly to `RoutingContext` causes every component that consumes `RoutingContext` to re-render on ANY isochrone state change, even components that don't use isochrone data (Search, RouteList, TravelModeSelect, etc.).
 
 **Why it happens:**
-MapLibre canvas is not keyboard-navigable by default. Custom map controls render without ARIA labels or keyboard handlers. Bottom sheet/modal components don't implement proper focus management (trap focus when open, restore focus on close). Tab order doesn't match visual layout due to absolute positioning.
+`RoutingContext.tsx` already has 12 state fields and 12 setter functions (lines 14-46). The `useMemo` on the context value (lines 238-291) includes ALL state in its dependency array. Adding 6 more isochrone fields means the memoized value changes whenever ANY isochrone state changes, triggering re-renders in all consumers.
 
-**How to avoid:**
-- **Phase 2 (Responsive Layout)**: Implement WCAG 2.1.2 (No Keyboard Trap) from start
-- Map controls: Add `role="button"`, `aria-label`, `tabIndex={0}`, `onKeyDown` handlers
-- Bottom sheet: Trap focus intentionally INSIDE sheet when expanded, restore to trigger on close
-- Skip link: Provide "Skip to map" and "Skip to controls" (existing implementation ✓)
-- Test with keyboard only: Tab through entire interface, verify escape routes
-- Focus indicators: Minimum 3px outline, 3:1 contrast (WCAG 2.4.11 - AA)
-- MUI components: Verify focus styles not overridden by theme
-- Modal/Drawer: Use MUI's built-in focus management, test Escape key
+The most impactful re-render victims:
+- `MapLibreGLMap.tsx` (memoized with `React.memo` but destructures 5 context values)
+- `RouteList.tsx` (memoized with `React.memo` but consumes `route` from context)
+- `RouteSummaryCard.tsx` (reads `route`, `mode`, `useTraffic` from context)
 
-**Warning signs:**
-- Tab key navigates to map, Shift+Tab doesn't return focus
-- Focus indicator invisible on custom components
-- Screen reader announces "button" with no label
-- Modal closes but focus disappears (not restored to trigger element)
+**Consequences:**
+- MapLibre re-renders during isochrone loading (potential frame drops)
+- Route list and summary card re-render when isochrone data changes (unnecessary work)
+- Context value object identity changes on every isochrone update, defeating `React.memo` for all consumers
+- Performance degradation especially on mobile devices
 
-**Phase to address:**
-Phase 2: Responsive Layout System + Phase 4: Accessibility Audit
+**Prevention:**
+1. **Create a separate `IsochroneContext`.** Keep isochrone state completely isolated from routing state. Components that need both can consume both contexts independently.
+   ```tsx
+   // IsochroneContext.tsx
+   export interface IsochroneContextType {
+     isActive: boolean
+     origin: IMapFeature | null
+     timeBands: number[]
+     polygons: GeoJSON.FeatureCollection | null
+     isFetching: boolean
+     setActive: (active: boolean) => void
+     setOrigin: (origin: IMapFeature | null) => void
+     setTimeBands: (bands: number[]) => void
+     fetchIsochrone: () => void
+   }
+   ```
+2. **Share travel mode between contexts.** The `mode` (drive/bike/walk) is relevant to both routing and isochrones. Keep it in `RoutingContext` and have `IsochroneContext` read it:
+   ```tsx
+   const { mode } = useContext(RoutingContext)
+   // Use mode in isochrone fetch
+   ```
+3. **Use the existing `useGeoJsonLayer` hook for isochrone rendering.** It already supports `fill` layer type (line 8 of `useGeoJsonLayer.ts`). No need to create a new rendering mechanism.
 
-**Source confidence:** HIGH
-- [WCAG 2.1.2 No Keyboard Trap - 2025 Guide](https://testparty.ai/blog/wcag-2-1-2-no-keyboard-trap-2025-guide)
-- [Accessible Modals & Dialogs Example 2025](https://www.thewcag.com/examples/modals-dialogs)
-- [WCAG 2.4.11 Focus Not Obscured - 2025 Guide](https://testparty.ai/blog/wcag-2-4-11-focus-not-obscured-minimum-2025-guide)
+**Detection (warning signs):**
+- React DevTools Profiler shows RouteList re-rendering during isochrone fetch
+- `MapLibreGLMap` component re-renders when isochrone state changes (check console logs)
+- Frame rate drops during isochrone loading on mobile
+
+**Phase relevance:** Phase 2 (frontend architecture). Must be decided before implementing any isochrone components.
 
 ---
 
-## Technical Debt Patterns
+### Pitfall 8: pgr_drivingDistance Returns Only Reachable Nodes -- Not Partial Edge Reach
 
-Shortcuts that seem reasonable but create long-term problems.
+**What goes wrong:**
+pgr_drivingDistance returns nodes (intersections) where `agg_cost <= distance`. It does NOT interpolate along edges. If a node is at agg_cost=4.8 minutes and the next node along an edge is at agg_cost=5.3 minutes, the isochrone boundary is drawn at the 4.8-minute node -- losing the ~0.2 minutes of reachable street between the nodes.
 
-| Shortcut | Immediate Benefit | Long-term Cost | When Acceptable |
-|----------|-------------------|----------------|-----------------|
-| Single context for all state | Fast initial setup, less boilerplate | Cascade re-renders destroy performance at scale | Never - split contexts from start |
-| Inline styles instead of theme | Quick visual tweaks | Inconsistent design, no dark mode support | MVP prototyping only, refactor before production |
-| Copy-paste MUI examples without cleanup | Rapid feature delivery | Event handler leaks, memory bloat, crashes | Never - understand lifecycle before using |
-| Skip `React.memo` on expensive components | Simpler code, fewer hooks | Unnecessary re-renders, map lag | Early prototyping, add before performance testing |
-| Hardcode breakpoints instead of theme | No type definitions needed | Maintenance nightmare, responsive bugs | Never - theme breakpoints prevent drift |
-| Disable MUI Portal for z-index "fix" | UI renders on top | Breaks focus management, modal behavior | Never - fix z-index scale instead |
-| Use `!important` to override MUI styles | Overrides work immediately | Cascade chaos, unmaintainable CSS | Never - investigate specificity properly |
-| Store map instance in state vs. ref | Feels more "React-like" | Re-renders entire tree on map mutation | Never - map is imperative, use ref |
+This creates an isochrone polygon that systematically underestimates the reachable area, with "nibbled" edges at the boundary where the polygon boundary cuts across blocks at intersections rather than mid-block.
 
-## Integration Gotchas
+**Why it happens:**
+pgr_drivingDistance signature returns `(seq, depth, start_vid, pred, node, edge, cost, agg_cost)` where `node` is a vertex ID and `agg_cost` is the cumulative cost to reach that vertex. There is no concept of "partial edge traversal" in the return value. The Dijkstra algorithm operates on vertices, not on points along edges.
 
-Common mistakes when connecting to external services.
+NYC's street grid has average block lengths of 250-900 feet. At walking speed (3 mph = 264 ft/min), a single block edge takes about 1-3.5 minutes. Missing the last partial block is a 20-40% underestimate of reachable area at the boundary.
 
-| Integration | Common Mistake | Correct Approach |
-|-------------|----------------|------------------|
-| **MapLibre + MUI Theme** | Using hardcoded colors in map style | Extract map colors to theme.map namespace, sync with MUI palette |
-| **react-map-gl + Context** | Storing map instance in context state | Store map ref in context (`.current`), never mutate context value |
-| **MUI Drawer + MapLibre** | Drawer transitions trigger map resize bugs | Use `Map` prop `onResize` or call `map.resize()` after Drawer animation completes |
-| **MUI CssBaseline + MapLibre CSS** | Global CSS resets break map controls | Load MapLibre CSS AFTER CssBaseline, use CSS layers for isolation |
-| **Custom MUI theme + TypeScript** | Module augmentation in separate file not recognized | Import component in same file as augmentation OR use ambient declaration file |
-| **Bottom Sheet + Map Pan** | Touch events propagate to map | Use `touchAction: 'pan-y'` CSS on bottom sheet, `disableDiscovery` on SwipeableDrawer |
+**Consequences:**
+- Isochrone appears "jagged" at the boundary, cutting across blocks at intersections
+- 5-minute walking isochrone misses the last ~1 minute of each boundary edge (20% area loss)
+- Driving isochrones are less affected (shorter traversal times per edge, more nodes reached)
+- Users compare to Google Maps / Mapbox isochrones which DO interpolate, making this look broken
 
-## Performance Traps
+**Prevention:**
+1. **Accept the approximation for v1.** Node-only isochrones are standard for pgRouting implementations. Document this limitation and address in a future version.
+2. **Apply a small ST_Buffer to the concave hull.** After generating the polygon from node positions, buffer it by the average half-edge-length for the mode:
+   ```sql
+   -- Average half-edge for driving: ~150 feet in SRID 2263
+   ST_Buffer(ST_ConcaveHull(ST_Collect(v.geom), 0.3), 150)
+   ```
+   This roughly compensates for the missing partial edges. Tune the buffer distance per mode.
+3. **For future improvement: interpolate boundary edges.** For nodes at the boundary (where agg_cost is within one edge of the distance cutoff), compute the fraction traversed and place a point along the edge geometry using `ST_LineInterpolatePoint`. This is complex but produces professional-quality isochrones.
+4. **Use ST_ConcaveHull param_pctconvex of 0.3-0.5** (not too concave). A more convex hull naturally fills in some of the boundary gaps, producing a smoother result that approximates the partial-edge reach.
 
-Patterns that work at small scale but fail as usage grows.
+**Detection (warning signs):**
+- Isochrone boundary follows exact intersection points (looks "stairstep" on a grid)
+- Boundary edge nodes are all at agg_cost values well below the cutoff (e.g., 4.0-4.8 for a 5-minute isochrone)
+- Comparison with commercial isochrone APIs shows consistent underestimate
 
-| Trap | Symptoms | Prevention | When It Breaks |
-|------|----------|------------|----------------|
-| **Rendering route GeoJSON inline** | Smooth at first | Use `useMemo` for GeoJSON transformation, profile with large routes | >500 segments (~10+ mile routes) |
-| **Not memoizing map paint objects** | Works initially | Memoize with `useMemo`, prevent object identity changes | Every map style toggle or route update |
-| **Creating styled components inside render** | Component works | Move styled component definition outside functional component | Causes full remount on parent re-render |
-| **useEffect with entire context as dependency** | Functional but laggy | Use context selectors or split contexts | >5 context consumers in tree |
-| **Not lazy loading Sidebar/Map** | App loads fine locally | Code-split with `React.lazy()`, suspend heavy components | Production bundle >500KB |
-| **Uncontrolled MUI form components** | Fast initial render | Use `value` + `onChange` for predictable state, debounce autocomplete | Autocomplete search with >100 results |
-| **Synchronous map layer updates** | Appears to work | Batch map operations, use `map.once('idle')` for stability | Adding >10 layers or sources |
+**Phase relevance:** Phase 1 (SQL function). The buffer approximation should be included from the start. Interpolation is a Phase 3+ enhancement.
 
-## Security Mistakes
+---
 
-Domain-specific security issues beyond general web security.
+## Minor Pitfalls
 
-| Mistake | Risk | Prevention |
-|---------|------|------------|
-| **Exposing Mapbox API key in client bundle** | Key theft, usage quota abuse | Use MapLibre GL (open source, no API key) or secure Mapbox key with URL restrictions |
-| **No rate limiting on geocoding API** | DOS via autocomplete spam | Implement debounce (300ms) + client-side caching + server-side rate limit |
-| **Rendering user input in map popups without sanitization** | XSS via malicious address strings | Sanitize with DOMPurify or use `textContent` instead of `innerHTML` |
-| **Custom map tiles without CORS headers** | Mixed content warnings, tile load failures | Serve tiles with proper CORS headers, use HTTPS |
-| **Storing route history in localStorage without encryption** | PII exposure (home/work addresses) | Use sessionStorage for ephemeral data, encrypt if persisting user locations |
+### Pitfall 9: ST_ConcaveHull param_pctconvex Performance Trap
 
-## UX Pitfalls
+**What goes wrong:**
+Setting `param_pctconvex` too low (e.g., 0.01) for maximum concavity causes ST_ConcaveHull to run for 5-30 seconds on point sets of 5,000+ nodes. This is because the runtime grows quadratically with decreasing pctconvex.
 
-Common user experience mistakes in this domain.
+**Prevention:**
+- Use `param_pctconvex` between 0.3 and 0.5 for interactive use. A value of 0.3 provides good concavity without excessive computation.
+- For 15-minute isochrones that may return 10,000+ nodes, use 0.5 or higher.
+- If PostGIS 3.3+ with GEOS 3.11+ is available (check in the Docker image), the native GEOS implementation is significantly faster. Verify with `SELECT postgis_geos_version();`
 
-| Pitfall | User Impact | Better Approach |
-|---------|-------------|-----------------|
-| **Sidebar width >400px on tablet** | Map unusably small, can't see route | Use `isTabletOrBelow ? 340px : 400px` (existing ✓) |
-| **No loading state during route calculation** | App feels frozen, users click repeatedly | Show skeleton UI or spinner with "Calculating route..." message |
-| **Route results appear without map zoom** | User can't see full route, must zoom manually | Auto-fit bounds to route on update (existing ✓) |
-| **Ambiguous travel mode icons (bike/walk)** | Users select wrong mode | Use labels + icons, highlight selected mode with color + border |
-| **Bottom sheet snap points at 33%, 66%, 100%** | Users want quick access to directions | Use 40% (summary), 60% (directions), 90% (controls) (existing ✓) |
-| **No "empty state" for route list** | Blank panel confuses users | Show "Enter origin and destination to get started" with illustration |
-| **Traffic toggle hidden in settings** | Users don't discover traffic-aware routing | Prominent toggle near travel mode selector (existing ✓) |
-| **Turn-by-turn text too small on mobile** | Unreadable while navigating | Minimum 16px font size, 1.5 line-height (WCAG 1.4.4) |
+---
 
-## "Looks Done But Isn't" Checklist
+### Pitfall 10: One-Way Streets Create Asymmetric Isochrones That Confuse Users
 
-Things that appear complete but are missing critical pieces.
+**What goes wrong:**
+Manhattan's one-way avenue grid means a 5-minute driving isochrone from Midtown will extend further south than north (because more avenues flow south). This is physically correct but visually confusing -- users expect symmetric shapes.
 
-- [ ] **Bottom Sheet**: Tested on real iOS (Safari) and Android (Chrome) devices, not just DevTools responsive mode
-- [ ] **MUI Theme**: Verified dark mode works for ALL custom components, not just default MUI palette
-- [ ] **Map Controls**: Keyboard accessible (Tab, Enter, Escape) and screen reader announces labels correctly
-- [ ] **Route Calculation**: Error handling for "no route found", "server timeout", "invalid coordinates"
-- [ ] **Responsive Layout**: Tested portrait AND landscape orientations on mobile/tablet
-- [ ] **Focus Management**: Verified focus restoration after modal/drawer close, not just trap-on-open
-- [ ] **TypeScript Types**: Custom theme properties work in `styled()` AND `sx` prop, not just `createTheme()`
-- [ ] **Performance**: Profiled with React DevTools Profiler under realistic load (10+ route calculations, map interactions)
-- [ ] **Touch Targets**: Verified ALL interactive elements meet 44x44px minimum (WCAG 2.5.5), including map controls
-- [ ] **Loading States**: Spinners/skeletons for route calculation, geocoding, AND map tile loading
-- [ ] **Map Event Cleanup**: Memory profiling confirms no listener leaks after route changes/unmounts
-- [ ] **CSS Specificity**: Theme overrides work for hover/focus/disabled states, not just default state
+**Prevention:**
+- This is correct behavior. Do NOT "fix" it by using undirected graph mode.
+- Add a tooltip or info icon explaining: "Isochrone shape reflects one-way street patterns and speed limits."
+- Use `directed := TRUE` in the pgr_drivingDistance call to respect one-way streets. The existing edges already encode directionality through `cost_drive` vs `rcost_drive` (one-way penalties), but per Pitfall 1, the isochrone function should use `time_drive` with explicit reverse cost handling.
 
-## Recovery Strategies
+---
 
-When pitfalls occur despite prevention, how to recover.
+### Pitfall 11: Water Bodies and Parks Create False Concave Hull "Bridges"
 
-| Pitfall | Recovery Cost | Recovery Steps |
-|---------|---------------|----------------|
-| **Context performance collapse** | MEDIUM | 1. Profile with React DevTools to identify hot components. 2. Split offending context into multiple contexts by update frequency. 3. Wrap components in `React.memo()`. 4. Consider Zustand migration if context splitting insufficient. |
-| **Theme override specificity conflicts** | LOW | 1. Inspect element in DevTools to find actual selector. 2. Match specificity in theme override (nest selectors). 3. Enable `modularCssLayers` for cascade control. 4. Document specificity in design system for future. |
-| **MapLibre event handler memory leak** | LOW | 1. Add cleanup function to all `useEffect` hooks registering map listeners. 2. Use `map.once()` for one-time events. 3. Profile memory before/after to verify fix. |
-| **z-index overlay conflicts** | LOW | 1. Audit z-index values across app, establish scale (map=0, UI=100s, modals=1300+). 2. Use MUI Portal for problematic components. 3. Test stacking contexts with DevTools 3D view. |
-| **CSS variables theme migration breaks app** | HIGH | 1. Revert `cssVariables: true` immediately. 2. Create parallel theme file, test in isolation. 3. Run official codemods. 4. Migrate incrementally (one component category at a time). 5. Update TypeScript types (Theme + ThemeOptions). |
-| **Bottom sheet gesture conflicts** | MEDIUM | 1. Add `touchAction: 'pan-y'` CSS to bottom sheet. 2. Use `disableDiscovery` on SwipeableDrawer. 3. Increase drag handle size to 44x44px. 4. Test on real devices (simulator insufficient). |
-| **Keyboard focus trap** | MEDIUM | 1. Add `tabIndex`, `onKeyDown`, `aria-label` to custom controls. 2. Implement focus trap in modals/drawers (MUI handles this). 3. Test with keyboard-only navigation. 4. Add visible focus indicators (3px, 3:1 contrast). |
-| **Mobile performance degradation** | MEDIUM | 1. Profile with Chrome DevTools Performance tab (60fps target). 2. Lazy load Sidebar/Map with `React.lazy()`. 3. Memoize expensive computations (`useMemo`). 4. Split contexts by update frequency. 5. Enable React Strict Mode to catch issues early. |
+**What goes wrong:**
+ST_ConcaveHull connects boundary points across water bodies (East River, Hudson River, Central Park) where no streets exist. The hull polygon may "bridge" across water, showing areas as reachable when they are not.
 
-## Pitfall-to-Phase Mapping
+**Prevention:**
+- Accept this for v1. Most commercial isochrone services have the same limitation unless they clip against water/park polygons.
+- For future improvement: clip the isochrone polygon against a NYC land area polygon using ST_Intersection. This requires importing a separate NYC borough boundary dataset.
+- Use a more concave param_pctconvex (0.2-0.3) which naturally avoids large gaps where no nodes exist, reducing false bridges.
 
-How roadmap phases should address these pitfalls.
+---
 
-| Pitfall | Prevention Phase | Verification |
-|---------|------------------|--------------|
-| MUI theme override specificity | Phase 1: Design System | Theme overrides work in Storybook for all component states (default, hover, focus, disabled) |
-| MapLibre z-index conflicts | Phase 2: Responsive Layout | z-index scale documented, all overlays render correctly, no clipping |
-| React Context performance | Phase 1 + Phase 3: State Optimization | React DevTools Profiler shows <5 re-renders per user interaction, 60fps during map pan |
-| CSS Variables migration breaks styles | Phase 1: Design System | Parallel theme file tested in isolation, TypeScript types pass, existing styles unaffected |
-| MapLibre event handler leaks | Phase 2 + Phase 3: Implementation | Chrome DevTools heap snapshots show stable memory after 10+ route changes |
-| Bottom sheet gesture conflicts | Phase 2: Responsive Layout | Real device testing (iOS + Android): swipe-to-expand doesn't pan map, scrolling works |
-| Keyboard focus traps | Phase 2 + Phase 4: Accessibility | Keyboard-only navigation completes full workflow, focus indicators visible, WCAG 2.1.2 pass |
-| Mobile performance degradation | Phase 3: State Optimization | Performance tab shows <16ms scripting time, Lighthouse score >90, no jank during interaction |
+### Pitfall 12: Mode Switching Between Route and Isochrone Leaves Stale Map Layers
+
+**What goes wrong:**
+When a user switches from Route mode (showing a route line) to Isochrone mode (showing fill polygons), the route layers persist on the map unless explicitly removed. The reverse is also true -- switching from Isochrone back to Route leaves isochrone polygons visible.
+
+**Prevention:**
+1. **Clear route layers when entering isochrone mode and vice versa.** Extend or complement the existing `clearMap()` function in `MapLibreGLMap.tsx` (lines 204-213) to handle isochrone layers.
+2. **Use a top-level "view mode" state** (in the new `IsochroneContext` or a shared UI context) that determines which set of layers is active. When view mode changes, remove the previous mode's layers.
+3. **Do NOT remove address markers when switching modes.** The origin address is shared between route and isochrone modes. Only remove route-specific layers (route line, halo) and isochrone-specific layers (fill polygons).
+
+---
+
+## Phase-Specific Warnings
+
+| Phase/Topic | Likely Pitfall | Mitigation | Severity |
+|-------------|---------------|------------|----------|
+| SQL function design | Cost unit mismatch (Pitfall 1) | Use `time_*` columns, not `cost_*` for isochrone distance | CRITICAL -- invalidates all results |
+| SQL function design | Unbounded Dijkstra (Pitfall 2) | Spatial bounding box + single call for all bands | CRITICAL -- 2-5s response times |
+| SQL function design | SRID mismatch (Pitfall 3) | Run ST_ConcaveHull on 2263, transform result to 4326 | CRITICAL -- polygon in wrong location |
+| SQL function design | Sparse node degenerate geometry (Pitfall 4) | ST_Buffer fallback for <4 nodes or non-polygon results | CRITICAL -- empty map for short bands |
+| Frontend rendering | Opacity stacking (Pitfall 5) | ST_Difference for donut rings OR pre-mixed colors | HIGH -- illegible visualization |
+| Frontend rendering | Layer z-ordering (Pitfall 6) | Place isochrone layers before routeHaloLayer | MODERATE -- route hidden behind fill |
+| Frontend state | Context bloat (Pitfall 7) | Separate IsochroneContext, not added to RoutingContext | MODERATE -- unnecessary re-renders |
+| SQL accuracy | Partial edge underestimate (Pitfall 8) | ST_Buffer approximation on concave hull | LOW -- acceptable for v1 |
+| SQL performance | ST_ConcaveHull pctconvex (Pitfall 9) | Use 0.3-0.5, benchmark with real data | LOW -- only affects large isochrones |
+| UX | Asymmetric isochrones (Pitfall 10) | Explain behavior, don't "fix" with undirected mode | LOW -- user education |
+| UX | Water/park bridges (Pitfall 11) | Accept for v1, clip with boundary polygon later | LOW -- visual imperfection |
+| Frontend | Stale layers on mode switch (Pitfall 12) | Explicit layer cleanup on mode transition | MODERATE -- confusing but not breaking |
+
+## Integration Pitfalls Across Concerns
+
+### Cross-Concern 1: SQL Performance + Frontend Loading = UX Perception
+
+If the SQL function takes 1-2 seconds (optimized) and the frontend shows no loading indicator, users will perceive the feature as broken. The isochrone fetch must integrate with a loading state that triggers BEFORE the API call and clears AFTER polygon rendering. The existing `useRouteFetch` pattern (with `isFetching` state) should be replicated for isochrone fetching.
+
+### Cross-Concern 2: Cost Unit Choice + Frontend Time Labels = Mismatch
+
+If the SQL function uses `time_drive` (pure minutes) but the frontend labels bands as "5 min / 10 min / 15 min", the labels are accurate for driving but misleading for biking/walking where terrain and infrastructure affect actual travel time. The API response should include metadata about what the time bands represent.
+
+### Cross-Concern 3: Layer Z-Order + Mode Switching + Stale State = Ghost Layers
+
+If a user views a route, then switches to isochrone mode, then switches back to route, any layer cleanup that's incomplete will leave ghost layers. The route rendering assumes it's the only fill content on the map. The isochrone fill layers could interfere with the `clearMap()` function if they share source naming patterns. Use a distinct naming convention: `isochrone_*` prefix for all isochrone sources and layers.
+
+### Cross-Concern 4: Separate IsochroneContext + Shared Mode = Split-Brain
+
+If `mode` lives in `RoutingContext` and the isochrone feature reads it from there, changing mode in the TravelModeSelect component triggers BOTH a route recalculation AND an isochrone recalculation. The isochrone feature needs to either:
+- Only recalculate when isochrone mode is active (check `isActive` before fetching)
+- Debounce the mode change to avoid double API calls
 
 ## Sources
 
-### MUI Theme & Styling
-- [3 Common Pitfalls of Theme Customization with Material UI | DMC, Inc.](https://www.dmcinfo.com/blog/17372/3-common-pitfalls-of-theme-customization-with-material-ui/)
-- [CSS Layers - Material UI](https://mui.com/material-ui/customization/css-layers/)
-- [Themed components - Material UI](https://mui.com/material-ui/customization/theme-components/)
-- [Migrating to CSS theme variables - Material UI](https://mui.com/material-ui/experimental-api/css-theme-variables/migration/)
-- [Breaking changes in v5 - Material UI](https://mui.com/material-ui/migration/v5-style-changes/)
-- [Extending the theme in Material UI with TypeScript](https://www.bergqvist.it/blog/2020/6/26/extending-theme-material-ui-with-typescript/)
-- Context7: /websites/v6_mui_material-ui (HIGH confidence)
+### pgRouting
+- [pgr_drivingDistance -- pgRouting Manual 3.8](https://docs.pgrouting.org/latest/en/pgr_drivingDistance.html) -- function signature, parameters, return values (HIGH confidence)
+- [pgr_drivingDistance performance with array of start points -- Issue #882](https://github.com/pgRouting/pgrouting/issues/882) -- memory allocation failures with multiple start nodes (HIGH confidence)
+- [pgr_contractionHierarchies -- Experimental](https://docs.pgrouting.org/latest/en/pgr_contractionHierarchies.html) -- not yet integrated with pgr_drivingDistance (MEDIUM confidence)
 
-### MapLibre GL & React Integration
-- [Maplibre popup rendering below the map - deck.gl Discussion](https://github.com/visgl/deck.gl/discussions/9132)
-- [MapView Error: Unsupported event type - MapLibre React Native](https://github.com/maplibre/maplibre-react-native/issues/1165)
-- [Event System - MapLibre GL JS](https://deepwiki.com/maplibre/maplibre-gl-js/2.3-event-system)
-- Context7: /visgl/react-map-gl (HIGH confidence - event handler cleanup patterns)
+### PostGIS
+- [ST_ConcaveHull -- PostGIS Documentation](https://postgis.net/docs/ST_ConcaveHull.html) -- param_pctconvex behavior, edge cases, GEOS 3.11 native implementation (HIGH confidence)
+- [ST_ConcaveHull returns empty geometry collection -- PostGIS #1973](https://trac.osgeo.org/postgis/ticket/1973) -- documented bug with certain inputs (HIGH confidence)
+- [Isochrones are not Alpha Shapes -- Darafei Praliaskouski](https://www.patreon.com/posts/isochrones-are-20933638) -- limitations of alpha shapes for isochrone generation (MEDIUM confidence)
 
-### React Performance & Context
-- [How to Handle React Context Performance Issues](https://oneuptime.com/blog/post/2026-01-24-react-context-performance-issues/view)
-- [Optimizing React Context for Performance](https://www.tenxdeveloper.com/blog/optimizing-react-context-performance)
-- [Pitfalls of overusing React Context](https://blog.logrocket.com/pitfalls-of-overusing-react-context/)
-- [React 19 Compiler in 2025: Why useMemo/useCallback Are Dead](https://isitdev.com/react-19-compiler-usememo-usecallback-dead-2025/)
-- [Improve React Performance With useMemo And useCallback](https://www.debugbear.com/blog/react-usememo-usecallback)
+### MapLibre GL
+- [Polygon fill layer rendering issues -- MapLibre #4357](https://github.com/maplibre/maplibre-gl-js/issues/4357) -- fill layer clipping artifacts (HIGH confidence)
+- [Stacking polygons with fill-color and opacity -- Mapbox #859](https://github.com/mapbox/mapbox-gl-js/issues/859) -- opacity blending behavior with overlapping fills (HIGH confidence)
+- [Dynamic z-ordering across groups of style layers -- MapLibre #2108](https://github.com/maplibre/maplibre-gl-js/issues/2108) -- z-ordering limitations (MEDIUM confidence)
+- [Visualize Travel Time with Isochrones -- Stadia Maps](https://docs.stadiamaps.com/tutorials/display-isochrones-on-a-map/) -- fill layer rendering pattern for isochrones (MEDIUM confidence)
 
-### Mapping App UX & Mobile Design
-- [6 Mistakes to Avoid When Designing Maps for Apps](https://www.iotforall.com/designing-maps-interface-for-apps)
-- [How to design bottom sheets for optimized user experience](https://blog.logrocket.com/ux-design/bottom-sheets-optimized-ux/)
-- [Bottom Sheets: Definition and UX Guidelines - NN/G](https://www.nngroup.com/articles/bottom-sheet/)
-- [Map UI Design: Best Practices](https://www.eleken.co/blog-posts/map-ui-design)
-
-### Accessibility & WCAG
-- [WCAG 2.1.2 No Keyboard Trap - 2025 Guide](https://testparty.ai/blog/wcag-2-1-2-no-keyboard-trap-2025-guide)
-- [Accessible Modals & Dialogs Example 2025](https://www.thewcag.com/examples/modals-dialogs)
-- [WCAG 2.4.11 Focus Not Obscured - 2025 Guide](https://testparty.ai/blog/wcag-2-4-11-focus-not-obscured-minimum-2025-guide)
-- [WCAG 2.1.1 Keyboard Accessibility Explained](https://www.uxpin.com/studio/blog/wcag-211-keyboard-accessibility-explained/)
+### Isochrone UX
+- [Isochrone Maps: The Clear-Cut Guide -- Zors.ai](https://www.zors.ai/blog/isochrone-maps-travel-time-guide) -- common UX pitfalls (MEDIUM confidence)
+- [UX Patterns for Maps -- Isochrone Map](https://ux-patterns.webgeodatavore.com/isochrone-map/index.html) -- visualization best practices (MEDIUM confidence)
 
 ---
-*Pitfalls research for: NYC Open Routing UI Redesign*
-*Researched: 2026-02-12*
-*Confidence: HIGH (Context7 + Official Docs + Multiple Credible Sources)*
+*Pitfalls research for: NYC Open Routing -- Isochrone/Reachability Visualization*
+*Researched: 2026-02-13*
+*Confidence: HIGH (direct codebase analysis + verified pgRouting/PostGIS/MapLibre documentation)*

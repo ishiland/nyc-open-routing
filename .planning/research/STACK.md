@@ -1,530 +1,391 @@
-# Stack Research: Transit-Inspired UI Redesign
+# Technology Stack: Isochrone Visualization
 
-**Domain:** Frontend theming and visual design for React mapping application
-**Researched:** 2026-02-12
-**Confidence:** HIGH
+**Project:** NYC Open Routing -- Isochrone/Reachability Feature
+**Researched:** 2026-02-13
+**Confidence:** HIGH (database layer), MEDIUM (GEOS version), HIGH (frontend layer)
+**Mode:** Subsequent milestone -- minimal new dependencies, leveraging existing stack
 
-## Recommended Stack
+## Executive Summary
 
-### Core Technologies
+Isochrone visualization requires **zero new npm packages** and **zero new Python packages**. The entire feature is built on capabilities already present in the existing stack: pgRouting's `pgr_drivingDistance` for reachability computation, PostGIS's `ST_ConcaveHull` for polygon generation, the existing Shapely/Pydantic pipeline for GeoJSON serialization, and MapLibre GL's `fill` layer type for polygon rendering. The only uncertainty is whether the Docker image's GEOS version supports the fast native `ST_ConcaveHull` implementation -- this must be verified at development time and has a clear upgrade path if needed.
 
-| Technology | Version | Purpose | Why Recommended |
-|------------|---------|---------|-----------------|
-| MUI (Material UI) | 7.x (current: 7.3.2) | Component library & theming system | Already integrated in project. MUI v7 provides excellent theming with CSS variables (`cssVariables: true`), component style overrides, and TypeScript support. High source reputation, 30.7k stars. |
-| @emotion/react | 11.x (current: 11.14.0) | CSS-in-JS styling engine | Default styling engine for MUI v7. Faster than styled-components, React Concurrent Mode ready, smaller bundle size. Already installed in project. |
-| @emotion/styled | 11.x (current: 11.14.0) | Styled components API | For component-level styled components when needed. Performance-optimized with GPU acceleration. Already installed in project. |
-| tss-react | 4.x (current: 4.9.16) | Type-safe JSS-style API for Emotion | Already installed. Provides type-safe equivalent of JSS `makeStyles` API powered by Emotion. Useful for complex component styles with theme access. |
+## Recommended Stack Additions
 
-### Supporting Libraries
+### Database Layer: pgRouting + PostGIS (No Changes to Docker Image)
 
-| Library | Version | Purpose | When to Use |
-|---------|---------|---------|-------------|
-| None required | - | CSS animations via Emotion keyframes | Use built-in Emotion `keyframes` for all animations. No additional animation library needed for transit UI transitions. |
+| Technology | Version | Purpose | Confidence |
+|------------|---------|---------|------------|
+| `pgr_drivingDistance` | pgRouting 3.8 (installed) | Compute all reachable nodes within time threshold | HIGH |
+| `ST_ConcaveHull` | PostGIS 3.5 (installed) | Generate polygon boundaries from reachable node point clouds | MEDIUM |
+| `ST_Collect` | PostGIS 3.5 (installed) | Aggregate node geometries into multipoint for hull input | HIGH |
+| `ST_Transform` / `geom_4326` | PostGIS 3.5 (installed) | Coordinate system handling (SRID 2263 -> 4326 for GeoJSON) | HIGH |
 
-### Typography & Design Tokens
+#### pgr_drivingDistance -- How It Works
 
-| Resource | Type | Purpose | Implementation |
-|----------|------|---------|----------------|
-| Inter | Google Font | Primary UI font (Helvetica alternative) | 414B annual requests, designed for UIs with tall x-height and open apertures. Best screen legibility. Use font weights: 400 (regular), 500 (medium), 600 (semibold), 700 (bold). |
-| Roboto | Google Font | Fallback option | Used in NYC Subway B Division countdown clocks. Good Helvetica alternative if Inter doesn't fit design needs. |
-| Official MTA Colors | Design tokens | Subway line colors for visual identity | Use hex codes from official MTA data (see Design Tokens section below). |
+`pgr_drivingDistance` implements Dijkstra's algorithm to find all graph nodes reachable within a specified cost threshold from a source node. It returns a spanning tree of reachable nodes with their accumulated costs.
 
-### Development Tools
-
-| Tool | Purpose | Notes |
-|------|---------|-------|
-| TypeScript | Type safety for theme extensions | Already configured. Extend MUI theme interface for custom tokens. |
-| MUI DevTools (browser extension) | Theme debugging | Optional. Useful for inspecting theme values during development. |
-
-## Design Tokens: Official MTA Subway Colors
-
-Use these official hex codes from [MTA Colors dataset](https://github.com/jsvine/mta-colors/blob/master/mta-colors.json):
-
-**Numbered Lines (IRT):**
-- 1/2/3: `#EE352E` (Red - Pantone 185)
-- 4/5/6: `#00933C` (Green - Pantone 355)
-- 7: `#B933AD` (Purple)
-
-**Lettered Lines (IND/BMT):**
-- A/C/E: `#2850AD` (Blue - Pantone 286)
-- B/D/F/M: `#FF6319` (Orange - Pantone 165)
-- G: `#6CBE45` (Light Green - Pantone 376)
-- J/Z: `#996633` (Brown - Pantone 154)
-- L: `#A7A9AC` (Gray - 50% black)
-- N/Q/R: `#FCCC0A` (Yellow - Pantone 116)
-- S: `#808183` (Gray - 70% black)
-
-**Recommended Palette Mapping:**
-- Primary: `#0039A6` (classic MTA Blue - A/C/E line, also official MTA brand blue)
-- Secondary: `#EE352E` (Red - 1/2/3 line)
-- Accent 1: `#FF6319` (Orange - B/D/F/M line)
-- Accent 2: `#00933C` (Green - 4/5/6 line)
-- Accent 3: `#B933AD` (Purple - 7 line)
-
-## Installation
-
-```bash
-# Typography (Google Fonts via CDN or npm)
-# Option 1: Add to index.html <head>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-
-# Option 2: npm package (if preferred for offline support)
-npm install @fontsource/inter
-
-# All other dependencies already installed in package.json
-# No additional animation libraries needed
+**Function signature (pgRouting 3.8):**
+```sql
+pgr_drivingDistance(
+    'SELECT id, source, target, cost, reverse_cost FROM edges',  -- Edges SQL
+    start_vid,    -- Source node (BIGINT)
+    distance,     -- Maximum cost threshold (FLOAT)
+    directed      -- BOOLEAN, default TRUE
+)
+-- Returns: (seq, depth, start_vid, pred, node, edge, cost, agg_cost)
 ```
 
-## MUI Theming Approach (v7 Best Practices)
+**Key return columns for isochrone use:**
+- `node` -- Reachable vertex ID (join to `edges_vertices_pgr` for geometry)
+- `agg_cost` -- Accumulated cost from source (used to assign time bands)
 
-### 1. Custom Theme Creation with Design Tokens
+**Integration with existing edge costs:**
+The function accepts arbitrary cost SQL. This project's edges table already has mode-specific cost columns (`cost_drive`, `cost_bike`, `cost_walk`) and their reverse counterparts. The `distance` parameter uses cost units, which in this project are **minutes** (the `time_drive`, `time_bike`, `time_walk` columns are pre-computed travel times).
 
-**Pattern: Centralized theme with CSS variables enabled**
+**Edges SQL per mode:**
+```sql
+-- Drive (uses existing cost columns, filtered by driveable flag)
+'SELECT id, source, target, cost_drive AS cost, rcost_drive AS reverse_cost FROM edges WHERE driveable=TRUE'
+
+-- Bike
+'SELECT id, source, target, cost_bike AS cost, rcost_bike AS reverse_cost FROM edges WHERE bikeable=TRUE'
+
+-- Walk (undirected -- set directed=FALSE)
+'SELECT id, source, target, cost_walk AS cost, rcost_walk AS reverse_cost FROM edges WHERE walkable=TRUE'
+```
+
+**Traffic-aware isochrones (drive mode):** Apply the same traffic factor multiplication used in `getdrivingroute_with_traffic()`:
+```sql
+'SELECT id, source, target,
+    cost_drive * COALESCE(traffic_factor, 1.0) AS cost,
+    rcost_drive * COALESCE(traffic_factor, 1.0) AS reverse_cost
+FROM edges WHERE driveable=TRUE'
+```
+
+**Version compatibility:** `pgr_drivingDistance` has been stable since pgRouting 2.0.0. The v3.6.0 update standardized output columns (adding `depth` and `start_vid`), which is the format in pgRouting 3.8. No compatibility concerns.
+
+#### ST_ConcaveHull -- Polygon Generation
+
+**Function signature:**
+```sql
+ST_ConcaveHull(
+    param_geom GEOMETRY,       -- Input point collection
+    param_pctconvex FLOAT,     -- 0.0 (most concave) to 1.0 (convex hull)
+    param_allow_holes BOOLEAN  -- Default FALSE
+)
+-- Returns: GEOMETRY (Polygon)
+```
+
+**The pctconvex parameter** controls how tightly the hull wraps around the point cloud. It determines a length threshold as a fraction of the difference between the longest and shortest edges in the Delaunay Triangulation. Triangulation edges longer than this threshold are removed.
+
+**Recommended values for street network isochrones:**
+- `0.7` -- Good starting point. Produces a natural-looking boundary that follows the general shape of the reachable area without excessive concavity that could create artifacts at network edges
+- `0.5` -- Tighter fit. Better for walking/biking isochrones where reachable areas are smaller and more irregular
+- `0.3` -- Very tight. May produce spiky shapes with sparse point distributions; avoid unless the point cloud is dense
+
+**Why NOT `0.99`:** Values close to 1.0 produce near-convex hulls that include large unreachable areas (water, parks, highways). Values close to 0.0 can produce very jagged boundaries or even degenerate geometries with sparse points.
+
+**CRITICAL: GEOS Version Dependency**
+
+PostGIS 3.3.0 enhanced `ST_ConcaveHull` with a native GEOS implementation, but **only when compiled with GEOS 3.11 or later**. With older GEOS versions, it falls back to the legacy PL/pgSQL implementation which is slower but functional.
+
+The project's Docker image (`pgrouting/pgrouting:17-3.5-3.8`) is based on `postgis/postgis:17-3.5`, which likely ships with **GEOS 3.9.0** (based on the pgRouting Docker README showing GEOS 3.9.0 for the 17-3.5-3.7 example). This means the fast native implementation may NOT be available.
+
+**Impact assessment:**
+- For isochrone generation, we run `ST_ConcaveHull` on 4 point clouds (one per time band) with ~1,000-5,000 points each
+- The legacy PL/pgSQL implementation handles this scale adequately (estimated 100-500ms per hull)
+- Total isochrone query time with legacy implementation: ~1-3 seconds (acceptable for POC)
+- The native GEOS 3.11+ implementation would reduce this to ~50-200ms total
+
+**Verification step (must run during development):**
+```sql
+-- Check GEOS version in the running container
+SELECT postgis_geos_compiled_version();
+-- If >= 3.11.0: native fast implementation is available
+-- If < 3.11.0: legacy implementation, still functional
+```
+
+**Upgrade path if performance is insufficient:**
+Change Docker image from `pgrouting/pgrouting:17-3.5-3.8` to `pgrouting/pgrouting:17-3.6-3.8` (PostGIS 3.6 with Bookworm = GEOS 3.11+). This is a drop-in replacement with no SQL changes needed.
+
+#### Complete Isochrone SQL Pattern
+
+Single query producing all 4 time bands as polygons:
+
+```sql
+-- SQL function: getdrivingisochrone(lon, lat, max_minutes)
+WITH reachable_nodes AS (
+    SELECT
+        dd.node,
+        dd.agg_cost,
+        v.geom  -- Vertex geometry in SRID 2263
+    FROM pgr_drivingDistance(
+        'SELECT id, source, target, cost_drive AS cost, rcost_drive AS reverse_cost
+         FROM edges WHERE driveable=TRUE',
+        getnearestdrivenode(:lon, :lat),
+        :max_minutes,  -- e.g., 20.0 for 20-minute maximum
+        TRUE           -- directed graph
+    ) AS dd
+    JOIN edges_vertices_pgr v ON dd.node = v.id
+),
+time_bands AS (
+    SELECT
+        band,
+        ST_ConcaveHull(
+            ST_Collect(rn.geom),
+            0.7,    -- pctconvex (tunable)
+            FALSE   -- no holes
+        ) AS geom
+    FROM reachable_nodes rn
+    CROSS JOIN unnest(ARRAY[5, 10, 15, 20]) AS band
+    WHERE rn.agg_cost <= band
+    GROUP BY band
+    HAVING COUNT(*) >= 3  -- Need at least 3 points for a polygon
+)
+SELECT
+    band AS time_minutes,
+    ST_AsGeoJSON(ST_Transform(geom, 4326))::json AS geojson
+FROM time_bands
+ORDER BY band DESC;  -- Largest first (for correct rendering order)
+```
+
+**Key design decisions in this SQL:**
+1. **Single `pgr_drivingDistance` call** with the maximum time (20 min). Filter nodes per band with `WHERE agg_cost <= band`. This avoids 4 separate Dijkstra runs.
+2. **`CROSS JOIN unnest`** generates bands from a single query result.
+3. **`ORDER BY band DESC`** returns largest polygon first -- MapLibre renders features in array order, so largest must come first to appear beneath smaller bands.
+4. **`HAVING COUNT(*) >= 3`** prevents degenerate geometries when too few nodes are reachable.
+5. **Traffic-aware variant** uses the same traffic factor SQL from `getdrivingroute_with_traffic()`.
+
+### API Layer: FastAPI (No New Dependencies)
+
+| Technology | Version | Purpose | Confidence |
+|------------|---------|---------|------------|
+| FastAPI | 0.115.12 (installed) | New `/api/isochrone` endpoint | HIGH |
+| Pydantic | 2.11.1 (installed) | `IsochroneResponse` model | HIGH |
+| Shapely | 2.0.7 (installed) | WKB-to-GeoJSON conversion (existing `dump_geo()`) | HIGH |
+| SQLAlchemy | 2.0.40 (installed) | Database query execution (existing pattern) | HIGH |
+
+**Why NOT geojson-pydantic:** The existing project defines its own lightweight `Feature` model with `geometry: Dict[str, Any]`. Adding `geojson-pydantic` (v2.1.0) would introduce a dependency for a single new endpoint when the existing pattern works. The project's `dump_geo()` function already handles WKB -> GeoJSON dict conversion via Shapely. Keep the existing pattern for consistency.
+
+**New Pydantic models (extend existing `schemas.py`):**
+
+```python
+class IsochroneProperties(BaseModel):
+    """Properties of an isochrone time band polygon."""
+    time_minutes: int        # Time band value (5, 10, 15, 20)
+    mode: TravelMode         # Travel mode used
+    color: str               # Hex color for this band
+    opacity: float           # Opacity value (0.0-1.0)
+
+class IsochroneFeature(BaseModel):
+    """GeoJSON Feature for an isochrone polygon."""
+    type: Literal["Feature"] = "Feature"
+    properties: IsochroneProperties
+    geometry: Dict[str, Any]  # Polygon GeoJSON
+
+class IsochroneResponse(BaseModel):
+    """Response model for the isochrone endpoint."""
+    features: List[IsochroneFeature]
+    origin: Dict[str, Any]    # Origin point GeoJSON (for marker)
+```
+
+**API endpoint pattern:**
+
+```python
+@router.get("/isochrone", response_model=IsochroneResponse)
+def get_isochrone(
+    origin: str = Query(..., description="Origin (longitude,latitude)"),
+    mode: TravelMode = Query(..., description="Travel mode: drive, bike, or walk"),
+    max_time: int = Query(default=20, ge=5, le=30, description="Max time in minutes"),
+    use_traffic: bool = Query(default=True, description="Use traffic factors (drive only)"),
+):
+    ...
+```
+
+**Color assignment per band** should happen server-side (embedded in feature properties) so the frontend can use `["get", "color"]` expressions without band-specific logic:
+
+```python
+ISOCHRONE_COLORS = {
+    5:  {"color": "#1a9641", "opacity": 0.35},  # Green -- closest
+    10: {"color": "#a6d96a", "opacity": 0.30},  # Light green
+    15: {"color": "#fdae61", "opacity": 0.25},  # Orange
+    20: {"color": "#d7191c", "opacity": 0.20},  # Red -- farthest
+}
+```
+
+### Frontend Layer: MapLibre GL (No New Dependencies)
+
+| Technology | Version | Purpose | Confidence |
+|------------|---------|---------|------------|
+| MapLibre GL JS | 5.3.0 (installed) | `fill` layer for polygon rendering | HIGH |
+| React | 18.2.x (installed) | State management via existing Context API | HIGH |
+| MUI | 7.0.1 (installed) | UI controls (slider, toggle) | HIGH |
+
+#### MapLibre Fill Layer Configuration
+
+Use a single GeoJSON source with a FeatureCollection containing all time band polygons. The `fill` layer type with data-driven styling renders them correctly:
 
 ```typescript
-// src/utils/theme.ts
-import { createTheme } from '@mui/material/styles';
-
-const theme = createTheme({
-  cssVariables: true, // Enable CSS custom properties (MUI v7 feature)
-
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#0039A6', // MTA Blue (A/C/E)
-      contrastText: '#ffffff',
-    },
-    secondary: {
-      main: '#EE352E', // MTA Red (1/2/3)
-      contrastText: '#ffffff',
-    },
-    error: {
-      main: '#EE352E', // Use MTA Red for errors too
-    },
-    // Custom colors for transit lines (extend palette)
-    transit: {
-      orange: '#FF6319',
-      green: '#00933C',
-      purple: '#B933AD',
-      lightGreen: '#6CBE45',
-      yellow: '#FCCC0A',
-      brown: '#996633',
-      gray: '#808183',
+// Single source with all isochrone polygons
+useGeoJsonLayer(
+  map,
+  "isochroneSource",
+  "isochroneLayer",
+  isochrone?.features || null,
+  {
+    type: "fill",
+    paint: {
+      "fill-color": ["get", "color"],        // Per-feature color from properties
+      "fill-opacity": ["get", "opacity"],     // Per-feature opacity from properties
+      "fill-outline-color": ["get", "color"], // Outline matches fill color
     },
   },
-
-  typography: {
-    fontFamily: '"Inter", "Helvetica Neue", "Helvetica", "Arial", sans-serif',
-    fontSize: 16, // Prevents iOS zoom on input focus
-
-    // Bold typography for transit aesthetic
-    h1: {
-      fontWeight: 700,
-      fontSize: '2.5rem',
-      letterSpacing: '-0.02em', // Tight spacing for impact
-    },
-    h2: {
-      fontWeight: 700,
-      fontSize: '2rem',
-      letterSpacing: '-0.01em',
-    },
-    h3: {
-      fontWeight: 600,
-      fontSize: '1.5rem',
-    },
-    h4: {
-      fontWeight: 600,
-      fontSize: '1.25rem',
-    },
-    h5: {
-      fontWeight: 600,
-      fontSize: '1.125rem',
-    },
-    h6: {
-      fontWeight: 600,
-      fontSize: '1rem',
-    },
-    subtitle1: {
-      fontWeight: 500,
-      fontSize: '1rem',
-    },
-    body1: {
-      fontWeight: 400,
-      fontSize: '1rem',
-      lineHeight: 1.5,
-    },
-    body2: {
-      fontWeight: 400,
-      fontSize: '0.875rem',
-      lineHeight: 1.43,
-    },
-    button: {
-      fontWeight: 600, // Bold buttons for transit aesthetic
-      textTransform: 'none', // Avoid ALL CAPS unless intentional
-    },
-  },
-
-  spacing: 8, // Compact spacing (default is 8, can reduce to 6 for tighter feel)
-
-  breakpoints: {
-    values: {
-      xs: 0,      // Mobile
-      sm: 600,    // Tablet portrait
-      md: 905,    // Tablet landscape (already customized in existing theme)
-      lg: 1240,   // Desktop
-      xl: 1440,   // Large desktop
-    },
-  },
-
-  components: {
-    // Component style overrides for transit aesthetic
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          minHeight: 44, // WCAG touch target (already in existing theme)
-          borderRadius: 4, // Slightly rounded (transit style is geometric)
-          fontWeight: 600,
-          '&:focus-visible': {
-            outline: '3px solid',
-            outlineColor: '#0039A6',
-            outlineOffset: '2px',
-          },
-        },
-        contained: {
-          boxShadow: 'none', // Flat design for transit aesthetic
-          '&:hover': {
-            boxShadow: 'none',
-          },
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          backgroundImage: 'none', // Flat, no gradient overlays
-        },
-      },
-    },
-    MuiDrawer: {
-      styleOverrides: {
-        paper: {
-          borderRight: 'none', // Clean edges
-        },
-      },
-    },
-    // ... other component overrides
-  },
-
-  // Custom theme extension for map styles
-  map: {
-    startPoint: {
-      color: '#00933C', // Green (4/5/6 line)
-    },
-    endPoint: {
-      color: '#EE352E', // Red (1/2/3 line)
-    },
-    route: {
-      color: '#0039A6', // Blue (A/C/E line)
-      width: 5,
-    },
-    // ... existing map config
-  },
-});
-
-export default theme;
+  "routeHaloLayer",  // Render beneath route layers
+)
 ```
 
-**TypeScript extension for custom palette:**
+**Why a single layer with data-driven styling (not 4 separate layers):**
+1. The existing `useGeoJsonLayer` hook already handles FeatureCollection sources with multiple features
+2. One source/layer pair is simpler to manage (add/remove/update) than 4 pairs
+3. Data-driven `fill-color` and `fill-opacity` via `["get", "property"]` expressions are well-supported since MapLibre Style Spec v0.19.0
+4. Feature ordering within the FeatureCollection controls rendering order -- no z-index management needed
 
+**Rendering order for concentric polygons:**
+The API returns features ordered largest-first (20 min, then 15, 10, 5). MapLibre renders features in array order within a single layer, so the largest polygon renders first (bottom) and the smallest renders last (top). This produces the correct visual stacking without multiple layers.
+
+**Optional: Outline layer for band boundaries:**
 ```typescript
-// src/utils/theme.ts (extend module)
-declare module '@mui/material/styles' {
-  interface Palette {
-    transit: {
-      orange: string;
-      green: string;
-      purple: string;
-      lightGreen: string;
-      yellow: string;
-      brown: string;
-      gray: string;
-    };
-  }
-  interface PaletteOptions {
-    transit?: {
-      orange?: string;
-      green?: string;
-      purple?: string;
-      lightGreen?: string;
-      yellow?: string;
-      brown?: string;
-      gray?: string;
-    };
-  }
-}
-```
-
-### 2. Styling Approach Hierarchy (Performance-Optimized)
-
-**Priority order for styling in MUI v7:**
-
-1. **`sx` prop** (HIGHEST PRIORITY) — Most optimized, compiles to Emotion efficiently
-2. **Component `styleOverrides` in theme** — Global component customization
-3. **`tss-react` makeStyles** — For complex multi-class components with theme access
-4. **`styled()` components** — Use sparingly, adds CSS-in-JS processing overhead
-5. **Inline `style` prop** — Only for truly dynamic values (e.g., calculated positions)
-
-**Example: sx prop usage (preferred)**
-
-```tsx
-<Box
-  sx={{
-    bgcolor: 'primary.main',
-    color: 'primary.contrastText',
-    p: 2, // padding: theme.spacing(2)
-    borderRadius: 1,
-    '&:hover': {
-      bgcolor: 'primary.dark',
-    },
-  }}
->
-  Content
-</Box>
-```
-
-**Example: tss-react for complex components**
-
-```tsx
-import { makeStyles } from 'tss-react/mui';
-
-const useStyles = makeStyles()((theme) => ({
-  root: {
-    backgroundColor: theme.palette.primary.main,
-    padding: theme.spacing(2),
-    [theme.breakpoints.down('sm')]: {
-      padding: theme.spacing(1),
+useGeoJsonLayer(
+  map,
+  "isochroneOutlineSource",
+  "isochroneOutlineLayer",
+  isochrone?.features || null,
+  {
+    type: "line",
+    paint: {
+      "line-color": ["get", "color"],
+      "line-width": 1.5,
+      "line-opacity": 0.6,
     },
   },
-  icon: {
-    color: theme.palette.transit.orange,
-    marginRight: theme.spacing(1),
-  },
-}));
-
-function MyComponent() {
-  const { classes, cx } = useStyles();
-  // Use cx() instead of clsx() for Emotion-generated class names
-  return <div className={classes.root}>...</div>;
-}
+  "isochroneLayer",  // On top of fill layer
+)
 ```
 
-### 3. Animation Strategy (CSS via Emotion)
+#### Layer Z-Ordering
 
-**Use Emotion `keyframes` for all animations. DO NOT install additional animation libraries.**
+Isochrone layers should render **beneath** all route and marker layers:
 
-**Rationale:**
-- CSS animations leverage GPU acceleration (better mobile performance)
-- Emotion is already installed and integrated with MUI
-- Smaller bundle size than framer-motion (3.6M downloads) or react-spring (788k downloads)
-- Transit UI needs simple, functional animations (slide, fade, expand) not complex physics
-
-**Example: Transit-style slide animation**
-
-```tsx
-import { keyframes } from '@emotion/react';
-import { Box } from '@mui/material';
-
-const slideIn = keyframes`
-  from {
-    transform: translateX(-100%);
-    opacity: 0;
-  }
-  to {
-    transform: translateX(0);
-    opacity: 1;
-  }
-`;
-
-<Box
-  sx={{
-    animation: `${slideIn} 0.3s ease-out`,
-  }}
->
-  Sidebar content
-</Box>
+```
+Bottom (map tiles)
+  -> isochroneLayer (fill)
+  -> isochroneOutlineLayer (line, optional)
+  -> routeHaloLayer (existing)
+  -> routeLayer (existing)
+  -> startPointLayer (existing)
+  -> endPointLayer (existing)
+  -> label layers (existing)
+Top
 ```
 
-**Example: Expand/collapse transition**
+The existing `useGeoJsonLayer` hook supports a `beforeId` parameter for layer ordering. Place isochrone layers before `routeHaloLayer` to ensure correct stacking.
 
-```tsx
-<Box
-  sx={{
-    transition: 'max-height 0.3s ease-in-out',
-    maxHeight: expanded ? '500px' : '0',
-    overflow: 'hidden',
-  }}
->
-  Collapsible content
-</Box>
-```
+## What NOT to Use (and Why)
 
-**Performance best practices:**
-- Animate only `transform` and `opacity` (GPU-accelerated)
-- Avoid animating `height`, `width`, `margin`, `padding` (triggers layout reflow)
-- Use `will-change: transform` sparingly for frequently animated elements
-- Duration: 150-300ms for UI transitions (feels snappy, not sluggish)
-
-### 4. Responsive Layout Patterns
-
-**Existing system:** Project already has `AdaptiveLayout`, `useResponsive` hook, and mobile `BottomSheet`.
-
-**MUI Drawer variants for sidebar:**
-
-| Viewport | Drawer Variant | Behavior |
-|----------|---------------|----------|
-| Mobile (< 600px) | `temporary` | Overlay with backdrop, swipe to dismiss |
-| Tablet (600-904px) | `persistent` | Pushes content, manually toggle |
-| Desktop (≥ 905px) | `permanent` | Always visible, optional mini variant |
-
-**Example: Responsive drawer implementation**
-
-```tsx
-import { Drawer, useMediaQuery, useTheme } from '@mui/material';
-
-function ResponsiveSidebar() {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
-  const [mobileOpen, setMobileOpen] = useState(false);
-
-  return (
-    <>
-      {/* Mobile: temporary drawer */}
-      {isMobile && (
-        <Drawer
-          variant="temporary"
-          open={mobileOpen}
-          onClose={() => setMobileOpen(false)}
-          ModalProps={{ keepMounted: true }} // Better mobile performance
-          sx={{
-            '& .MuiDrawer-paper': {
-              width: 280, // Compact for transit UI
-            },
-          }}
-        >
-          {/* Sidebar content */}
-        </Drawer>
-      )}
-
-      {/* Tablet/Desktop: persistent or permanent */}
-      {!isMobile && (
-        <Drawer
-          variant={isTablet ? 'persistent' : 'permanent'}
-          open={!isTablet || mobileOpen}
-          sx={{
-            '& .MuiDrawer-paper': {
-              width: 320,
-              boxSizing: 'border-box',
-            },
-          }}
-        >
-          {/* Sidebar content */}
-        </Drawer>
-      )}
-    </>
-  );
-}
-```
-
-**Existing breakpoints (keep current values):**
-```typescript
-breakpoints: {
-  values: {
-    xs: 0,      // Mobile
-    sm: 600,    // Tablet portrait
-    md: 905,    // Tablet landscape (custom)
-    lg: 1240,   // Desktop (custom)
-    xl: 1440,   // Large desktop (custom)
-  },
-}
-```
+| Technology | Why Not |
+|------------|---------|
+| `pgr_alphaShape` | **Deprecated in pgRouting 3.8.** Officially removed. Use PostGIS ST_ConcaveHull instead. |
+| `ST_AlphaShape` / `CG_AlphaShape` | Requires SFCGAL extension, which is not installed in the `pgrouting/pgrouting` Docker image. Would require custom Docker image or extension installation. |
+| `pgr_pointsAsPolygon` | Legacy wrapper around pgr_alphaShape. Also deprecated. |
+| `ST_ConvexHull` | Produces convex boundaries that include large unreachable areas (water bodies, parks). Visually misleading for urban isochrones. |
+| `fill-extrusion` layer type | 3D polygon extrusion is unnecessary for 2D isochrone visualization. Opacity is per-layer (not per-feature), preventing band-specific transparency. Adds visual complexity without value. |
+| `geojson-pydantic` library | Project already has a working GeoJSON model pattern. Adding a dependency for one endpoint introduces unnecessary coupling. |
+| `turf.js` (client-side) | All polygon generation happens server-side in PostGIS. No need for client-side geometry processing. |
+| Multiple pgr_drivingDistance calls | A single call with max_time=20 + client-side band filtering is 4x more efficient than 4 separate Dijkstra computations. |
+| Voronoi/Delaunay client-side | All spatial computation belongs in PostGIS where it can leverage spatial indexes and the GEOS library. |
 
 ## Alternatives Considered
 
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| Emotion keyframes | framer-motion | Only if complex gesture-based animations (drag, swipe with physics) are needed. Not necessary for transit UI. |
-| Emotion keyframes | react-spring | Only if spring physics-based animations are critical to UX. Overkill for transit UI. |
-| Inter (Google Font) | Roboto | If Inter feels too modern. Roboto is used in NYC Subway countdown clocks. |
-| Inter (Google Font) | IBM Plex Sans | If technical/scientific feel is desired. Slightly squared letterforms. |
-| sx prop | styled() | Only for reusable styled components that don't need theme access. |
-| tss-react | @mui/styles (deprecated) | Never. @mui/styles is deprecated in MUI v5+. |
+| Category | Recommended | Alternative | Why Not Alternative |
+|----------|-------------|-------------|---------------------|
+| Polygon generation | `ST_ConcaveHull` | `ST_AlphaShape` | Requires SFCGAL (not installed). ST_ConcaveHull uses GEOS (always available). |
+| Polygon generation | `ST_ConcaveHull` | `pgr_alphaShape` | Deprecated in pgRouting 3.8. Will be removed in future versions. |
+| Polygon tightness | `pctconvex=0.7` | `pctconvex=0.3` | Too tight for sparse outer bands -- produces spiky/degenerate polygons. 0.7 balances shape fidelity with visual quality. |
+| API response | Custom Pydantic models | `geojson-pydantic` library | Adds dependency for 1 endpoint. Existing pattern works. |
+| Frontend rendering | Single fill layer + expressions | 4 separate fill layers | More layer management code. `useGeoJsonLayer` already handles FeatureCollections. Data-driven styling is simpler. |
+| Docker image | Keep `17-3.5-3.8` | Upgrade to `17-3.6-3.8` | Only upgrade if GEOS version causes performance issues. Verify first with `postgis_geos_compiled_version()`. |
+| Time bands | Fixed [5, 10, 15, 20] | User-configurable | Adds UI complexity for marginal value. Fixed bands match industry standard (Google Maps, Mapbox). |
 
-## What NOT to Use
+## Performance Characteristics
 
-| Avoid | Why | Use Instead |
-|-------|-----|-------------|
-| @mui/styles (makeStyles/withStyles) | Deprecated in MUI v5+, removed in v6+ | tss-react for makeStyles-style API |
-| styled-components | Not compatible with SSR in MUI, slower than Emotion | @emotion/styled (already installed) |
-| framer-motion | Overkill for simple transit UI animations, 3.6M weekly downloads adds bundle size | Emotion keyframes (already available) |
-| react-spring | Unnecessary complexity for functional animations | Emotion keyframes + CSS transitions |
-| GSAP | External library for complex timeline animations. Transit UI doesn't need this. | Emotion keyframes |
-| Tailwind CSS animations | Not compatible with MUI theming system | MUI sx prop + Emotion keyframes |
-| Custom CSS files | Breaks theme consistency, hard to maintain with dynamic theming | sx prop, component styleOverrides, tss-react |
-| CSS Modules | Not compatible with MUI theme tokens | sx prop, Emotion styled |
+| Operation | Expected Time | Network Size | Notes |
+|-----------|--------------|-------------|-------|
+| `pgr_drivingDistance` (20 min drive) | 200-800ms | 177k edges | Dijkstra on full driveable subgraph (~120k edges) |
+| `pgr_drivingDistance` (20 min walk) | 100-400ms | 177k edges | Smaller walkable subgraph, lower max cost |
+| `ST_ConcaveHull` per band (legacy GEOS) | 100-500ms | 1-5k points | With GEOS < 3.11, PL/pgSQL fallback |
+| `ST_ConcaveHull` per band (native GEOS) | 10-50ms | 1-5k points | With GEOS >= 3.11, native C implementation |
+| Total isochrone query (legacy) | 1-3s | -- | Acceptable for POC |
+| Total isochrone query (native) | 300-900ms | -- | Optimal |
+| MapLibre fill layer render | <16ms | 4 polygons | Negligible -- WebGL polygon rendering is instant for 4 features |
 
-## Stack Patterns by Variant
+## Installation
 
-**If targeting ONLY modern browsers (Chrome/Firefox/Safari last 2 versions):**
-- Use CSS variables (`cssVariables: true` in theme) for dynamic theme switching
-- Use CSS `color-scheme` property (automatic dark mode support)
-- Use modern CSS features (container queries, cascade layers)
+### Python Dependencies
+```bash
+# No new packages needed
+# All isochrone functionality uses existing dependencies:
+# - sqlalchemy (database queries)
+# - shapely (WKB -> GeoJSON)
+# - pydantic (response models)
+# - fastapi (endpoint)
+```
 
-**If supporting older browsers (IE11, legacy mobile):**
-- Disable CSS variables: `cssVariables: false`
-- Use JavaScript-based theme switching via `ThemeProvider`
-- Avoid modern CSS features, stick to Flexbox/Grid only
+### JavaScript Dependencies
+```bash
+# No new packages needed
+# MapLibre GL 5.3.0 already supports fill layers with data-driven styling
+```
 
-**If implementing dark mode later:**
-- Keep `cssVariables: true`
-- Use `palette.mode: 'light'` and `palette.mode: 'dark'` variants
-- Use MUI's `useColorScheme()` hook for theme switching
-- Transit colors should maintain high contrast in both modes
+### Database
+```sql
+-- No extensions to install
+-- pgRouting 3.8 includes pgr_drivingDistance
+-- PostGIS 3.5 includes ST_ConcaveHull, ST_Collect, ST_Transform
+-- All already available in pgrouting/pgrouting:17-3.5-3.8
 
-**If implementing SSR (not currently in project):**
-- Use `InitColorSchemeScript` in root layout (Next.js App Router)
-- Enable `suppressHydrationWarning` on `<html>` tag
-- Ensure Emotion SSR setup is configured
+-- Verify GEOS version (run during development):
+SELECT postgis_geos_compiled_version();
+```
 
-## Version Compatibility
+## Verification Checklist
 
-| Package A | Compatible With | Notes |
-|-----------|-----------------|-------|
-| @mui/material@7.x | @emotion/react@11.x | MUI v7 requires Emotion 11.x as default engine |
-| @mui/material@7.x | @emotion/styled@11.x | Same major version as @emotion/react required |
-| @mui/material@7.x | tss-react@4.x | Verified compatible, already installed in project |
-| @mui/material@7.x | React@18.x | MUI v7 requires React 18+ |
-| @emotion/react@11.x | TypeScript@5.x | Full type support, already configured |
+Before implementation, verify these assumptions:
+
+- [ ] Run `SELECT postgis_geos_compiled_version();` in the DB container to confirm GEOS version
+- [ ] Run a test `pgr_drivingDistance` query to confirm function availability and performance
+- [ ] Run a test `ST_ConcaveHull` on a sample point set to confirm it produces valid polygons
+- [ ] Verify `geom_4326` cached WGS84 geometries exist on `edges_vertices_pgr` (may need to add -- currently only on `edges` table)
+- [ ] Test MapLibre `fill` layer with `["get", "color"]` expression on a sample FeatureCollection
 
 ## Sources
 
-**High Confidence (Context7 + Official Docs):**
-- [MUI Material UI v7.3.2 Documentation](https://github.com/mui/material-ui/blob/v7.3.2/) — Theme creation, component overrides, CSS variables
-- [Emotion Documentation](https://github.com/emotion-js/emotion) — Keyframes, styled components, performance best practices
-- [tss-react GitHub](https://github.com/garronej/tss-react) — Type-safe makeStyles alternative
+**HIGH Confidence (Official Documentation):**
+- [pgr_drivingDistance -- pgRouting Manual 3.8](https://docs.pgrouting.org/latest/en/pgr_drivingDistance.html) -- Function signature, parameters, return columns, version history
+- [ST_ConcaveHull -- PostGIS Documentation](https://postgis.net/docs/ST_ConcaveHull.html) -- Function signature, pctconvex parameter, GEOS 3.11+ enhancement note
+- [MapLibre GL JS Style Spec -- Layers](https://maplibre.org/maplibre-style-spec/layers/) -- Fill layer paint properties, data-driven styling support
+- [pgr_alphaShape Deprecation -- pgRouting Issue #2749](https://github.com/pgRouting/pgrouting/issues/2749) -- Deprecated in 3.8, replaced by PostGIS ST_ConcaveHull
 
-**Medium Confidence (WebSearch + Official Sources):**
-- [MTA Brand Colors Official](https://www.mta.info/document/168976) — Official Pantone/hex color specifications
-- [MTA Colors JSON Dataset](https://github.com/jsvine/mta-colors/blob/master/mta-colors.json) — Complete subway line color data
-- [MTA Graphics Standards Manual](https://standardsmanual.com/products/nyctacompactedition) — Historical design guide (1970)
-- [Inter Font](https://rsms.me/inter/) — Google Fonts, 414B annual requests
-- [Comparing React Animation Libraries 2026](https://blog.logrocket.com/best-react-animation-libraries/) — framer-motion vs react-spring comparison
-- [CSS vs JS Animation Performance](https://developer.mozilla.org/en-US/docs/Web/Performance/Guides/CSS_JavaScript_animation_performance) — MDN performance guide
-- [MUI Drawer Responsive Patterns](https://mui.com/material-ui/react-drawer/) — Official drawer documentation
-- [MUI Style Library Interoperability](https://mui.com/material-ui/integrations/interoperability/) — sx vs styled vs makeStyles
+**MEDIUM Confidence (Verified with Multiple Sources):**
+- [pgRouting Docker Repository](https://github.com/pgRouting/docker-pgrouting) -- Tag naming convention, PostGIS 3.5 with GEOS 3.9.0 (from README example output)
+- [PostGIS 3.5.0 Release](https://postgis.net/2024/09/PostGIS-3.5.0/) -- Minimum GEOS 3.8, recommended GEOS 3.12+
+- [Stadia Maps Isochrone Tutorial](https://docs.stadiamaps.com/tutorials/display-isochrones-on-a-map/) -- MapLibre fill layer with data-driven color/opacity from feature properties
+- [MapLibre Isochrone Example -- Maptoolkit](https://www.maptoolkit.com/doc/routing/isochrone-example-maplibre/) -- Fill + line layer pattern for isochrone visualization
+- [pgr_drivingDistance Performance Issue #882](https://github.com/pgRouting/pgrouting/issues/882) -- Array-of-vertices can crash; single-vertex calls are safe
+
+**LOW Confidence (Needs Runtime Verification):**
+- GEOS version in `pgrouting/pgrouting:17-3.5-3.8` -- Inferred as 3.9.0 from similar tag example; must verify with `postgis_geos_compiled_version()`
+- ST_ConcaveHull performance with legacy GEOS -- Estimated from general PostGIS benchmarks; must benchmark with actual data
 
 ---
-*Stack research for: NYC Open Routing Transit UI Redesign*
-*Researched: 2026-02-12*
+*Stack research for: NYC Open Routing -- Isochrone Visualization*
+*Researched: 2026-02-13*

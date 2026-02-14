@@ -1,287 +1,232 @@
-# Feature Research
+# Feature Landscape: Isochrone / Reachability Visualization
 
-**Domain:** Multi-modal routing/mapping apps with transit-inspired UI
-**Researched:** 2026-02-12
-**Confidence:** MEDIUM
+**Domain:** Isochrone (travel-time reachability) features for a multi-modal routing application
+**Researched:** 2026-02-13
+**Focus:** "How far can I go in X minutes?" visualization with concentric time bands
+**Confidence:** MEDIUM-HIGH (patterns derived from Mapbox/Valhalla/TravelTime APIs, pgRouting docs, and production isochrone tools)
 
-## Feature Landscape
+---
 
-### Table Stakes (Users Expect These)
+## Table Stakes
 
-Features users assume exist. Missing these = product feels incomplete or unprofessional.
+Features users expect from any isochrone tool. Missing these and the feature feels broken or incomplete.
 
 | Feature | Why Expected | Complexity | Notes |
 |---------|--------------|------------|-------|
-| **Responsive sidebar (240-300px expanded, 48-64px collapsed)** | Standard pattern in modern mapping apps; users expect content in 30% of viewport on desktop | LOW | CSS Grid preferred in 2026; use `grid-template-areas` for semantic layout |
-| **Turn-by-turn directions list** | Core navigation expectation; users need step-by-step guidance | LOW | Current implementation exists; needs visual polish |
-| **Route summary card (distance, duration, ETA)** | Users expect to see high-level metrics before committing to route | LOW | Already implemented; consider visual hierarchy improvements |
-| **Current step highlighting with next step preview** | Navigation pattern seen in Google Maps, Apple Maps; reduces cognitive load | MEDIUM | Requires state management for "active step" during navigation |
-| **Touch-friendly controls (44x44px minimum, 8px spacing)** | iOS/Android HIG standards; below this size creates usability issues | LOW | Audit existing controls for size compliance |
-| **Visual hierarchy (typography, color, spacing)** | Users rely on visual cues to distinguish primary/secondary info | LOW | Align with MTA-inspired design system |
-| **Loading states and error handling** | Users expect feedback during async operations; silence feels broken | LOW | Existing but may need visual consistency |
-| **Accessible color contrast (4.5:1 text, 3:1 graphics)** | WCAG 2.1 Level AA required by 2026 for public entities | MEDIUM | Audit current color palette against WCAG standards |
-| **Screen reader support (ARIA labels, semantic HTML)** | Screen readers must perceive routing information and controls | MEDIUM | Test with VoiceOver/TalkBack; add missing ARIA attributes |
-| **Keyboard navigation (no keyboard traps)** | WCAG 2.1 SC 2.1.1 requirement; users must operate without mouse | MEDIUM | Ensure all interactive elements reachable via Tab |
-| **Real-time map + controls coexistence** | Two interaction patterns (map panning vs object selection) must not conflict | MEDIUM | Avoid z-index battles; clear modal states |
-| **Mobile-optimized layout** | 60%+ of mapping app usage is mobile; desktop-only UX loses users | MEDIUM | Bottom sheet pattern is standard on iOS/Android |
-| **Geolocation/current location** | Users expect "Where am I?" functionality in any map app | LOW | Already implemented via hooks; ensure permission handling is clear |
+| Single-origin isochrone polygons | Core feature: show area reachable from a point within N minutes | HIGH | pgr_drivingDistance + PostGIS ST_ConcaveHull pipeline. Heaviest backend work. |
+| Concentric time bands (5/10/15/20 min) | Standard across all isochrone tools (Mapbox, Valhalla, TravelTime, Smappen). Users expect multiple bands to compare reach at different thresholds. | MEDIUM | 4 bands is the sweet spot. Mapbox caps at 4 contours; Valhalla allows more but 4 is standard. |
+| Multi-modal support (drive/bike/walk) | App already supports 3 modes for routing. Isochrones must support the same modes or users will be confused. | LOW | Reuses existing cost columns (cost_drive, cost_bike, cost_walk) in pgr_drivingDistance SQL. |
+| Color-coded polygon fill with transparency | Universal pattern: each time band gets a distinct color at ~30-50% opacity so the base map shows through. | LOW | MapLibre fill layer with data-driven fill-color and fill-opacity. |
+| Origin point selection via address search | App already has Geosupport address search. Isochrone origin must use the same search UX rather than requiring a separate input. | LOW | Reuse existing Search component with single-address mode. |
+| Click-on-map to set origin | Standard interaction across all isochrone tools (Smappen, iso4app, Geoapify). Users expect to click the map and see isochrones instantly. | MEDIUM | Requires new map click handler, reverse geocoding (or just use raw coordinates), and wiring to isochrone fetch. |
+| Loading state during computation | pgr_drivingDistance + polygon generation is slower than point-to-point routing (multiple Dijkstra expansions + geometry ops). Users need feedback. | LOW | Existing LoadingSpinner/isFetching pattern. |
+| Clear/reset isochrone | Users must be able to dismiss the isochrone overlay to return to the normal map view. | LOW | Clear button or toggle. Removes the fill/line layers. |
+| Responsive rendering order | Largest polygon (20 min) rendered first, smallest (5 min) on top. Otherwise transparency stacking causes color blending artifacts. | LOW | Sort features by time descending before adding to GeoJSON source, or use separate layers with explicit z-ordering. |
 
-### Differentiators (Competitive Advantage)
+---
 
-Features that set the product apart. Not required, but valuable for competitive positioning.
+## Differentiators
+
+Features that set this apart from basic isochrone tools. Not expected, but valued.
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| **MTA transit-inspired visual identity** | Unique aesthetic tied to NYC; builds local credibility vs generic map UX | MEDIUM | Use Helvetica, MTA Pantone colors, bold line markers; see Vignelli 1970 standards manual |
-| **Compact, polished route cards** | Cleaner presentation than Google Maps' utilitarian cards; shows design attention | LOW | Focus on card spacing, border radius, internal structure (gap, padding) |
-| **Mode-specific turn restrictions** | Differentiates from consumer maps; reflects real-world routing complexity | HIGH | Backend already supports; expose in UI as "bike-safe route" or "no-turn avoidance" |
-| **Static traffic awareness toggle** | Pragmatic approach vs real-time traffic (which requires expensive APIs) | LOW | Already implemented; surface value in UI ("Avoid high-traffic streets") |
-| **Ferry routing integration** | Unique to NYC context; Citymapper tracks ferries but Google Maps often ignores | MEDIUM | Backend support exists; needs UI affordance (ferry icon, route segments) |
-| **Turn icons with accessibility** | Icon + text reduces cognitive load; shape + color differentiation aids colorblind users | LOW | Already implemented; ensure contrast and ARIA labels |
-| **Route step focusing on map** | Click step → map highlights segment; spatial + list context together | MEDIUM | Requires MapLibre layer styling + click handlers |
-| **Bottom sheet on mobile (non-modal)** | Google Maps pattern; allows map interaction while viewing route details | HIGH | React implementation requires gesture handling, snap points, drag physics |
-| **Adaptive layout (desktop sidebar ↔ mobile bottom sheet)** | Seamless experience across devices without duplicate code | MEDIUM | Conditional rendering based on viewport; existing `AdaptiveLayout` component |
-| **Progressive disclosure in route cards** | Show summary → expand for turn-by-turn; reduces visual clutter | MEDIUM | Collapsible sections with smooth transitions |
-| **Smart defaults (drive in AM, bike in PM)** | Reduces clicks for repeat users; shows contextual intelligence | LOW | Client-side logic based on time of day |
+| Traffic-aware isochrones (drive mode) | Most isochrone tools use free-flow speeds. NYC Open Routing already has traffic factors -- applying them to isochrone costs shows realistic drive-time reach during rush hour vs off-peak. Unique for a self-hosted tool. | MEDIUM | Use cost_drive * traffic_factor in pgr_drivingDistance SQL, same as getdrivingroute_with_traffic. Time-of-day support included. |
+| Edge-based visualization (colored streets) | Instead of (or alongside) polygon blobs, color each reachable street segment by its time band. More accurate than polygons -- shows exactly which streets are reachable and avoids the "concave hull swallowing unreachable areas" problem. | MEDIUM | pgr_drivingDistance returns node+edge pairs. Color edges directly as line layers in MapLibre. No polygon generation needed for this view. |
+| Time slider for band adjustment | Let users drag a slider to adjust the max time (e.g., 1-30 min). Isochrone updates live as slider moves. More engaging than fixed presets. | MEDIUM | Frontend slider component + debounced API calls. Requires fast backend response (<1s) or client-side caching of the full node set. |
+| Isochrone deep links (URL sharing) | Encode origin, mode, time bands, and traffic setting in URL params so isochrones can be shared. Consistent with existing route deep link pattern. | LOW | Extend existing useRouteStateSync hook. Add params like `iso_origin=lon,lat&iso_mode=drive&iso_time=20`. |
+| Summary statistics in sidebar | Show area covered (sq mi), estimated population reached, or street count within each band. Gives the isochrone practical meaning beyond "cool map visual." | MEDIUM | Area: PostGIS ST_Area on polygons. Population: would need census data overlay (defer). Street count: COUNT from pgr_drivingDistance result. |
+| Animated isochrone expansion | Smooth animation showing the isochrone growing outward from the origin, band by band. Visually engaging "reveal" effect. | LOW-MEDIUM | Sequential opacity transitions on each band layer with staggered delays. CSS/MapLibre paint property transitions. |
+| Dual-mode comparison | Show two isochrones side-by-side (e.g., drive vs walk from same origin) to visually compare modal reach. | MEDIUM | Two concurrent API calls, two sets of fill layers with different color ramps. Need careful z-order and legend. |
 
-### Anti-Features (Commonly Requested, Often Problematic)
+---
 
-Features that seem good but create problems or are deliberately excluded.
+## Anti-Features
 
-| Feature | Why Requested | Why Problematic | Alternative |
-|---------|---------------|-----------------|-------------|
-| **Real-time traffic data** | Users expect live congestion like Google Maps | Requires expensive APIs (Google Traffic, TomTom); cost prohibitive for POC | Static traffic factors from NYC DOT data; toggle for "avoid high-traffic streets" |
-| **Turn-by-turn voice navigation** | Users think "routing app = voice guidance" | Requires background location, audio handling, distraction-free UI; scope creep for POC | Clear visual directions designed for pre-trip review, not in-car use |
-| **Route customization (avoid highways, tolls)** | Power users want control | Adds UI complexity; pgRouting cost customization is non-trivial; diminishing returns | Mode selection + traffic toggle covers 80% of use cases |
-| **Multi-stop routing (waypoints)** | Delivery drivers, tour planning | Exponentially harder routing problem; UX complexity (reordering, optimizing) | Single origin-destination; suggest multiple searches |
-| **Offline maps** | "I want to use it on the subway" | 100+ MB downloads; cache management; NYC coverage = ~500 MB compressed | Assume connectivity; focus on fast load times instead |
-| **Real-time everything (live bus positions, etc.)** | "Citymapper has it" | Requires MTA BusTime API integration; maintenance burden; feature creep | Focus on static routing excellence; defer real-time to production product |
-| **Hamburger menu navigation** | "Put settings in a menu" | 2026 UI pitfall; hides critical controls; mobile users expect bottom tabs or visible controls | Persistent controls in sidebar/bottom sheet; settings in modal if needed |
-| **Excessive animations** | "Make it feel dynamic" | Slows perceived performance; accessibility issue for motion-sensitive users | Subtle transitions (200-300ms); respect `prefers-reduced-motion` |
-| **"AI-powered" route suggestions** | "Use AI to predict where I'm going" | Buzzword-driven feature; privacy concerns; no user value without usage history | Simple, transparent routing based on explicit user input |
+Features to explicitly NOT build. These add complexity without proportional value for a proof-of-concept.
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Reverse isochrone ("where can reach ME in X minutes") | Requires running pgr_drivingDistance from every node to the target, or a reverse Dijkstra. Computationally expensive for a PoC. Valhalla supports it but it is a niche use case. | Build standard forward isochrone only. Note reverse as future possibility. |
+| Multi-origin isochrone merge/intersection | Overlaying isochrones from multiple origins and computing their union/intersection is an analytics feature (site selection, facility placement). Way beyond PoC scope. | Support single-origin only. |
+| Isodistance (distance-based instead of time-based) | Time-based isochrones are more intuitive and useful for most users. Distance-based adds a second mode that needs UI controls without much added value. | Only support time-based. The edge costs are already in time units. |
+| POI overlay / demographic analysis | Smappen and TravelTime offer POI counts and census overlays within isochrones. This requires external data integration (NYC open data, census API) that is a separate project. | Show the polygon on the map. Let the user visually assess what is within reach. |
+| Real-time isochrone updates as origin is dragged | Continuously recomputing isochrones while dragging a marker requires sub-100ms response times. pgr_drivingDistance on 177K edges will not hit that. | Use click-to-place (not drag) and show loading during computation. |
+| Custom time interval entry | Letting users type arbitrary minute values (e.g., 7, 13, 22) instead of using preset bands. Over-engineers the UI for minimal value. | Use fixed presets: 5, 10, 15, 20 min. A slider (differentiator) covers the "custom" need. |
+| GeoTIFF / raster export | Valhalla supports GeoTIFF export for grid data. Overkill for a web visualization PoC. | Display polygons on the map only. No export needed. |
+| Public transit isochrone | Would require GTFS data integration, schedule-aware routing, and a fundamentally different routing engine. Massive scope increase. | Stick with drive/bike/walk modes that match existing routing capabilities. |
+| Polygon smoothing (ST_ChaikinSmoothing) | Adds visual polish but can mask real network topology. Smoothed polygons may cover areas that are genuinely unreachable (rivers, parks, fenced areas). | Use raw concave hull output. The slight roughness is more honest and costs zero extra computation. |
+
+---
 
 ## Feature Dependencies
 
 ```
-Responsive Sidebar
-    └──requires──> Adaptive Layout
-                      └──requires──> useResponsive hook
-
-Bottom Sheet (mobile)
-    └──requires──> Adaptive Layout
-    └──requires──> Gesture handling library (e.g., react-spring)
-    └──requires──> Snap points logic
-
-Route Step Focusing
-    └──requires──> MapLibre layer styling
-    └──requires──> Click handlers on route list
-    └──enhances──> Turn-by-turn directions
-
-Current Step Highlighting
-    └──requires──> Navigation state management
-    └──enhances──> Route Step Focusing
-
-Screen Reader Support
-    └──requires──> Semantic HTML
-    └──requires──> ARIA labels
-    └──conflicts──> Overly complex animations (cognitive load)
-
-MTA Visual Identity
-    └──requires──> Design system (colors, typography, spacing)
-    └──enhances──> Route cards, turn icons, map styling
-
-Ferry Routing
-    └──requires──> Backend ferry network integration (done)
-    └──requires──> UI affordances (icon, toggle, legend)
-    └──enhances──> Multi-modal routing
-
-Traffic Toggle
-    └──requires──> Backend traffic data (done)
-    └──requires──> API parameter `use_traffic`
-    └──conflicts──> Real-time traffic (choose static OR real-time, not both)
+Address Search (existing) -----> Origin Selection
+                                      |
+                                      v
+Click-on-Map Origin -----------> Isochrone API Endpoint
+                                      |
+                                      v
+Travel Mode Select (existing) -> pgr_drivingDistance SQL Functions
+                                      |
+                                      v
+                              Polygon Generation (ST_ConcaveHull)
+                                      |
+                              +-------+--------+
+                              |                |
+                              v                v
+                     Polygon Fill Layer   Edge-Based Layer
+                     (concentric bands)  (colored streets)
+                              |                |
+                              +-------+--------+
+                                      |
+                                      v
+                              Isochrone UI Controls
+                              (time presets, clear, toggle)
+                                      |
+                              +-------+--------+-------+
+                              |       |        |       |
+                              v       v        v       v
+                        Traffic   Time      Deep    Summary
+                        Toggle   Slider    Links    Stats
 ```
 
-### Dependency Notes
+**Critical path:** Origin Selection -> API Endpoint -> SQL Functions -> Polygon Generation -> Map Layer
 
-- **Adaptive Layout is foundational**: Desktop sidebar and mobile bottom sheet both depend on this; prioritize early.
-- **Accessibility features cluster together**: Semantic HTML → ARIA labels → keyboard navigation → screen reader testing forms a logical progression.
-- **MTA visual identity enhances multiple features**: Route cards, icons, map theming all benefit from consistent design system; define design tokens early.
-- **Backend features already exist**: Traffic, ferry, mode-specific restrictions are implemented; UI just needs to surface them.
+**Independent after core:** Traffic toggle, time slider, deep links, and summary stats can all be built independently once the core isochrone pipeline works.
 
-## MVP Definition
+**Edge-based vs polygon:** These are two visualization approaches for the same underlying data (pgr_drivingDistance result). Edge-based is simpler (no polygon generation), but polygon is more conventional. Build polygon first, add edge-based as an enhancement.
 
-### Launch With (v1)
+---
 
-Minimum viable product — what's needed to validate the transit-inspired redesign concept.
+## MVP Recommendation
 
-- [x] **Responsive sidebar (desktop)** — Table stakes; users expect sidebar on large screens
-- [x] **Turn-by-turn directions list** — Core navigation feature; already exists, needs polish
-- [x] **Route summary card** — High-level metrics; already exists, needs visual redesign
-- [x] **MTA-inspired visual identity** — Differentiator; validates design direction
-- [x] **Polished route cards** — Differentiator; shows design attention vs generic UX
-- [x] **Turn icons with colors** — Low-hanging fruit; improves scannability
-- [x] **Travel mode selector** — Already exists; needs visual alignment with MTA theme
-- [x] **Traffic toggle** — Already exists; surface value more clearly
-- [x] **Touch-friendly controls (44x44px)** — Table stakes for mobile; audit existing controls
-- [x] **Basic accessibility (contrast, labels)** — WCAG compliance is non-negotiable for 2026
-- [ ] **Mobile bottom sheet (basic)** — Table stakes for mobile UX; non-modal pattern preferred
-- [ ] **Route step focusing on map** — Differentiator; connects list + map context
+**Prioritize these features for the initial isochrone milestone:**
 
-### Add After Validation (v1.x)
+1. **pgr_drivingDistance SQL functions** (3 modes) -- Backend foundation. Nothing works without this.
+2. **Polygon generation via ST_ConcaveHull** -- Converts node set to displayable GeoJSON polygons.
+3. **API endpoint** (`GET /api/isochrone`) -- Serves polygon GeoJSON to the frontend.
+4. **Concentric band fill layers** (5/10/15/20 min) -- Core visualization on the map.
+5. **Origin via address search** -- Reuse existing Search component in single-address mode.
+6. **Click-on-map origin** -- Standard isochrone interaction pattern.
+7. **Mode selection** -- Reuse existing TravelModeSelect toggle.
+8. **Clear/reset button** -- Essential for dismissing the isochrone overlay.
+9. **Loading state** -- Required given computation time.
 
-Features to add once core redesign is validated and feedback collected.
+**Defer to post-MVP:**
+- **Traffic-aware isochrones:** HIGH value but adds complexity to the SQL and requires testing the traffic factor pipeline with pgr_drivingDistance. Ship basic isochrones first, then layer traffic on.
+- **Time slider:** Nice UX but requires fast response times or client-side caching strategy. Fixed presets work fine for V1.
+- **Edge-based visualization:** Alternative view mode. Add after polygon approach is solid.
+- **Deep links:** Low complexity but not needed for initial feature validation.
+- **Summary statistics:** Requires additional SQL aggregation and sidebar UI work.
+- **Animated expansion:** Pure polish. Add last.
+- **Dual-mode comparison:** Complex UI. Defer to a future milestone.
 
-- [ ] **Progressive disclosure in cards** — Reduces clutter; add after card design is stable
-- [ ] **Current step highlighting** — Navigation enhancement; requires state management
-- [ ] **Ferry routing UI** — Backend exists; add UI affordances after core UX is solid
-- [ ] **Advanced accessibility** — Full keyboard nav, screen reader optimization, motion preferences
-- [ ] **Smart defaults (time-based mode)** — Nice-to-have intelligence; easy to add later
-- [ ] **Geolocation button in mobile sheet** — Convenience feature; add after bottom sheet is stable
+---
 
-### Future Consideration (v2+)
+## UX Pattern Recommendations
 
-Features to defer until product-market fit is established and scope expands beyond POC.
+### Origin Placement
 
-- [ ] **Advanced bottom sheet (snap points, gestures)** — High complexity; polish after basic version works
-- [ ] **Offline maps** — Massive scope; not viable for POC
-- [ ] **Multi-stop routing** — Algorithmic complexity; separate project
-- [ ] **Voice navigation** — Scope creep; requires product pivot
-- [ ] **Real-time traffic integration** — Cost prohibitive; static traffic is pragmatic
+**Pattern:** Two entry points for setting the isochrone origin:
+1. **Address search** -- Single input field (not the two-input origin/destination UI). User types an NYC address, selects from autocomplete, isochrone computes.
+2. **Map click** -- User clicks anywhere on the map. A marker appears, isochrone computes. Clicking elsewhere moves the origin.
 
-## Feature Prioritization Matrix
+**Rationale:** Every production isochrone tool (Smappen, Geoapify, iso4app, TravelTime) supports both patterns. Address-only forces users to know exact addresses; click-only prevents precise address entry.
 
-| Feature | User Value | Implementation Cost | Priority |
-|---------|------------|---------------------|----------|
-| Responsive sidebar | HIGH | LOW | P1 |
-| MTA visual identity | HIGH | MEDIUM | P1 |
-| Polished route cards | MEDIUM | LOW | P1 |
-| Turn icons + colors | MEDIUM | LOW | P1 |
-| Touch-friendly controls | HIGH | LOW | P1 |
-| Basic accessibility (WCAG AA) | HIGH | MEDIUM | P1 |
-| Mobile bottom sheet (basic) | HIGH | MEDIUM | P1 |
-| Route step focusing | MEDIUM | MEDIUM | P1 |
-| Traffic toggle (polish) | LOW | LOW | P2 |
-| Ferry routing UI | LOW | MEDIUM | P2 |
-| Progressive disclosure | MEDIUM | MEDIUM | P2 |
-| Current step highlighting | MEDIUM | MEDIUM | P2 |
-| Advanced accessibility | HIGH | HIGH | P2 |
-| Smart defaults | LOW | LOW | P3 |
-| Advanced bottom sheet | MEDIUM | HIGH | P3 |
-| Multi-stop routing | LOW | HIGH | P3 |
-| Offline maps | LOW | HIGH | P3 |
-| Voice navigation | LOW | HIGH | P3 |
+### Time Band Controls
 
-**Priority key:**
-- **P1**: Must have for launch (redesign validation)
-- **P2**: Should have, add when possible (polish + usability)
-- **P3**: Nice to have, future consideration (scope expansion)
+**Pattern:** Fixed preset buttons (5 / 10 / 15 / 20 min) displayed as toggle chips or a segmented control, with all selected by default.
 
-## Competitor Feature Analysis
+**Rationale:** Mapbox caps at 4 contours per request. Valhalla defaults to ~4 intervals. Users understand concentric rings when there are 3-5 bands. More than 5 becomes visually noisy. Allow toggling individual bands on/off.
 
-| Feature | Google Maps | Apple Maps | Citymapper | Our Approach |
-|---------|-------------|------------|------------|--------------|
-| **Sidebar design** | Desktop: persistent sidebar; Mobile: bottom sheet | iOS: bottom sheet only | Mobile-first bottom sheet | Desktop sidebar + mobile bottom sheet (adaptive) |
-| **Turn-by-turn UI** | Current step + next step in card; lane guidance | Current step in floating nav bar | Current step + next 2 steps | Current step + icon + distance; MTA visual style |
-| **Visual design** | Neutral grays, blue accents, traffic colors (green/yellow/red) | White UI (day), dark UI (night); bold icons for POIs | Transit-inspired colors, bold route lines | **MTA Pantone colors, Helvetica, bold line markers** |
-| **Route cards** | Utilitarian; distance/duration in header | Minimalist; ETA prominent | Compact cards with emoji icons | **Polished cards with MTA-inspired spacing + colors** |
-| **Multi-modal routing** | Drive, bike, walk, transit (real-time) | Drive, bike, walk, transit | **Transit-first; ferries, trams, everything** | Drive, bike, walk + ferry (static data, no real-time) |
-| **Traffic** | Real-time traffic overlay; color-coded | Real-time traffic; incidents shown | Real-time transit delays | **Static traffic factors; toggle for "avoid high-traffic"** |
-| **Offline maps** | Download regions (100+ MB) | Download regions | No offline mode | **No offline; focus on fast load times** |
-| **Accessibility** | Screen reader support, wheelchair-accessible transit | Screen reader, wheelchair routes | Limited accessibility | **WCAG 2.1 AA compliance; screen reader + keyboard nav** |
-| **Mobile UX** | Non-modal bottom sheet; swipe to expand | Non-modal bottom sheet | Bottom sheet with snap points | **Non-modal bottom sheet; adaptive layout** |
-| **Route sharing** | Share via URL, SMS, email | Share via iMessage, AirDrop | Share via URL | Defer to v2+ |
-| **Saved routes/favorites** | Saved places; starred locations | Favorites, collections | Saved routes, "Get Me Home" | Defer to v2+ |
+### Color Scheme
 
-## Design Pattern Insights from Research
+**Recommendation:** Use a sequential ColorBrewer palette (colorblind-safe) with 4 classes. Specific recommendation:
 
-### Modern Mapping App Patterns (2026)
+| Band | Time | Color | Hex | Opacity |
+|------|------|-------|-----|---------|
+| 1 | 5 min | Dark green | #238b45 | 0.40 |
+| 2 | 10 min | Medium green | #74c476 | 0.35 |
+| 3 | 15 min | Light orange | #fd8d3c | 0.30 |
+| 4 | 20 min | Orange-red | #e6550d | 0.25 |
 
-1. **Bottom sheet is the standard on mobile**: Google Maps, Apple Maps, and transit apps use non-modal bottom sheets that allow map interaction while viewing details. Modal sheets are only for settings or destructive actions.
+**Rationale:** Green-to-red is intuitive (close = good/green, far = caution/orange-red). Decreasing opacity on outer bands prevents the map from being overwhelmed. ColorBrewer sequential palettes are proven colorblind-safe.
 
-2. **3-5 primary destinations in navigation**: Cognitive load research shows users can scan 3-5 choices; more requires scrolling and degrades UX. iOS users expect bottom tabs; Android follows Material bottom navigation.
+**Alternative for mode-specific coloring:** Use the existing `MODE_COLORS` from the app theme (blue for drive, green for bike, yellow for walk) with lightness-graduated bands within each hue. This maintains visual consistency with the existing route display.
 
-3. **Visual hierarchy over information density**: Google Maps uses bold colors for important icons (red destination pin, highway markers) and subdued colors for less critical info. MTA uses shape + color for accessibility (triangle = warning, diamond = severe).
+### Polygon Rendering Order
 
-4. **Container queries > media queries in 2026**: Components should respond to parent container, not just viewport. Sidebar width should drive internal layout, not screen width.
+**Pattern:** Render the largest polygon (20 min) first as the bottom layer. Render smallest (5 min) last on top. Each polygon's fill color uses decreasing opacity so all bands remain visible.
 
-5. **Touch targets are non-negotiable**: 44x44px minimum (iOS HIG); 48x48px preferred (Material Design). 8px spacing between targets prevents mis-taps.
+**Rationale:** Without this ordering, overlapping transparent polygons create color blending artifacts where the 5-min area appears darker than intended (stacked opacity from all 4 layers). The Mapbox isochrone tutorial and Stadia Maps tutorial both follow this pattern.
 
-6. **Accessibility is table stakes**: WCAG 2.1 Level AA is legally required for public entities by April 2026. Screen readers, keyboard navigation, 4.5:1 contrast are baseline, not nice-to-haves.
+### Sidebar Integration
 
-7. **Transit apps prioritize clarity over features**: Citymapper users praise it for "consistently more reliable" tube directions vs Google/Apple. Focus on doing fewer things well.
+**Pattern:** The isochrone feature should be a distinct "mode" from point-to-point routing, not layered on top of it. When the user activates isochrone mode:
+- The two-input search (origin/destination) collapses to a single-input search (origin only)
+- The RouteList (turn-by-turn directions) is replaced by isochrone summary info (time bands, area)
+- The travel mode selector remains
+- Traffic toggle remains (drive mode only, same as routing)
 
-### MTA Design System Insights
+**Rationale:** Isochrone and point-to-point routing are fundamentally different features with different inputs (1 point vs 2 points) and different outputs (polygons vs route line). Trying to show both simultaneously creates visual and cognitive overload.
 
-- **Helvetica typography**: Replaced Standard Medium in 1989; still the system typeface. Clean, readable, iconic.
-- **10 Pantone spot colors** for subway lines: Precise color system for line identification; accessible color + number system.
-- **Modernist graphics from 1970 Vignelli standards**: Stark, logical, thorough analysis of system; still influences signage today.
-- **Shape + color for accessibility**: Different icon shapes (triangle, diamond) for colorblind users; not just red/yellow.
+### Mode Switching
 
-### Anti-Patterns to Avoid
+**Pattern:** Add a toggle or tab at the top of the sidebar: "Directions" | "Reachability" (or "How Far?"). This switches the entire sidebar between routing mode and isochrone mode.
 
-- **Hinting instead of acting**: Don't bounce UI to suggest swipe; just open the panel when user taps.
-- **Conflicting interaction patterns**: Map panning vs object selection must be clearly separated (modal states, z-index management).
-- **Information overload without hierarchy**: Users can't tell what's important; cluster markers, simplify at low zoom.
-- **Performance as afterthought**: Beautiful but slow map = bad UX; load hundreds of markers → use clustering.
-- **Hamburger menus in 2026**: Hides critical controls; users expect visible controls or bottom tabs.
-- **Excessive animations**: Slows perceived performance; violates `prefers-reduced-motion`.
+**Rationale:** Google Maps uses tabs for different feature modes. This keeps the UI clean and avoids the "too many controls" problem. The map clears the previous mode's visualization when switching.
+
+---
+
+## Competitive Landscape
+
+### What Production Tools Offer
+
+| Feature | Mapbox | Valhalla | TravelTime | Smappen | OpenRouteService | **NYC Open Routing (proposed)** |
+|---------|--------|----------|------------|---------|-----------------|-------------------------------|
+| Max contours | 4 | Unlimited | Unlimited | 10+ | 10 | 4 (fixed) |
+| Max time | 60 min | Configurable | 4 hrs | 12 hrs | 60 min | 20 min |
+| Modes | drive, walk, cycle, traffic | auto, bike, pedestrian, multimodal | All + transit | car, bike, walk, transit | car, bike, walk | drive, bike, walk |
+| Polygon method | Raster contour | Raster contour | Proprietary | Proprietary | Proprietary | Network (pgr_drivingDistance + ST_ConcaveHull) |
+| Traffic-aware | Yes (drive) | Yes (auto) | Yes | Limited | No | Yes (drive, unique for self-hosted) |
+| Edge-based view | No | No | No | No | No | **Possible differentiator** |
+| POI overlay | No (via other APIs) | No | Yes | Yes (250M POIs) | No | No (anti-feature) |
+| Reverse isochrone | No | Yes | Yes | No | No | No (anti-feature) |
+| Self-hosted | No (SaaS) | Yes (OSS) | No (SaaS) | No (SaaS) | Yes (OSS) | **Yes** |
+| Cost | Per-request pricing | Free (self-hosted) | Per-request pricing | Subscription | Free | **Free** |
+
+### NYC Open Routing's Niche
+
+The differentiators for this project are:
+1. **NYC-specific network data** (LION dataset) -- more accurate for NYC than OSM-based tools
+2. **Traffic-aware isochrones** using real NYC DOT traffic data -- no other self-hosted tool offers this
+3. **Edge-based visualization** -- shows actual reachable streets rather than polygon approximations
+4. **Integrated with existing routing** -- same app does point-to-point and reachability, switching between them seamlessly
+
+---
 
 ## Sources
 
-### Map UI Design Patterns
-- [Map UI Patterns](https://www.mapuipatterns.com/) — Comprehensive pattern library for mapping interfaces
-- [Map UI Design: Best Practices (Eleken)](https://www.eleken.co/blog-posts/map-ui-design) — Design principles and examples
-- [Map UI Layouts and Design Tips (UXPin)](https://www.uxpin.com/studio/blog/map-ui/) — Layout patterns and interaction design
-
-### Transit & MTA Design
-- [MYmta Redesign (WMC)](https://www.wallacemaxwellcotton.com/mta-app) — Case study of MTA app redesign
-- [MTA's New Transit App Design (Fast Company)](https://www.fastcompany.com/90938540/the-mtas-transit-app-was-a-nightmare-to-use-the-new-app-promises-to-be-better) — User-centric redesign insights
-- [MTA Pantone Colors (6sqft)](https://www.6sqft.com/did-you-know-the-mta-uses-pantone-colors-to-distinguish-train-lines/) — MTA color system
-- [Vignelli's Design Influence (Medium)](https://medium.com/nightingale/how-vignellis-design-still-influences-nyc-s-subway-maps-today-63159e8845c9) — 1970 standards manual legacy
-
-### Responsive Design & Sidebars
-- [Sidebar Design Best Practices (UX Planet)](https://uxplanet.org/best-ux-practices-for-designing-a-sidebar-9174ee0ecaa2) — Width, layout, hierarchy
-- [Sidebar UI Design (Mobbin)](https://mobbin.com/glossary/sidebar) — Design variants and examples
-- [CSS Fixed Sidebars 2026 Best Practices](https://copyprogramming.com/howto/css-fixed-left-and-right-sidebar-css) — CSS Grid, container queries
-
-### Mobile Patterns & Bottom Sheets
-- [Bottom Sheets: Definition and UX Guidelines (Nielsen Norman Group)](https://www.nngroup.com/articles/bottom-sheet/) — Modal vs non-modal patterns
-- [Bottom Sheets vs Fullscreen Modals (Design for Native)](https://designfornative.com/bottom-sheets-vs-fullscreen-modals/) — When to use each
-- [Mobile Navigation UX Best Practices 2026](https://www.designstudiouiux.com/blog/mobile-navigation-ux/) — Bottom tabs, navigation patterns
-- [UI Changes in iOS 26 (Design for Native)](https://designfornative.com/ui-changes-in-ios-26-thats-not-about-liquid-glass/) — Toolbar updates, modal behavior
-
-### Route Cards & Turn-by-Turn UI
-- [Route Directions Pattern (Map UI Patterns)](https://mapuipatterns.com/route-directions/) — Current step, next step, lane guidance
-- [Navigation Template (Android Developers)](https://developer.android.com/design/ui/cars/guides/templates/navigation-template) — Routing state design
-- [Cards Design Pattern (UI Patterns)](https://ui-patterns.com/patterns/cards) — Flexible layouts, internal structure
-
-### Accessibility
-- [Accessible Indoor Navigation 2026 ADA Compliance](https://navigine.com/blog/accessible-indoor-navigation-the-2026-guide-to-compliance-and-universal-design/) — WCAG framework for maps
-- [Is Google Maps Accessible? (Accessible Web)](https://accessibleweb.com/question-answer/is-google-maps-accessible/) — Screen reader support, keyboard nav
-- [Interactive Maps and Accessibility (BOIA)](https://www.boia.org/blog/interactive-maps-and-accessibility-4-tips) — WCAG 2.1 requirements
-- [Mobile App Accessibility Guide 2026](https://www.accessibilitychecker.org/guides/mobile-apps-accessibility/) — Screen readers, contrast, touch targets
-
-### Competitor Analysis
-- [Google Maps vs Apple Maps 2026 (Holafly)](https://esim.holafly.com/reviews/google-maps-vs-apple-maps/) — Feature comparison
-- [Google Maps vs Apple Maps Feature by Feature (Appmus)](https://appmus.com/vs/google-maps-vs-apple-maps) — Street View, privacy, navigation
-- [Citymapper Review (FlightDeck)](https://www.pilotplans.com/blog/citymapper-review) — Transit-first approach
-- [Google Maps vs Citymapper (Android Police)](https://www.androidpolice.com/google-maps-vs-citymapper/) — Public transit comparison
-
-### Anti-Patterns & Pitfalls
-- [UX Antipatterns: Hinting Instead of Acting](https://michaelboeke.com/posts/ux-antipatterns-hinting-instead-of-acting/) — Interaction design failures
-- [7 UI Pitfalls Mobile App Developers Should Avoid 2026](https://www.webpronews.com/7-ui-pitfalls-mobile-app-developers-should-avoid-in-2026/) — Hamburger menus, excessive animations, accessibility oversights
-
-### Feature Expectations & Trends
-- [Must-Have Mobile App Features Users Expect 2026](https://www.dotcominfoway.com/blog/must-have-mobile-app-features-users-will-expect-in-2026/) — AI personalization, security, technical stability
-- [App Trends 2026 (Mindster)](https://mindster.com/mindster-blogs/app-trends-2026/) — Intelligence, privacy, accessibility
-- [Map App Market Growth (Industry Research)](https://www.industryresearch.biz/market-reports/map-app-market-107642) — CAGR 14.89% through 2035
-
-### Offline & Advanced Features
-- [Offline Maps in Mobile Apps (Glance)](https://thisisglance.com/learning-centre/whats-the-best-way-to-handle-offline-maps-in-mobile-apps) — Technical approaches, compression
-- [Best Offline Maps Apps 2026 (AppsHunter)](https://appshunter.io/ios/topics/offline-maps) — Organic Maps, HERE WeGo
-- [Route Sharing Features (On The Go Map)](https://onthegomap.com/) — Public URLs, read-only sharing
-- [Multi-Stop Route Planners 2026 (Upper)](https://www.upperinc.com/blog/best-multi-stop-route-planner-app/) — Waypoint management, optimization
+- [pgr_drivingDistance - pgRouting Manual 3.8](https://access.crunchydata.com/documentation/pgrouting/3.8.0/pgr_drivingDistance.html) -- Function signature, algorithm (Dijkstra-based), return columns, directed/equicost options
+- [Valhalla Isochrone API Reference](https://valhalla.github.io/valhalla/api/isochrone/api-reference/) -- Contour parameters, costing models, denoise/generalize options, GeoJSON response format
+- [Mapbox Isochrone API Documentation](https://docs.mapbox.com/api/navigation/isochrone/) -- 4-contour max, 60-min max, profiles, rate limits, polygon vs linestring output
+- [Mapbox Isochrone Tutorial](https://docs.mapbox.com/help/tutorials/get-started-isochrone-api/) -- Reference implementation with mode selector and time controls
+- [Visualize Travel Time with Isochrones in MapLibre GL JS - Stadia Maps](https://docs.stadiamaps.com/tutorials/display-isochrones-on-a-map/) -- Fill layer implementation, color assignment via feature properties, 3-band example (5/10/15 min)
+- [PostGIS ST_ConcaveHull](https://postgis.net/docs/ST_ConcaveHull.html) -- Concave hull for polygon generation from node points
+- [PostGIS ST_AlphaShape](https://postgis.net/docs/ST_AlphaShape.html) -- Alpha shape alternative (requires SFCGAL)
+- [Isochrones are not Alpha Shapes - Darafei Praliaskouski](https://www.patreon.com/posts/isochrones-are-20933638) -- Why alpha shapes are flawed for isochrones (don't nest, miss holes)
+- [Isochrone Map UX Patterns](https://ux-patterns.webgeodatavore.com/isochrone-map/index.html) -- Definition and common usage patterns
+- [Dataviz Catalogue: Isochrone Maps](https://datavizcatalogue.com/blog/isochrone-maps/) -- Visualization approaches (polygon, heatmap, colored streets), color coding patterns
+- [ColorBrewer](https://colorbrewer2.org/) -- Colorblind-safe sequential palettes for 4-class isochrone bands
+- [GraphHopper: High Precision Reachability with deck.gl](https://www.graphhopper.com/blog/2018/07/04/high-precision-reachability/) -- Edge-based vs polygon visualization, Voronoi cell approach
+- [Smappen Features](https://www.smappen.com/features/) -- POI overlay, demographic analysis, multi-origin (anti-feature reference)
+- [TravelTime Products](https://traveltime.com/products) -- Multi-polygon output, transit support (feature comparison reference)
+- [OpenRouteService](https://openrouteservice.org/) -- Open-source isochrone generation, 10-interval/60-min limits
+- [Isochrone OpenStreetMap Wiki](https://wiki.openstreetmap.org/wiki/Isochrone) -- Edge-based coloring alternative, community tool listings
+- [Wikipedia: Isochrone Map](https://en.wikipedia.org/wiki/Isochrone_map) -- Definition, history, use in urban planning
 
 ---
-*Feature research for: NYC Open Routing UI Redesign (Transit-Inspired)*
-*Researched: 2026-02-12*
+*Feature research for: NYC Open Routing Isochrone/Reachability Milestone*
+*Researched: 2026-02-13*
