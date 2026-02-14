@@ -9,12 +9,12 @@ Requirements for departure time feature. Each maps to roadmap phases.
 
 ### Departure Time
 
-- [ ] **TIME-01**: User can select a departure day and hour via a compact picker in the sidebar
-- [ ] **TIME-02**: Picker defaults to "Now" (current time) and shows "Leave at [day] [time]" when a custom time is set
-- [ ] **TIME-03**: User can reset to "Now" with a single action
+- [x] **TIME-01**: User can select a departure day and hour via a compact picker in the sidebar
+- [x] **TIME-02**: Picker defaults to "Now" (current time) and shows "Leave at [day] [time]" when a custom time is set
+- [x] **TIME-03**: User can reset to "Now" with a single action
 - [ ] **TIME-04**: Selected departure time is passed as `hour` and `day_of_week` to route and isochrone API calls
 - [ ] **TIME-05**: Departure time persists in URL query params for shareable deep links
-- [ ] **TIME-06**: Departure time picker is only shown when traffic toggle is enabled (drive mode)
+- [x] **TIME-06**: Departure time picker is only shown when traffic toggle is enabled (drive mode)
 
 ## Future Requirements
 
@@ -33,12 +33,12 @@ None identified.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| TIME-01 | Phase 7 | Pending |
-| TIME-02 | Phase 7 | Pending |
-| TIME-03 | Phase 7 | Pending |
+| TIME-01 | Phase 7 | Complete |
+| TIME-02 | Phase 7 | Complete |
+| TIME-03 | Phase 7 | Complete |
 | TIME-04 | Phase 8 | Pending |
 | TIME-05 | Phase 8 | Pending |
-| TIME-06 | Phase 7 | Pending |
+| TIME-06 | Phase 7 | Complete |
 
 **Coverage:**
 - v2.1 requirements: 6 total
@@ -47,4 +47,4 @@ None identified.
 
 ---
 *Requirements defined: 2026-02-14*
-*Last updated: 2026-02-14 after roadmap creation*
+*Last updated: 2026-02-14 after phase 7 execution*

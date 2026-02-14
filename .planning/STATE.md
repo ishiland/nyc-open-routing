@@ -5,15 +5,15 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** v2.1 Departure Time — Phase 7 (Departure Time Picker)
+**Current focus:** v2.1 Departure Time — Phase 8 (API and URL Integration)
 
 ## Current Position
 
 Milestone: v2.1 Departure Time
-Phase: 7 of 8 (Departure Time Picker)
-Plan: 1 of 1 complete
-Status: Phase 7 plans complete
-Last activity: 2026-02-14 — Completed 07-01-PLAN.md (Departure Time Picker)
+Phase: 8 of 8 (API and URL Integration)
+Plan: Not started
+Status: Ready to plan phase 8
+Last activity: 2026-02-14 — Phase 7 complete
 
 Progress: [██████████] 100%
 
@@ -46,9 +46,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 07-01-PLAN.md (Departure Time Picker)
+Stopped at: Phase 7 complete, ready to plan phase 8
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after 07-01 plan execution*
+*Last updated: 2026-02-14 after phase 7 execution*

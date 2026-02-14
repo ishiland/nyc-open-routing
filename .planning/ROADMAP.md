@@ -14,7 +14,7 @@
 - Integer phases (7, 8): Planned milestone work
 - Decimal phases (7.1, 7.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 7: Departure Time Picker** - Compact day/hour picker with "Now" default, reset, and conditional visibility
+- [x] **Phase 7: Departure Time Picker** - Compact day/hour picker with "Now" default, reset, and conditional visibility ✓ (2026-02-14)
 - [ ] **Phase 8: API and URL Integration** - Wire departure time into route/isochrone API calls and URL query params
 
 ## Phase Details
@@ -31,7 +31,7 @@
 **Plans:** 1 plan
 
 Plans:
-- [ ] 07-01-PLAN.md — DepartureTimePicker component and sidebar wiring
+- [x] 07-01-PLAN.md — DepartureTimePicker component and sidebar wiring ✓
 
 ### Phase 8: API and URL Integration
 **Goal**: Selected departure time flows through to API calls and persists in shareable URLs
@@ -53,8 +53,8 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 7. Departure Time Picker | 0/1 | Not started | - |
+| 7. Departure Time Picker | 1/1 | ✓ Complete | 2026-02-14 |
 | 8. API and URL Integration | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after phase 7 planning*
+*Last updated: 2026-02-14 after phase 7 execution*
