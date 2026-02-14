@@ -47,11 +47,10 @@ Plans:
   3. Internal dev artifacts (.planning/, CLAUDE.md, docs/ dev notes, .playwright-mcp/) are removed from the working tree via `git rm`
   4. .gitignore covers comprehensive patterns (OS files, editor configs, build outputs, env files, debug artifacts)
   5. GitHub Actions workflow runs successfully with current action versions and correct branch name
-**Plans**: TBD
+**Plans:** 1 plan
 
 Plans:
-- [ ] 15-01: TBD
-- [ ] 15-02: TBD
+- [ ] 15-01-PLAN.md — Remove junk files, untrack dist/ and dev artifacts, update .gitignore and CI workflow
 
 ### Phase 16: Documentation & Public Release
 **Goal**: A new visitor to the GitHub repo can understand, run, and contribute to the project within minutes
