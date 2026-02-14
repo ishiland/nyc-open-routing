@@ -700,6 +700,10 @@ BEGIN
         day_condition_sql := format('day_of_week = %s', _day_of_week);
     END IF;
 
+    -- Traffic factor fallback chain:
+    -- 1. Dynamic lookup from avg_traffic_by_segment (volume-based, time-of-day aware)
+    -- 2. edges.traffic_factor (speed-based or static import)
+    -- 3. 1.0 (no traffic penalty)
     traffic_lookup_sql := format($fmt$
         COALESCE(
             (SELECT
@@ -715,7 +719,7 @@ BEGIN
                AND %1$s
                AND %2$s
              LIMIT 1
-            ), 1.0)$fmt$,
+            ), COALESCE(traffic_factor, 1.0))$fmt$,
         hour_condition_sql,
         day_condition_sql
     );
@@ -762,7 +766,7 @@ BEGIN
                  AND (_hour IS NULL OR hour_of_day = _hour)
                  AND (_day_of_week IS NULL OR day_of_week = _day_of_week)
                LIMIT 1
-              ), 1.0)
+              ), COALESCE(e.traffic_factor, 1.0))
           ELSE
             COALESCE(e.traffic_factor, 1.0)
         END AS travel_time,
@@ -783,7 +787,7 @@ BEGIN
                  AND (_hour IS NULL OR hour_of_day = _hour)
                  AND (_day_of_week IS NULL OR day_of_week = _day_of_week)
                LIMIT 1
-              ), 1.0)
+              ), COALESCE(e.traffic_factor, 1.0))
           ELSE
             COALESCE(e.traffic_factor, 1.0)
         END AS traffic_factor,
@@ -926,5 +930,533 @@ BEGIN
       merged_geometries mg
     ORDER BY
       mg.seq;
+END
+$func$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- Isochrone (Reachability) Functions
+-- Uses pgr_drivingDistance (Dijkstra-based, no turn restrictions) to compute
+-- reachable nodes within time intervals, then ST_ConcaveHull for polygon output.
+-- ============================================================================
+
+-- Driving isochrone with optional traffic
+DROP FUNCTION IF EXISTS getdrivingisochrone(double precision, double precision, float[], boolean, integer, integer);
+CREATE OR REPLACE FUNCTION getdrivingisochrone(
+    _lon FLOAT,
+    _lat FLOAT,
+    _intervals FLOAT[],
+    _use_traffic BOOLEAN DEFAULT FALSE,
+    _hour INT DEFAULT NULL,
+    _day_of_week INT DEFAULT NULL
+)
+RETURNS TABLE(band_index INT, minutes FLOAT, node_count INT, geom GEOMETRY) AS
+$func$
+DECLARE
+    start_node INT;
+    max_cost FLOAT;
+    bbox_buffer FLOAT;
+    bbox_sql TEXT;
+    edges_sql TEXT;
+    use_dynamic_traffic BOOLEAN;
+    hour_condition_sql TEXT := 'TRUE';
+    day_condition_sql TEXT := 'TRUE';
+    traffic_lookup_sql TEXT;
+BEGIN
+    -- Snap origin to nearest driveable node
+    start_node := getnearestdrivenode(_lon, _lat);
+
+    IF start_node IS NULL THEN
+        RAISE EXCEPTION 'Could not find a driveable node near the given coordinates';
+    END IF;
+
+    -- Max cost is the largest interval
+    max_cost := (SELECT MAX(v) FROM unnest(_intervals) AS v);
+
+    -- Bounding box pre-filter: ~1500 m/min for driving, minimum 5000m
+    bbox_buffer := GREATEST(max_cost * 1500, 5000);
+    bbox_sql := format(
+        'AND the_geom && ST_Expand(ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 2263), %s)',
+        _lon, _lat, bbox_buffer
+    );
+
+    -- Determine if we're using time-based dynamic traffic
+    use_dynamic_traffic := (_use_traffic AND _hour IS NOT NULL AND _day_of_week IS NOT NULL);
+
+    IF use_dynamic_traffic THEN
+        hour_condition_sql := format('hour_of_day = %s', _hour);
+        day_condition_sql := format('day_of_week = %s', _day_of_week);
+    END IF;
+
+    -- Build edges SQL with traffic factor logic matching getdrivingroute_with_traffic
+    IF _use_traffic THEN
+        traffic_lookup_sql := format($fmt$
+            COALESCE(
+                (SELECT
+                    CASE
+                        WHEN avg_volume < 58 THEN 1.0
+                        WHEN avg_volume < 129 THEN 1.2
+                        WHEN avg_volume < 250 THEN 1.5
+                        WHEN avg_volume < 415 THEN 2.0
+                        ELSE 3.0
+                    END
+                 FROM avg_traffic_by_segment
+                 WHERE segment_id = segmentid
+                   AND %1$s
+                   AND %2$s
+                 LIMIT 1
+                ), COALESCE(traffic_factor, 1.0))$fmt$,
+            hour_condition_sql,
+            day_condition_sql
+        );
+
+        edges_sql := format($fmt$
+            SELECT id, source, target,
+                cost_drive * CASE
+                    WHEN %1$s THEN %2$s
+                    ELSE COALESCE(traffic_factor, 1.0)
+                END AS cost,
+                rcost_drive * CASE
+                    WHEN %1$s THEN %2$s
+                    ELSE COALESCE(traffic_factor, 1.0)
+                END AS reverse_cost
+            FROM edges
+            WHERE driveable = TRUE %3$s$fmt$,
+            CASE WHEN use_dynamic_traffic THEN 'TRUE' ELSE 'FALSE' END,
+            traffic_lookup_sql,
+            bbox_sql
+        );
+    ELSE
+        edges_sql := format(
+            'SELECT id, source, target, cost_drive AS cost, rcost_drive AS reverse_cost FROM edges WHERE driveable = TRUE %s',
+            bbox_sql
+        );
+    END IF;
+
+    -- Execute pgr_drivingDistance once with max interval, then partition by thresholds
+    RETURN QUERY
+    WITH reachable_nodes AS (
+        SELECT dd.node, dd.agg_cost
+        FROM pgr_drivingDistance(edges_sql, start_node, max_cost, TRUE) dd
+        WHERE dd.edge != -1
+    ),
+    node_geoms AS (
+        SELECT rn.node, rn.agg_cost, v.geom AS the_geom
+        FROM reachable_nodes rn
+        JOIN edges_vertices_pgr v ON v.id = rn.node
+    ),
+    intervals AS (
+        SELECT ROW_NUMBER() OVER (ORDER BY val) AS idx, val
+        FROM unnest(_intervals) AS val
+    )
+    SELECT
+        i.idx::INT AS band_index,
+        i.val::FLOAT AS minutes,
+        COUNT(ng.node)::INT AS node_count,
+        CASE
+            WHEN COUNT(ng.node) < 3 THEN
+                ST_Transform(ST_SimplifyPreserveTopology(ST_Buffer(ST_Collect(ng.the_geom), 100), 50), 4326)
+            ELSE
+                ST_Transform(ST_SimplifyPreserveTopology(ST_ConcaveHull(ST_Collect(ng.the_geom), 0.8, false), 50), 4326)
+        END AS geom
+    FROM intervals i
+    LEFT JOIN node_geoms ng ON ng.agg_cost <= i.val
+    GROUP BY i.idx, i.val
+    HAVING COUNT(ng.node) > 0
+    ORDER BY i.idx DESC;
+END
+$func$ LANGUAGE plpgsql;
+
+-- Biking isochrone
+DROP FUNCTION IF EXISTS getbikingisochrone(double precision, double precision, float[]);
+CREATE OR REPLACE FUNCTION getbikingisochrone(
+    _lon FLOAT,
+    _lat FLOAT,
+    _intervals FLOAT[]
+)
+RETURNS TABLE(band_index INT, minutes FLOAT, node_count INT, geom GEOMETRY) AS
+$func$
+DECLARE
+    start_node INT;
+    max_cost FLOAT;
+    bbox_buffer FLOAT;
+    edges_sql TEXT;
+BEGIN
+    start_node := getnearestbikenode(_lon, _lat);
+
+    IF start_node IS NULL THEN
+        RAISE EXCEPTION 'Could not find a bikeable node near the given coordinates';
+    END IF;
+
+    max_cost := (SELECT MAX(v) FROM unnest(_intervals) AS v);
+
+    -- Bounding box pre-filter: ~500 m/min for biking, minimum 5000m
+    bbox_buffer := GREATEST(max_cost * 500, 5000);
+
+    edges_sql := format(
+        'SELECT id, source, target, cost_bike AS cost, rcost_bike AS reverse_cost FROM edges WHERE bikeable = TRUE AND the_geom && ST_Expand(ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 2263), %s)',
+        _lon, _lat, bbox_buffer
+    );
+
+    RETURN QUERY
+    WITH reachable_nodes AS (
+        SELECT dd.node, dd.agg_cost
+        FROM pgr_drivingDistance(edges_sql, start_node, max_cost, TRUE) dd
+        WHERE dd.edge != -1
+    ),
+    node_geoms AS (
+        SELECT rn.node, rn.agg_cost, v.geom AS the_geom
+        FROM reachable_nodes rn
+        JOIN edges_vertices_pgr v ON v.id = rn.node
+    ),
+    intervals AS (
+        SELECT ROW_NUMBER() OVER (ORDER BY val) AS idx, val
+        FROM unnest(_intervals) AS val
+    )
+    SELECT
+        i.idx::INT AS band_index,
+        i.val::FLOAT AS minutes,
+        COUNT(ng.node)::INT AS node_count,
+        CASE
+            WHEN COUNT(ng.node) < 3 THEN
+                ST_Transform(ST_SimplifyPreserveTopology(ST_Buffer(ST_Collect(ng.the_geom), 100), 50), 4326)
+            ELSE
+                ST_Transform(ST_SimplifyPreserveTopology(ST_ConcaveHull(ST_Collect(ng.the_geom), 0.8, false), 50), 4326)
+        END AS geom
+    FROM intervals i
+    LEFT JOIN node_geoms ng ON ng.agg_cost <= i.val
+    GROUP BY i.idx, i.val
+    HAVING COUNT(ng.node) > 0
+    ORDER BY i.idx DESC;
+END
+$func$ LANGUAGE plpgsql;
+
+-- Walking isochrone (undirected — pedestrians walk either direction)
+DROP FUNCTION IF EXISTS getwalkingisochrone(double precision, double precision, float[]);
+CREATE OR REPLACE FUNCTION getwalkingisochrone(
+    _lon FLOAT,
+    _lat FLOAT,
+    _intervals FLOAT[]
+)
+RETURNS TABLE(band_index INT, minutes FLOAT, node_count INT, geom GEOMETRY) AS
+$func$
+DECLARE
+    start_node INT;
+    max_cost FLOAT;
+    bbox_buffer FLOAT;
+    edges_sql TEXT;
+BEGIN
+    start_node := getnearestwalknode(_lon, _lat);
+
+    IF start_node IS NULL THEN
+        RAISE EXCEPTION 'Could not find a walkable node near the given coordinates';
+    END IF;
+
+    max_cost := (SELECT MAX(v) FROM unnest(_intervals) AS v);
+
+    -- Bounding box pre-filter: ~150 m/min for walking, minimum 5000m
+    bbox_buffer := GREATEST(max_cost * 150, 5000);
+
+    edges_sql := format(
+        'SELECT id, source, target, cost_walk AS cost, rcost_walk AS reverse_cost FROM edges WHERE walkable = TRUE AND the_geom && ST_Expand(ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 2263), %s)',
+        _lon, _lat, bbox_buffer
+    );
+
+    RETURN QUERY
+    WITH reachable_nodes AS (
+        SELECT dd.node, dd.agg_cost
+        FROM pgr_drivingDistance(edges_sql, start_node, max_cost, FALSE) dd
+        WHERE dd.edge != -1
+    ),
+    node_geoms AS (
+        SELECT rn.node, rn.agg_cost, v.geom AS the_geom
+        FROM reachable_nodes rn
+        JOIN edges_vertices_pgr v ON v.id = rn.node
+    ),
+    intervals AS (
+        SELECT ROW_NUMBER() OVER (ORDER BY val) AS idx, val
+        FROM unnest(_intervals) AS val
+    )
+    SELECT
+        i.idx::INT AS band_index,
+        i.val::FLOAT AS minutes,
+        COUNT(ng.node)::INT AS node_count,
+        CASE
+            WHEN COUNT(ng.node) < 3 THEN
+                ST_Transform(ST_SimplifyPreserveTopology(ST_Buffer(ST_Collect(ng.the_geom), 100), 50), 4326)
+            ELSE
+                ST_Transform(ST_SimplifyPreserveTopology(ST_ConcaveHull(ST_Collect(ng.the_geom), 0.8, false), 50), 4326)
+        END AS geom
+    FROM intervals i
+    LEFT JOIN node_geoms ng ON ng.agg_cost <= i.val
+    GROUP BY i.idx, i.val
+    HAVING COUNT(ng.node) > 0
+    ORDER BY i.idx DESC;
+END
+$func$ LANGUAGE plpgsql;
+
+-- ============================================================================
+-- EDGE-BASED ISOCHRONE FUNCTIONS
+-- Return individual street geometries instead of hull polygons.
+-- Each reachable edge includes: edge_id, band_index, agg_cost, street name, geometry
+-- ============================================================================
+
+-- Driving edge isochrone with optional traffic
+DROP FUNCTION IF EXISTS getdrivingisochrone_edges(double precision, double precision, float[], boolean, integer, integer);
+CREATE OR REPLACE FUNCTION getdrivingisochrone_edges(
+    _lon FLOAT,
+    _lat FLOAT,
+    _intervals FLOAT[],
+    _use_traffic BOOLEAN DEFAULT FALSE,
+    _hour INT DEFAULT NULL,
+    _day_of_week INT DEFAULT NULL
+)
+RETURNS TABLE(edge_id INT, band_index INT, agg_cost FLOAT, street TEXT, geom GEOMETRY) AS
+$func$
+DECLARE
+    start_node INT;
+    max_cost FLOAT;
+    bbox_buffer FLOAT;
+    bbox_sql TEXT;
+    edges_sql TEXT;
+    use_dynamic_traffic BOOLEAN;
+    hour_condition_sql TEXT := 'TRUE';
+    day_condition_sql TEXT := 'TRUE';
+    traffic_lookup_sql TEXT;
+BEGIN
+    -- Snap origin to nearest driveable node
+    start_node := getnearestdrivenode(_lon, _lat);
+
+    IF start_node IS NULL THEN
+        RAISE EXCEPTION 'Could not find a driveable node near the given coordinates';
+    END IF;
+
+    -- Max cost is the largest interval
+    max_cost := (SELECT MAX(v) FROM unnest(_intervals) AS v);
+
+    -- Bounding box pre-filter: ~1500 m/min for driving, minimum 5000m
+    bbox_buffer := GREATEST(max_cost * 1500, 5000);
+    bbox_sql := format(
+        'AND the_geom && ST_Expand(ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 2263), %s)',
+        _lon, _lat, bbox_buffer
+    );
+
+    -- Determine if we're using time-based dynamic traffic
+    use_dynamic_traffic := (_use_traffic AND _hour IS NOT NULL AND _day_of_week IS NOT NULL);
+
+    IF use_dynamic_traffic THEN
+        hour_condition_sql := format('hour_of_day = %s', _hour);
+        day_condition_sql := format('day_of_week = %s', _day_of_week);
+    END IF;
+
+    -- Build edges SQL with traffic factor logic matching getdrivingisochrone
+    IF _use_traffic THEN
+        traffic_lookup_sql := format($fmt$
+            COALESCE(
+                (SELECT
+                    CASE
+                        WHEN avg_volume < 58 THEN 1.0
+                        WHEN avg_volume < 129 THEN 1.2
+                        WHEN avg_volume < 250 THEN 1.5
+                        WHEN avg_volume < 415 THEN 2.0
+                        ELSE 3.0
+                    END
+                 FROM avg_traffic_by_segment
+                 WHERE segment_id = segmentid
+                   AND %1$s
+                   AND %2$s
+                 LIMIT 1
+                ), COALESCE(traffic_factor, 1.0))$fmt$,
+            hour_condition_sql,
+            day_condition_sql
+        );
+
+        edges_sql := format($fmt$
+            SELECT id, source, target,
+                cost_drive * CASE
+                    WHEN %1$s THEN %2$s
+                    ELSE COALESCE(traffic_factor, 1.0)
+                END AS cost,
+                rcost_drive * CASE
+                    WHEN %1$s THEN %2$s
+                    ELSE COALESCE(traffic_factor, 1.0)
+                END AS reverse_cost
+            FROM edges
+            WHERE driveable = TRUE %3$s$fmt$,
+            CASE WHEN use_dynamic_traffic THEN 'TRUE' ELSE 'FALSE' END,
+            traffic_lookup_sql,
+            bbox_sql
+        );
+    ELSE
+        edges_sql := format(
+            'SELECT id, source, target, cost_drive AS cost, rcost_drive AS reverse_cost FROM edges WHERE driveable = TRUE %s',
+            bbox_sql
+        );
+    END IF;
+
+    -- Execute pgr_drivingDistance once with max interval, then partition edges by band
+    RETURN QUERY
+    WITH reachable_edges AS (
+        SELECT dd.edge AS eid, dd.agg_cost
+        FROM pgr_drivingDistance(edges_sql, start_node, max_cost, TRUE) dd
+        WHERE dd.edge != -1
+    ),
+    edge_geoms AS (
+        SELECT DISTINCT ON (re.eid)
+            re.eid,
+            re.agg_cost,
+            e.street,
+            ST_Transform(ST_SimplifyPreserveTopology(e.the_geom, 1), 4326) AS the_geom
+        FROM reachable_edges re
+        JOIN edges e ON e.id = re.eid
+        ORDER BY re.eid, re.agg_cost
+    ),
+    intervals AS (
+        SELECT ROW_NUMBER() OVER (ORDER BY val) AS idx, val
+        FROM unnest(_intervals) AS val
+    )
+    SELECT
+        eg.eid::INT AS edge_id,
+        i.idx::INT AS band_index,
+        eg.agg_cost::FLOAT AS agg_cost,
+        eg.street::TEXT AS street,
+        eg.the_geom AS geom
+    FROM intervals i
+    JOIN edge_geoms eg ON eg.agg_cost <= i.val
+        AND (i.idx = 1 OR eg.agg_cost > COALESCE(
+            (SELECT val FROM intervals WHERE idx = i.idx - 1), 0
+        ))
+    ORDER BY i.idx, eg.agg_cost;
+END
+$func$ LANGUAGE plpgsql;
+
+-- Biking edge isochrone
+DROP FUNCTION IF EXISTS getbikingisochrone_edges(double precision, double precision, float[]);
+CREATE OR REPLACE FUNCTION getbikingisochrone_edges(
+    _lon FLOAT,
+    _lat FLOAT,
+    _intervals FLOAT[]
+)
+RETURNS TABLE(edge_id INT, band_index INT, agg_cost FLOAT, street TEXT, geom GEOMETRY) AS
+$func$
+DECLARE
+    start_node INT;
+    max_cost FLOAT;
+    bbox_buffer FLOAT;
+    edges_sql TEXT;
+BEGIN
+    start_node := getnearestbikenode(_lon, _lat);
+
+    IF start_node IS NULL THEN
+        RAISE EXCEPTION 'Could not find a bikeable node near the given coordinates';
+    END IF;
+
+    max_cost := (SELECT MAX(v) FROM unnest(_intervals) AS v);
+
+    -- Bounding box pre-filter: ~500 m/min for biking, minimum 5000m
+    bbox_buffer := GREATEST(max_cost * 500, 5000);
+
+    edges_sql := format(
+        'SELECT id, source, target, cost_bike AS cost, rcost_bike AS reverse_cost FROM edges WHERE bikeable = TRUE AND the_geom && ST_Expand(ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 2263), %s)',
+        _lon, _lat, bbox_buffer
+    );
+
+    RETURN QUERY
+    WITH reachable_edges AS (
+        SELECT dd.edge AS eid, dd.agg_cost
+        FROM pgr_drivingDistance(edges_sql, start_node, max_cost, TRUE) dd
+        WHERE dd.edge != -1
+    ),
+    edge_geoms AS (
+        SELECT DISTINCT ON (re.eid)
+            re.eid,
+            re.agg_cost,
+            e.street,
+            ST_Transform(ST_SimplifyPreserveTopology(e.the_geom, 1), 4326) AS the_geom
+        FROM reachable_edges re
+        JOIN edges e ON e.id = re.eid
+        ORDER BY re.eid, re.agg_cost
+    ),
+    intervals AS (
+        SELECT ROW_NUMBER() OVER (ORDER BY val) AS idx, val
+        FROM unnest(_intervals) AS val
+    )
+    SELECT
+        eg.eid::INT AS edge_id,
+        i.idx::INT AS band_index,
+        eg.agg_cost::FLOAT AS agg_cost,
+        eg.street::TEXT AS street,
+        eg.the_geom AS geom
+    FROM intervals i
+    JOIN edge_geoms eg ON eg.agg_cost <= i.val
+        AND (i.idx = 1 OR eg.agg_cost > COALESCE(
+            (SELECT val FROM intervals WHERE idx = i.idx - 1), 0
+        ))
+    ORDER BY i.idx, eg.agg_cost;
+END
+$func$ LANGUAGE plpgsql;
+
+-- Walking edge isochrone (undirected -- pedestrians walk either direction)
+DROP FUNCTION IF EXISTS getwalkingisochrone_edges(double precision, double precision, float[]);
+CREATE OR REPLACE FUNCTION getwalkingisochrone_edges(
+    _lon FLOAT,
+    _lat FLOAT,
+    _intervals FLOAT[]
+)
+RETURNS TABLE(edge_id INT, band_index INT, agg_cost FLOAT, street TEXT, geom GEOMETRY) AS
+$func$
+DECLARE
+    start_node INT;
+    max_cost FLOAT;
+    bbox_buffer FLOAT;
+    edges_sql TEXT;
+BEGIN
+    start_node := getnearestwalknode(_lon, _lat);
+
+    IF start_node IS NULL THEN
+        RAISE EXCEPTION 'Could not find a walkable node near the given coordinates';
+    END IF;
+
+    max_cost := (SELECT MAX(v) FROM unnest(_intervals) AS v);
+
+    -- Bounding box pre-filter: ~150 m/min for walking, minimum 5000m
+    bbox_buffer := GREATEST(max_cost * 150, 5000);
+
+    edges_sql := format(
+        'SELECT id, source, target, cost_walk AS cost, rcost_walk AS reverse_cost FROM edges WHERE walkable = TRUE AND the_geom && ST_Expand(ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 2263), %s)',
+        _lon, _lat, bbox_buffer
+    );
+
+    RETURN QUERY
+    WITH reachable_edges AS (
+        SELECT dd.edge AS eid, dd.agg_cost
+        FROM pgr_drivingDistance(edges_sql, start_node, max_cost, FALSE) dd
+        WHERE dd.edge != -1
+    ),
+    edge_geoms AS (
+        SELECT DISTINCT ON (re.eid)
+            re.eid,
+            re.agg_cost,
+            e.street,
+            ST_Transform(ST_SimplifyPreserveTopology(e.the_geom, 1), 4326) AS the_geom
+        FROM reachable_edges re
+        JOIN edges e ON e.id = re.eid
+        ORDER BY re.eid, re.agg_cost
+    ),
+    intervals AS (
+        SELECT ROW_NUMBER() OVER (ORDER BY val) AS idx, val
+        FROM unnest(_intervals) AS val
+    )
+    SELECT
+        eg.eid::INT AS edge_id,
+        i.idx::INT AS band_index,
+        eg.agg_cost::FLOAT AS agg_cost,
+        eg.street::TEXT AS street,
+        eg.the_geom AS geom
+    FROM intervals i
+    JOIN edge_geoms eg ON eg.agg_cost <= i.val
+        AND (i.idx = 1 OR eg.agg_cost > COALESCE(
+            (SELECT val FROM intervals WHERE idx = i.idx - 1), 0
+        ))
+    ORDER BY i.idx, eg.agg_cost;
 END
 $func$ LANGUAGE plpgsql;
