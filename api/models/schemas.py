@@ -1,5 +1,5 @@
 from pydantic import BaseModel, ConfigDict
-from typing import Dict, Any, Optional, List, Literal
+from typing import Dict, Any, Optional, List, Literal, Union
 from enum import Enum
 
 class TravelMode(str, Enum):
@@ -7,6 +7,48 @@ class TravelMode(str, Enum):
     DRIVE = "drive"
     BIKE = "bike"
     WALK = "walk"
+
+
+class IsochroneView(str, Enum):
+    """Isochrone visualization type."""
+    POLYGON = "polygon"
+    EDGES = "edges"
+
+
+class IsochroneBandProperties(BaseModel):
+    """Properties for a single isochrone band."""
+    band_index: int
+    minutes: float
+    mode: str
+    node_count: int
+
+
+class IsochroneFeature(BaseModel):
+    """GeoJSON feature for an isochrone band polygon."""
+    type: Literal["Feature"] = "Feature"
+    properties: IsochroneBandProperties
+    geometry: Dict[str, Any]
+
+
+class IsochroneEdgeProperties(BaseModel):
+    """Properties for a single isochrone edge segment."""
+    edge_id: int
+    band_index: int
+    agg_cost: float
+    street: str
+
+
+class IsochroneEdgeFeature(BaseModel):
+    """GeoJSON feature for an isochrone edge LineString."""
+    type: Literal["Feature"] = "Feature"
+    properties: IsochroneEdgeProperties
+    geometry: Dict[str, Any]
+
+
+class IsochroneResponse(BaseModel):
+    """Response model for the isochrone endpoint."""
+    features: List[Union[IsochroneFeature, IsochroneEdgeFeature]]
+    origin: Dict[str, Any]
 
 class Properties(BaseModel):
     """Properties of a route segment feature."""
