@@ -9,10 +9,10 @@ Requirements for ferry route network isolation. Each maps to roadmap phases.
 
 ### Ferry Network Isolation
 
-- [ ] **FERRY-01**: Ferry route internal nodes are disconnected from bridge/tunnel nodes so routing cannot jump between them
-- [ ] **FERRY-02**: Ferry routes remain accessible only at terminal endpoints where they connect to the street network
-- [ ] **FERRY-03**: Ferry edges remain bikeable and walkable but not driveable
-- [ ] **FERRY-04**: Existing bike/walk routing through ferry terminals continues to work (SI Ferry, other LION ferry routes)
+- [x] **FERRY-01**: Ferry route internal nodes are disconnected from bridge/tunnel nodes so routing cannot jump between them
+- [x] **FERRY-02**: Ferry routes remain accessible only at terminal endpoints where they connect to the street network
+- [x] **FERRY-03**: Ferry edges remain bikeable and walkable but not driveable
+- [x] **FERRY-04**: Existing bike/walk routing through ferry terminals continues to work (SI Ferry, other LION ferry routes)
 
 ## Future Requirements
 
@@ -33,10 +33,10 @@ Requirements for ferry route network isolation. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FERRY-01 | Phase 13 | Pending |
-| FERRY-02 | Phase 13 | Pending |
-| FERRY-03 | Phase 13 | Pending |
-| FERRY-04 | Phase 13 | Pending |
+| FERRY-01 | Phase 13 | ✓ Complete |
+| FERRY-02 | Phase 13 | ✓ Complete |
+| FERRY-03 | Phase 13 | ✓ Complete |
+| FERRY-04 | Phase 13 | ✓ Complete |
 
 **Coverage:**
 - v2.3 requirements: 4 total
@@ -45,4 +45,4 @@ Requirements for ferry route network isolation. Each maps to roadmap phases.
 
 ---
 *Requirements defined: 2026-02-14*
-*Last updated: 2026-02-14 after initial definition*
+*Last updated: 2026-02-14 after Phase 13 execution complete*

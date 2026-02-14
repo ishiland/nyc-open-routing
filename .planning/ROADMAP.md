@@ -25,7 +25,7 @@
 **Plans:** 1 plan
 
 Plans:
-- [ ] 13-01-PLAN.md — Ferry topology isolation SQL + integration verification
+- [x] 13-01-PLAN.md — Ferry topology isolation SQL + integration verification
 
 **Success Criteria:**
 
@@ -47,9 +47,9 @@ Plans:
 
 | Phase | Goal | Requirements | Status |
 |-------|------|--------------|--------|
-| 13 - Ferry Network Topology Isolation | Ferry routes structurally isolated from bridges/tunnels | FERRY-01, FERRY-02, FERRY-03, FERRY-04 | Pending |
+| 13 - Ferry Network Topology Isolation | Ferry routes structurally isolated from bridges/tunnels | FERRY-01, FERRY-02, FERRY-03, FERRY-04 | ✓ Complete (2026-02-14) |
 
 **Coverage:** 4/4 requirements mapped ✓
 
 ---
-*Last updated: 2026-02-14 after v2.3 roadmap creation*
+*Last updated: 2026-02-14 after Phase 13 execution complete*
