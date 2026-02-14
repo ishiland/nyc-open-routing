@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-02-14)
 
 Milestone: v2.1 Departure Time
 Phase: 8 of 8 (API and URL Integration)
-Plan: Not started
-Status: Ready to plan phase 8
-Last activity: 2026-02-14 — Phase 7 complete
+Plan: 1 of 1 complete
+Status: Phase 8 complete — v2.1 milestone complete
+Last activity: 2026-02-14 — Phase 8 complete (verification-only)
 
 Progress: [██████████] 100%
 
@@ -26,6 +26,7 @@ Progress: [██████████] 100%
 | Phase | Plan | Duration | Tasks | Files |
 |-------|------|----------|-------|-------|
 | 07    | 01   | 2min     | 2     | 2     |
+| 08    | 01   | 40s      | 2     | 1     |
 
 ## Accumulated Context
 
@@ -46,9 +47,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Phase 7 complete, ready to plan phase 8
+Stopped at: Phase 8 complete — v2.1 Departure Time milestone complete
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after phase 7 execution*
+*Last updated: 2026-02-14 after phase 8 execution*
