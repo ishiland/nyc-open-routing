@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-14)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** v2.2 Edge Isochrones & Waypoints — Phase 10, Plan 10-01 complete, 10-02 next
+**Current focus:** v2.2 Edge Isochrones & Waypoints — Phase 10 complete, Phase 11 next
 
 ## Current Position
 
 Milestone: v2.2 Edge Isochrones & Waypoints
-Phase: 10 of 12 (Edge Isochrone Frontend)
-Plan: 10-02 pending (1 of 2 plans complete)
-Status: Executing — Plan 10-01 complete, Plan 10-02 next
-Last activity: 2026-02-14 — Completed 10-01 (edge isochrone API)
+Phase: 10 of 12 (Edge Isochrone Frontend) -- COMPLETE
+Plan: 10-02 complete (2 of 2 plans complete)
+Status: Phase 10 complete — ready for Phase 11
+Last activity: 2026-02-14 — Completed 10-02 (edge isochrone frontend)
 
-Progress: [███░░░░░░░] 30%
+Progress: [████░░░░░░] 40%
 
 ## Performance Metrics
 
@@ -25,6 +25,7 @@ Progress: [███░░░░░░░] 30%
 - v2.1: 2 phases, 2 plans, 2 files changed, +220/-1 lines
 - v2.2 Phase 9: 1 plan, 2 tasks, 1 file changed, +535/-3 lines, 3 min
 - v2.2 Phase 10-01: 2 tasks, 3 files changed, 2 min
+- v2.2 Phase 10-02: 2 tasks, 7 files changed, 4 min
 
 ## Accumulated Context
 
@@ -37,6 +38,8 @@ Decisions are logged in PROJECT.md Key Decisions table.
 - Exclusive band assignment: each edge in exactly one band to prevent duplicate rendering
 - Union type for IsochroneResponse.features to support both polygon and edge features in one response model
 - Separate cache prefix iso-edges- to prevent polygon/edge cache collisions
+- Clear isochrone data on view switch to force re-fetch with correct view parameter
+- Edge line width scales 1px->4px across zoom 10->16 for clarity at all scales
 
 ### Pending Todos
 
@@ -50,9 +53,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-14
-Stopped at: Completed 10-01-PLAN.md (edge isochrone API), 10-02 next
+Stopped at: Completed 10-02-PLAN.md (edge isochrone frontend), Phase 10 complete
 Resume file: None
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-14 after Phase 10-01 execution*
+*Last updated: 2026-02-14 after Phase 10-02 execution*
