@@ -1,599 +1,746 @@
-# Architecture: Isochrone/Reachability Visualization
+# Architecture: Edge-Based Isochrones & Waypoint Routing
 
 **Domain:** Multi-modal routing app with pgRouting + PostGIS + React/MapLibre
-**Researched:** 2026-02-13
+**Researched:** 2026-02-14
 **Confidence:** HIGH (verified against codebase, pgRouting 3.8 docs, PostGIS 3.5 capabilities)
 
 ## Executive Summary
 
-Isochrone visualization answers "where can I reach from here within N minutes?" It integrates as a parallel feature to routing -- same database, same API patterns, same map rendering infrastructure, but a fundamentally different query shape. Routing finds a path between two points. Isochrones find all reachable nodes from one point, then generate a polygon boundary around them.
+This document covers two features that integrate with the existing NYC Open Routing architecture: **edge-based isochrones** (upgrading the existing node-based approach to use edge geometries for more accurate polygons) and **waypoint/via-point routing** (allowing intermediate stops between origin and destination).
 
-The architecture adds four components: a SQL function (`getisochrone`), an `IsochroneService` class, an `/api/isochrone` endpoint, and a frontend `useIsochroneLayer` rendering pipeline. Each maps directly onto existing patterns in the codebase. The critical technical decision is polygon generation: use `ST_ConcaveHull` on collected edge geometries (not `pgr_alphaShape`, which is deprecated in pgRouting 3.8).
+Edge-based isochrones replace the current approach of collecting node points and running `ST_ConcaveHull` on them. Instead, the reachable edges themselves are collected as line geometries, with partial edges clipped at the cost boundary using `ST_LineSubstring`. This produces tighter, more accurate polygons that follow the actual street network rather than having jagged gaps between sparse nodes.
+
+Waypoint routing extends the existing A-to-B routing to support A-to-B-to-C-to-... with intermediate stops. pgRouting 3.8 provides `pgr_trspVia` (proposed status) which accepts an ordered array of vertex IDs and returns sequenced path legs with turn restriction support -- matching the project's existing use of `pgr_trsp`. The API changes from accepting `orig`/`dest` string pairs to accepting an ordered array of waypoints, and the frontend extends `RoutingContext` to manage a list of waypoints instead of a start/end pair.
+
+These features are independent of each other and can be built in parallel, but waypoint routing has broader architectural impact (touching context, sidebar, URL state sync, and the route response format).
 
 ## Recommended Architecture
 
 ### System Overview
 
 ```
-User clicks map + selects time/mode
-         |
-         v
+EDGE-BASED ISOCHRONES (upgrade to existing isochrone pipeline)
+=============================================================
+
+Same data flow as current isochrone, with SQL-layer changes:
+
+  [PostgreSQL]
+  getdrivingisochrone()  -- MODIFY: collect edge geometries + partial edge clipping
+    pgr_drivingDistance   -- unchanged (returns reachable nodes + edges)
+    ST_LineSubstring      -- NEW: clip edges at cost boundary
+    ST_ConcaveHull        -- unchanged (but fed edge lines, not node points)
+
+  [API]   -- No changes needed (same response shape)
+  [Frontend] -- No changes needed (same GeoJSON polygons)
+
+
+WAYPOINT ROUTING (new multi-stop capability)
+============================================
+
   [React Frontend]
-  IsochroneContext       -- origin point, time bands, mode, polygon data
-  useIsochroneFetch      -- API call (mirrors useRouteFetch)
-  useGeoJsonLayer        -- fill layer rendering (existing hook, reused)
+  RoutingContext          -- MODIFY: waypoints[] replaces startAddress/endAddress
+  useRouteFetch           -- MODIFY: send waypoints array
+  Sidebar                 -- MODIFY: dynamic waypoint inputs
+  RouteList               -- MODIFY: show per-leg summaries
+  MapLibreGLMap           -- MODIFY: waypoint markers (A, B, C, ...)
+  useRouteStateSync       -- MODIFY: URL format for N waypoints
          |
-         | GET /api/isochrone?origin={lon,lat}&mode=drive&times=5,10,15
+         | POST /api/route  (new endpoint, existing GET remains for 2-point)
          v
   [FastAPI API]
-  /api/isochrone         -- new endpoint (mirrors /api/route)
-  IsochroneService       -- new service (mirrors RoutingService)
-  RouteCache             -- reuse existing cache (different mode keys)
+  /api/route (POST)       -- NEW endpoint accepting waypoints array
+  RoutingService          -- MODIFY: add multi-waypoint method
          |
-         | SELECT * FROM getisochrone(...)
+         | SELECT * FROM getdrivingroute_via(...)
          v
-  [PostgreSQL + pgRouting + PostGIS]
-  getisochrone()         -- new SQL function
-    pgr_drivingDistance   -- node reachability (Dijkstra, no turn restrictions)
-    ST_ConcaveHull        -- polygon from edge geometries
-    ST_Transform          -- coordinate system conversion
+  [PostgreSQL]
+  getdrivingroute_via()   -- NEW: uses pgr_trspVia
+  getbikingroute_via()    -- NEW: uses pgr_dijkstraVia (or pgr_trspVia)
+  getwalkingroute_via()   -- NEW: uses pgr_dijkstraVia
 ```
 
 ### Component Boundaries
 
-| Component | Responsibility | Communicates With | New/Existing |
-|-----------|---------------|-------------------|-------------|
-| `getisochrone()` SQL function | Run pgr_drivingDistance, join edges, generate polygons per time band | edges table, edges_vertices_pgr | **NEW** |
-| `getnearestXXXnode()` SQL functions | Snap origin to nearest mode-accessible node | edges_vertices_pgr | Existing (reused) |
-| `IsochroneService` | Parse params, call SQL, format GeoJSON, cache results | db_engine, RouteCache, geo utils | **NEW** |
-| `/api/isochrone` endpoint | HTTP interface, param validation, DI | IsochroneService | **NEW** |
-| `IsochroneContext` | Store origin, time bands, mode, polygon GeoJSON | React state | **NEW** |
-| `useIsochroneFetch` | Fetch isochrone data from API | IsochroneContext, MessageContext | **NEW** |
-| `useGeoJsonLayer` | Render GeoJSON polygons as MapLibre fill layer | MapLibre map instance | Existing (reused) |
-| `MapLibreGLMap` | Add isochrone fill layer beneath route layers | useGeoJsonLayer, IsochroneContext | Existing (modified) |
-| `IsochroneControls` | UI for origin selection, time/mode inputs | IsochroneContext | **NEW** |
+#### Edge-Based Isochrones
+
+| Component | Responsibility | Action | Files |
+|-----------|---------------|--------|-------|
+| `getdrivingisochrone()` | Collect edge geometries, clip partial edges, generate polygons | **MODIFY** | `05_functions.sql` |
+| `getbikingisochrone()` | Same edge-based approach for biking | **MODIFY** | `05_functions.sql` |
+| `getwalkingisochrone()` | Same edge-based approach for walking | **MODIFY** | `05_functions.sql` |
+| `IsochroneService` | No changes (same response shape) | Unchanged | `api/services/isochrone.py` |
+| `IsochroneContext` | No changes | Unchanged | `client/src/contexts/IsochroneContext.tsx` |
+| Frontend layers | No changes | Unchanged | `MapLibreGLMap.tsx` |
+
+#### Waypoint Routing
+
+| Component | Responsibility | Action | Files |
+|-----------|---------------|--------|-------|
+| `getdrivingroute_via()` | Multi-stop routing with turn restrictions | **NEW** | `05_functions.sql` |
+| `getbikingroute_via()` | Multi-stop biking route | **NEW** | `05_functions.sql` |
+| `getwalkingroute_via()` | Multi-stop walking route | **NEW** | `05_functions.sql` |
+| `getdrivingroute_via_with_traffic()` | Multi-stop with traffic | **NEW** | `05_functions.sql` |
+| `RoutingService` | Add `get_via_route()` method | **MODIFY** | `api/services/routing.py` |
+| Route schemas | Add `WaypointRouteRequest`, `LegResponse` | **MODIFY** | `api/models/schemas.py` |
+| `/api/route` (POST) | Accept waypoints array body | **NEW** endpoint | `api/routes/routing.py` |
+| `RoutingContext` | `waypoints[]` replaces `startAddress`/`endAddress` | **MODIFY** | `client/src/contexts/RoutingContext.tsx` |
+| `useRouteFetch` | POST with waypoints body | **MODIFY** | `client/src/hooks/useRouteFetch.ts` |
+| `useRouteStateSync` | URL format for N waypoints | **MODIFY** | `client/src/hooks/useRouteStateSync.ts` |
+| `Sidebar` | Dynamic waypoint input list | **MODIFY** | `client/src/components/Sidebar.tsx` |
+| `Search` | Support waypoint index identity | **MODIFY** | `client/src/components/controls/Search.tsx` |
+| `RouteList` | Per-leg summaries | **MODIFY** | `client/src/components/controls/RouteList.tsx` |
+| `MapLibreGLMap` | Multiple waypoint markers | **MODIFY** | `client/src/components/MapLibreGLMap.tsx` |
+| `ButtonControls` | Add waypoint button | **MODIFY** | `client/src/components/controls/ButtonControls.tsx` |
+| `RouteStateManager` | Handle multi-waypoint auto-calculate | **MODIFY** | `client/src/components/RouteStateManager.tsx` |
 
 ## Data Flow
 
-### Request Flow (Happy Path)
+### Edge-Based Isochrones: SQL Changes Only
 
-```
-1. User action: Click map point (or enter address) + set mode + set time bands
-                                    |
-2. IsochroneContext updates:        |
-   origin = {lon, lat}              |
-   mode = "drive"                   |
-   timeBands = [5, 10, 15]          |
-                                    v
-3. useIsochroneFetch triggers:
-   GET /api/isochrone?origin=-73.985,40.748&mode=drive&times=5,10,15
-                                    |
-4. FastAPI endpoint:                |
-   - Validates origin (NYC bounds)  |
-   - Validates mode enum            |
-   - Validates times (1-60 min)     |
-   - Calls IsochroneService        |
-                                    v
-5. IsochroneService:
-   a. Check cache (key: origin + mode + times)
-   b. Parse coordinates (reuse parse_coordinates)
-   c. Execute SQL:
-      SELECT * FROM getisochrone(:lon, :lat, :mode, ARRAY[:times])
-   d. Convert WKB polygons to GeoJSON (reuse dump_geo)
-   e. Build response with color/opacity per band
-   f. Cache result
-                                    |
-6. SQL function getisochrone():     |
-   a. Snap to nearest node:        |
-      getnearestdrivenode(lon, lat) |
-   b. Find reachable nodes:        |
-      pgr_drivingDistance(          |
-        edges_sql,                  |
-        start_node,                 |
-        max(times) * 60,  -- seconds|
-        directed := true            |
-      )                             |
-   c. For each time band:          |
-      - Filter edges by agg_cost   |
-      - Collect edge geometries    |
-      - ST_ConcaveHull(ST_Collect(  |
-          geom_4326), 0.7)          |
-      - Return polygon + metadata  |
-                                    v
-7. Response (GeoJSON FeatureCollection):
-   [
-     { type: "Feature",
-       properties: { time: 5, color: "#1a9850", opacity: 0.3 },
-       geometry: { type: "Polygon", coordinates: [...] } },
-     { type: "Feature",
-       properties: { time: 10, color: "#fee08b", opacity: 0.25 },
-       geometry: { type: "Polygon", coordinates: [...] } },
-     { type: "Feature",
-       properties: { time: 15, color: "#d73027", opacity: 0.2 },
-       geometry: { type: "Polygon", coordinates: [...] } }
-   ]
-                                    |
-8. Frontend rendering:             |
-   useGeoJsonLayer(                 |
-     map, "isochroneSource",       |
-     "isochroneLayer",             |
-     polygonFeatures,              |
-     { type: "fill",               |
-       paint: {                    |
-         "fill-color": ["get","color"],
-         "fill-opacity": ["get","opacity"]
-       }                           |
-     },                            |
-     "routeHaloLayer"  -- beneath route
-   )                               |
-```
+The current isochrone functions use this approach:
+1. `pgr_drivingDistance` returns reachable nodes with `agg_cost`
+2. Join `edges_vertices_pgr` to get node point geometries
+3. `ST_ConcaveHull(ST_Collect(point_geoms))` to generate polygon
 
-### Response Format
+The edge-based approach changes steps 2-3:
+1. `pgr_drivingDistance` returns reachable nodes with `edge` ID and `agg_cost` (unchanged)
+2. Join `edges` to get edge line geometries (`geom_4326`)
+3. For edges where `agg_cost` is near the boundary: clip with `ST_LineSubstring` based on remaining cost fraction
+4. `ST_ConcaveHull(ST_Collect(edge_line_geoms))` to generate polygon
 
-```typescript
-// API response
-interface IsochroneResponse {
-  features: IsochroneFeature[]
-  origin: { lon: number; lat: number }
-  mode: string
-}
-
-interface IsochroneFeature {
-  type: "Feature"
-  properties: {
-    time_minutes: number      // e.g., 5, 10, 15
-    color: string             // hex color for this band
-    opacity: number           // decreasing opacity for outer bands
-    area_sq_miles: number     // computed area for display
-    node_count: number        // reachable intersections (debugging/info)
-  }
-  geometry: {
-    type: "Polygon" | "MultiPolygon"
-    coordinates: number[][][]
-  }
-}
-```
-
-## Integration Points with Existing Code
-
-### SQL Layer -- Reuse Patterns
-
-**Reuse directly:**
-- `getnearestdrivenode()`, `getnearestbikenode()`, `getnearestwalknode()` -- snap origin to network
-- Edge table columns: `cost_drive`/`cost_bike`/`cost_walk`, `rcost_drive`/`rcost_bike`/`rcost_walk`, `driveable`/`bikeable`/`walkable` flags
-- `geom_4326` cached column -- avoids ST_Transform per-row during polygon generation
-- `edges_vertices_pgr` with `has_driveable`/`has_bikeable`/`has_walkable` flags
-
-**Key difference from routing:**
-- Routing uses `pgr_trsp` (turn-restricted shortest path between 2 nodes)
-- Isochrones use `pgr_drivingDistance` (Dijkstra from 1 node, all reachable within cost)
-- Isochrones do NOT need turn restrictions (pgr_drivingDistance doesn't support them, and the aggregate reachability result makes individual turn restrictions negligible)
-
-**Proposed SQL function:**
+**Key insight:** `pgr_drivingDistance` already returns an `edge` column (the edge used to reach each node). By joining on edges instead of vertices, we get line geometries that trace the actual street network. Partial edge clipping at the boundary prevents over-extension.
 
 ```sql
-CREATE OR REPLACE FUNCTION getisochrone(
-  _lon FLOAT, _lat FLOAT,
-  _mode TEXT,               -- 'drive', 'bike', 'walk'
-  _time_bands FLOAT[]       -- minutes, e.g., ARRAY[5, 10, 15]
+-- Current approach (node-based):
+node_geoms AS (
+    SELECT rn.node, rn.agg_cost, v.geom AS the_geom  -- POINT geometries
+    FROM reachable_nodes rn
+    JOIN edges_vertices_pgr v ON v.id = rn.node
+)
+-- Then: ST_ConcaveHull(ST_Collect(ng.the_geom), 0.8)  -- hull around points
+
+-- Edge-based approach:
+edge_geoms AS (
+    SELECT DISTINCT ON (rn.edge)
+        rn.edge,
+        rn.agg_cost,
+        e.geom_4326 AS the_geom,         -- LINE geometries
+        e.cost_drive AS edge_cost         -- for partial edge clipping
+    FROM reachable_nodes rn
+    JOIN edges e ON e.id = rn.edge
+    WHERE rn.edge != -1
+),
+clipped_edges AS (
+    SELECT
+        CASE
+            -- Edge fully within the time band: use full geometry
+            WHEN eg.agg_cost <= band_limit THEN eg.the_geom
+            -- Edge partially within: clip to the reachable fraction
+            ELSE ST_LineSubstring(eg.the_geom, 0,
+                LEAST(1.0, (band_limit - (eg.agg_cost - eg.edge_cost)) / eg.edge_cost))
+        END AS the_geom
+    FROM edge_geoms eg
+)
+-- Then: ST_ConcaveHull(ST_Collect(ce.the_geom), 0.8)  -- hull around lines
+```
+
+**Partial edge clipping logic:**
+- `agg_cost` = total cost from origin to the node at the end of this edge
+- `agg_cost - edge_cost` = cost to reach the start of this edge
+- `band_limit - (agg_cost - edge_cost)` = how much of this edge's cost fits within the band
+- Divide by `edge_cost` to get the fraction (0.0 to 1.0) for `ST_LineSubstring`
+
+**Response format is unchanged.** The API still returns `(band_index, minutes, node_count, geom)` tuples. The `geom` polygons will simply be more accurate. No API or frontend changes needed.
+
+### Waypoint Routing: Full-Stack Changes
+
+#### SQL Layer
+
+**New functions** using `pgr_trspVia` (available in pgRouting 3.8, proposed status):
+
+```sql
+CREATE FUNCTION getdrivingroute_via(
+    _waypoint_lats FLOAT[],   -- array of latitudes in visit order
+    _waypoint_lons FLOAT[]    -- array of longitudes in visit order
 )
 RETURNS TABLE(
-  time_minutes FLOAT,
-  node_count   INT,
-  area_sq_ft   FLOAT,
-  geom         GEOMETRY     -- polygon in WGS84 (4326)
+    seq             INT,
+    path_id         INT,      -- leg identifier (1 = first leg, 2 = second, etc.)
+    path_seq        INT,      -- sequence within leg
+    id              VARCHAR,
+    street          VARCHAR,
+    travel_time     FLOAT,
+    distance        FLOAT,
+    turn_instruction TEXT,
+    turn_type       TEXT,
+    traffic_factor  NUMERIC(5,2),
+    geom            GEOMETRY
 ) AS $func$
 DECLARE
-  start_node INT;
-  max_cost FLOAT;
-  edges_sql TEXT;
+    via_nodes INT[];
+    i INT;
 BEGIN
-  -- 1. Snap to nearest mode-accessible node (reuse existing functions)
-  start_node := CASE _mode
-    WHEN 'drive' THEN getnearestdrivenode(_lon, _lat)
-    WHEN 'bike'  THEN getnearestbikenode(_lon, _lat)
-    WHEN 'walk'  THEN getnearestwalknode(_lon, _lat)
-  END;
+    -- Snap each waypoint to nearest driveable node
+    FOR i IN 1..array_length(_waypoint_lats, 1) LOOP
+        via_nodes := array_append(via_nodes,
+            getnearestdrivenode(_waypoint_lons[i], _waypoint_lats[i]));
+    END LOOP;
 
-  IF start_node IS NULL THEN
-    RAISE EXCEPTION 'Could not find % node near location', _mode;
-  END IF;
+    -- Validate all nodes found
+    IF array_position(via_nodes, NULL) IS NOT NULL THEN
+        RAISE EXCEPTION 'Could not find driveable nodes near one or more waypoints';
+    END IF;
 
-  -- 2. Build mode-specific edges SQL (same pattern as routing functions)
-  edges_sql := CASE _mode
-    WHEN 'drive' THEN
-      'SELECT id, source, target, cost_drive AS cost, rcost_drive AS reverse_cost
-       FROM edges WHERE driveable = TRUE'
-    WHEN 'bike' THEN
-      'SELECT id, source, target, cost_bike AS cost, rcost_bike AS reverse_cost
-       FROM edges WHERE bikeable = TRUE'
-    WHEN 'walk' THEN
-      'SELECT id, source, target, cost_walk AS cost, rcost_walk AS reverse_cost
-       FROM edges WHERE walkable = TRUE'
-  END;
-
-  -- 3. Convert max time band from minutes to cost units (seconds)
-  --    Cost columns in edges are in seconds (time = distance / speed)
-  max_cost := (SELECT MAX(t) FROM UNNEST(_time_bands) AS t) * 60;
-
-  -- 4. Single pgr_drivingDistance call, then filter per band
-  RETURN QUERY
-  WITH reachable AS (
-    SELECT dd.node, dd.edge, dd.agg_cost
-    FROM pgr_drivingDistance(edges_sql, start_node, max_cost, TRUE) dd
-    WHERE dd.edge != -1  -- exclude start node placeholder
-  ),
-  reachable_edges AS (
-    SELECT r.agg_cost, e.geom_4326
-    FROM reachable r
-    JOIN edges e ON r.edge = e.id
-    WHERE e.geom_4326 IS NOT NULL
-  )
-  SELECT
-    band.t AS time_minutes,
-    COUNT(re.geom_4326)::INT AS node_count,
-    ST_Area(
-      ST_Transform(
-        ST_ConcaveHull(ST_Collect(re.geom_4326), 0.7),
-        2263  -- NYC State Plane for accurate area
-      )
-    ) AS area_sq_ft,
-    ST_ConcaveHull(ST_Collect(re.geom_4326), 0.7) AS geom
-  FROM UNNEST(_time_bands) AS band(t)
-  LEFT JOIN reachable_edges re ON re.agg_cost <= band.t * 60
-  GROUP BY band.t
-  HAVING COUNT(re.geom_4326) >= 3  -- need 3+ edges for ConcaveHull
-  ORDER BY band.t;
-END;
-$func$ LANGUAGE plpgsql;
+    RETURN QUERY
+    WITH ordered_edges AS (
+        SELECT
+            r.seq, r.path_id, r.path_seq,
+            r.edge, r.node,
+            e.join_id, e.street, e.time_drive, e.length_feet,
+            e.geom_4326 AS edge_geom,
+            v.geom AS node_geom
+        FROM pgr_trspVia(
+            'SELECT id, source, target, cost_drive AS cost, rcost_drive AS reverse_cost
+             FROM edges WHERE driveable=TRUE',
+            'SELECT path, cost FROM restrictions_for_driving',
+            via_nodes, TRUE
+        ) AS r
+        JOIN edges e ON r.edge = e.id
+        LEFT JOIN edges_vertices_pgr v ON r.node = v.id
+        WHERE r.edge > 0  -- exclude placeholder rows
+        ORDER BY r.seq
+    ),
+    -- Turn instruction generation (same CTE chain as getdrivingroute)
+    -- but preserving path_id for leg identification
+    ...
 ```
 
-**Why `ST_ConcaveHull` over `pgr_alphaShape`:**
-- `pgr_alphaShape` is **deprecated in pgRouting 3.8** (the project's version) in favor of PostGIS alternatives
-- `ST_ConcaveHull` works on edge geometries (lines), not just points, producing better polygon shapes
-- PostGIS 3.5 with GEOS 3.9+ provides fast ST_ConcaveHull implementation
-- The `target_percent` parameter (0.7) controls tightness: 1.0 = convex hull, 0.0 = tightest concave hull
+**Key differences from existing route functions:**
+- Accepts arrays of coordinates instead of two pairs
+- Returns `path_id` column identifying each leg
+- Uses `pgr_trspVia` instead of `pgr_trsp`
+- Turn instruction logic resets at leg boundaries (each leg starts with "Start")
+- Edge grouping resets at leg boundaries
 
-### API Layer -- Reuse Patterns
+**`pgr_trspVia` return columns:**
+`(seq, path_id, path_seq, start_vid, end_vid, node, edge, cost, agg_cost, route_agg_cost)`
 
-**Reuse directly:**
-- `parse_coordinates()` from `utils/geo.py` -- validates NYC bounds
-- `dump_geo()` from `utils/geo.py` -- WKB hex to GeoJSON dict
-- `RouteCache` from `utils/cache.py` -- cache with mode key `isochrone-drive-5-10-15`
-- `get_db_engine()` from `dependencies.py` -- shared SQLAlchemy engine
-- Pydantic response models pattern from `models/schemas.py`
+The `path_id` increments for each leg (1 = first waypoint to second, 2 = second to third, etc.). This maps directly to the "legs" concept in the API response.
 
-**New service class follows RoutingService pattern:**
+**Fallback strategy:** If `pgr_trspVia` is unavailable (proposed status concern), fall back to sequential `pgr_trsp` calls per leg pair. This is less efficient but guaranteed to work. The SQL function can detect availability:
 
-```python
-# api/services/isochrone.py
-class IsochroneService:
-    def __init__(self, db_engine: Engine):
-        self.engine = db_engine
-        self.cache = get_route_cache()  # reuse same cache instance
-
-    def get_isochrone(self, origin: str, mode: str,
-                      time_bands: List[float]) -> IsochroneResponse:
-        # 1. Check cache
-        cache_key = f"isochrone-{mode}-{'-'.join(map(str, sorted(time_bands)))}"
-        cached = self.cache.get(origin, origin, cache_key)
-        if cached: return IsochroneResponse(features=cached, ...)
-
-        # 2. Parse & validate
-        lon, lat = parse_coordinates(origin)
-
-        # 3. Execute SQL
-        sql = text("SELECT * FROM getisochrone(:lon, :lat, :mode, :bands)")
-        with self.engine.connect() as conn:
-            result = conn.execute(sql, {...})
-            rows = result.fetchall()
-
-        # 4. Format response (dump_geo for each polygon)
-        features = self._format_isochrone_response(rows, mode, time_bands)
-
-        # 5. Cache and return
-        self.cache.set(origin, origin, cache_key, features)
-        return IsochroneResponse(features=features, ...)
+```sql
+-- Test if pgr_trspVia exists
+SELECT EXISTS(
+    SELECT 1 FROM pg_proc WHERE proname = 'pgr_trspvia'
+);
 ```
 
-**New endpoint follows /api/route pattern:**
+For bike/walk modes, `pgr_dijkstraVia` is simpler and equally viable since walking has no turn restrictions and biking restrictions are minimal.
+
+#### API Layer
+
+**New POST endpoint** (existing GET remains for backward compatibility):
 
 ```python
-# api/routes/isochrone.py
-@router.get("/isochrone", response_model=IsochroneResponse)
-def get_isochrone(
-    origin: str = Query(..., description="Origin coordinates (lon,lat)"),
-    mode: TravelMode = Query(..., description="Travel mode"),
-    times: str = Query("5,10,15", description="Comma-separated minutes"),
-    isochrone_service: IsochroneService = Depends(get_isochrone_service)
+# api/routes/routing.py - NEW endpoint
+
+class WaypointRouteRequest(BaseModel):
+    waypoints: List[str]  # ["lon,lat", "lon,lat", "lon,lat"]
+    mode: TravelMode
+    use_traffic: bool = True
+    avoid_ferries: bool = False
+    hour: Optional[int] = None
+    day_of_week: Optional[int] = None
+
+class LegSummary(BaseModel):
+    leg_index: int
+    from_waypoint: int
+    to_waypoint: int
+    total_time: float
+    total_distance: float
+    feature_count: int
+
+class WaypointRouteResponse(BaseModel):
+    features: List[Feature]  # all features with leg_index in properties
+    legs: List[LegSummary]
+    total_time: float
+    total_distance: float
+
+@router.post("/route", response_model=WaypointRouteResponse)
+def post_route(
+    request: WaypointRouteRequest,
+    routing_service: RoutingService = Depends(get_routing_service)
 ):
-    time_bands = [float(t) for t in times.split(",")]
-    return isochrone_service.get_isochrone(origin, mode.value, time_bands)
+    if len(request.waypoints) < 2:
+        raise HTTPException(400, "At least 2 waypoints required")
+    if len(request.waypoints) > 10:
+        raise HTTPException(400, "Maximum 10 waypoints supported")
+    return routing_service.get_via_route(request)
 ```
 
-**Dependency injection (add to dependencies.py):**
+**Modified Properties schema:**
 
 ```python
-_isochrone_service = IsochroneService(_db_engine)
-
-def get_isochrone_service() -> IsochroneService:
-    return _isochrone_service
+class Properties(BaseModel):
+    seq: int
+    street: Optional[str] = None
+    distance: Optional[float] = None
+    travel_time: Optional[float] = None
+    turn_instruction: Optional[str] = None
+    turn_type: Optional[str] = None
+    traffic_factor: Optional[float] = None
+    leg_index: Optional[int] = None  # NEW: which leg this segment belongs to
 ```
 
-### Frontend Layer -- Reuse Patterns
+**RoutingService additions:**
 
-**Reuse directly:**
-- `useGeoJsonLayer` hook -- already supports `type: "fill"` layers with data-driven paint
-- `MapInstanceContext` -- access map instance for layer management
-- `MessageContext` -- error/warning display
-- `removeMapLayerAndSource` utility -- cleanup
-- `IMapFeature` type -- generic GeoJSON feature interface
+```python
+def get_via_route(self, request: WaypointRouteRequest) -> WaypointRouteResponse:
+    # 1. Validate all waypoints
+    coords = [parse_coordinates(wp) for wp in request.waypoints]
+    lons = [c[0] for c in coords]
+    lats = [c[1] for c in coords]
 
-**New context follows RoutingContext pattern:**
+    # 2. Cache key includes all waypoints
+    cache_key = f"via-{request.mode}-{'-'.join(request.waypoints)}"
 
-The isochrone feature should NOT extend RoutingContext. It has different state (single origin vs origin+destination, time bands vs none, polygon output vs line output). A separate `IsochroneContext` keeps concerns cleanly separated.
+    # 3. Call appropriate SQL function
+    sql = text("SELECT * FROM getdrivingroute_via(:lats, :lons)")
+    # ... execute, format, cache ...
+
+    # 4. Group features by path_id to compute leg summaries
+    legs = self._compute_leg_summaries(features)
+```
+
+#### Frontend Layer
+
+**RoutingContext refactor** -- the most impactful change:
 
 ```typescript
-// contexts/IsochroneContext.tsx
-interface IsochroneContextType {
-  // State
-  origin: IMapFeature | null
-  timeBands: number[]         // default [5, 10, 15]
-  mode: TravelMode
-  isochrone: IsochroneData | null
-  isActive: boolean           // toggle between route mode and isochrone mode
+// Current: startAddress + endAddress (2 fixed slots)
+// New: waypoints array (2+ dynamic slots)
 
-  // Setters
-  setOrigin: (origin: IMapFeature | null) => void
-  setTimeBands: (bands: number[]) => void
+export interface RoutingContextType {
+  // REPLACE startAddress/endAddress with:
+  waypoints: (IMapFeature | null)[]  // ordered waypoint list, min 2 slots
+  waypointInputs: string[]           // display strings for each input
+
+  // Keep existing:
+  mode: TravelMode
+  route: WaypointRoute | null   // extended with legs
+  selectedStreet: RouteFeature | null
+  useTraffic: boolean
+  avoidFerries: boolean
+  trafficHour: number | null
+  trafficDayOfWeek: number | null
+  isInputEnabled: boolean
+
+  // REPLACE setAddress with:
+  setWaypoint: (feature: IMapFeature, index: number) => void
+  setWaypointInput: (value: string, index: number) => void
+  addWaypoint: () => void        // add intermediate stop
+  removeWaypoint: (index: number) => void  // remove intermediate stop
+  reorderWaypoints: (fromIndex: number, toIndex: number) => void
+
+  // Keep existing:
   setMode: (mode: TravelMode) => void
-  setIsochrone: (data: IsochroneData | null) => void
-  setIsActive: (active: boolean) => void
-  clearIsochrone: () => void
+  setRoute: (route: WaypointRoute | null) => void
+  // ... rest unchanged
 }
 ```
 
-**Map layer integration in MapLibreGLMap:**
+**Backward compatibility strategy:**
+- `waypoints[0]` = old `startAddress` (origin)
+- `waypoints[waypoints.length - 1]` = old `endAddress` (destination)
+- Default: 2-element array (functionally identical to current behavior)
+- "Add stop" button inserts at `waypoints.length - 1` (before destination)
+- Maximum 10 waypoints (API limit)
+
+**Sidebar changes:**
+
+```
+Current layout (route mode):
+  [Start search]
+  [Swap button]
+  [End search]
+  [Get Directions] [Clear] [Share]
+  [Route list]
+
+New layout (route mode, 2 waypoints - default):
+  [Search: A (Start)]
+  [Swap button]
+  [Search: B (End)]
+  [+ Add stop]
+  [Get Directions] [Clear] [Share]
+  [Route list]
+
+New layout (route mode, 3+ waypoints):
+  [Search: A (Start)]
+  [Search: B (Stop 1)]  [x remove]
+  [Search: C (Stop 2)]  [x remove]
+  [Search: D (End)]
+  [+ Add stop]
+  [Get Directions] [Clear] [Share]
+  [Route list with leg headers]
+```
+
+**Map marker changes:**
+- Current: "A" (start, green) and "B" (end, red) markers
+- New: "A", "B", "C", ... markers with consistent coloring
+  - First marker: green (origin)
+  - Last marker: red (destination)
+  - Intermediate markers: blue or orange (via stops)
+
+**Route list with legs:**
 
 ```typescript
-// MapLibreGLMap.tsx additions
-const { isochrone, isActive } = useContext(IsochroneContext)
-
-// Isochrone fill layer -- renders BENEATH everything else
-useGeoJsonLayer(
-  map,
-  "isochroneSource",
-  "isochroneLayer",
-  isActive ? isochrone?.features || null : null,
-  {
-    type: "fill",
-    paint: {
-      "fill-color": ["get", "color"],
-      "fill-opacity": ["get", "opacity"],
-    },
-  },
-  "routeHaloLayer",  // place before (beneath) route halo
-)
-
-// Isochrone outline layer for crisp boundaries
-useGeoJsonLayer(
-  map,
-  "isochroneOutlineSource",
-  "isochroneOutlineLayer",
-  isActive ? isochrone?.features || null : null,
-  {
-    type: "line",
-    paint: {
-      "line-color": ["get", "color"],
-      "line-width": 2,
-      "line-opacity": 0.8,
-    },
-  },
-  "routeHaloLayer",
-)
+// RouteList groups instructions by leg
+<Box>
+  {route.legs.map((leg, legIndex) => (
+    <Box key={legIndex}>
+      <Typography variant="subtitle2">
+        Leg {legIndex + 1}: {waypointLabels[legIndex]} to {waypointLabels[legIndex + 1]}
+      </Typography>
+      <Typography variant="caption">
+        {formatTime(leg.total_time)} - {formatDistance(leg.total_distance)}
+      </Typography>
+      {route.features
+        .filter(f => f.properties.leg_index === legIndex + 1)
+        .map(feature => <RouteSegment ... />)}
+    </Box>
+  ))}
+  <RouteSummaryCard totalTime={route.total_time} totalDistance={route.total_distance} />
+</Box>
 ```
 
-**Layer Z-Order (bottom to top):**
+**URL state sync changes:**
 
 ```
-Base map tiles
-  isochroneLayer (fill, semi-transparent polygons)
-  isochroneOutlineLayer (line, polygon boundaries)
-  routeHaloLayer (line, route glow effect)
-  routeLayer (line, main route)
-  startPointLayer (circle, origin marker)
-  endPointLayer (circle, destination marker)
-  startPointLabelLayer (symbol, "A" label)
-  endPointLabelLayer (symbol, "B" label)
+Current: ?start=-74.006,40.713&end=-73.935,40.731&mode=drive
+New:     ?wp0=-74.006,40.713&wp0Addr=Times+Square
+         &wp1=-73.985,40.748&wp1Addr=Empire+State
+         &wp2=-73.935,40.731&wp2Addr=Central+Park
+         &mode=drive&traffic=true
+
+Legacy format (?start=&end=) continues to work, mapped to wp0/wp1.
+```
+
+### Interface Types
+
+```typescript
+// New/modified types in interfaces.ts
+
+export interface WaypointRoute {
+  features: RouteFeature[]     // all segments, with leg_index
+  legs: LegSummary[]
+  total_time: number
+  total_distance: number
+}
+
+export interface LegSummary {
+  leg_index: number
+  from_waypoint: number
+  to_waypoint: number
+  total_time: number
+  total_distance: number
+  feature_count: number
+}
+
+// Extend RouteProperties
+export interface RouteProperties {
+  seq: number
+  street: string
+  distance: number
+  travel_time: number
+  turn_instruction?: string
+  turn_type?: string
+  traffic_factor?: number
+  leg_index?: number           // NEW: which leg (1-based)
+  [key: string]: unknown
+}
 ```
 
 ## Patterns to Follow
 
-### Pattern 1: Service Layer with Cache-First
+### Pattern 1: SQL Function Encapsulation (Existing)
+All pgRouting logic stays in SQL functions. The API calls `SELECT * FROM get*route_via(...)` and never constructs raw graph queries. This continues for both features.
 
-Matches RoutingService exactly: check cache, parse input, execute SQL, format output, cache result.
+### Pattern 2: Backward-Compatible API Evolution
+The existing `GET /api/route?orig=...&dest=...` remains unchanged. A new `POST /api/route` endpoint handles waypoints. The GET endpoint internally maps to the same service layer (treating 2 waypoints as orig/dest). This avoids breaking existing URL sharing and bookmarks.
 
-```python
-def get_isochrone(self, origin, mode, time_bands):
-    cached = self.cache.get(origin, origin, cache_key)
-    if cached: return cached
-    # ... compute ...
-    self.cache.set(origin, origin, cache_key, result)
-    return result
-```
+### Pattern 3: Context State Arrays with Minimum Size
+The waypoints array always has at least 2 elements (origin + destination). Operations enforce this invariant:
+- `addWaypoint()` inserts before last element (cannot exceed 10)
+- `removeWaypoint(index)` only works for indices 1..n-2 (cannot remove first/last)
+- `clearAddresses()` resets to `[null, null]`
 
-### Pattern 2: SQL Function Encapsulation
-
-All routing logic lives in SQL functions called via `text()` queries. The API never builds raw SQL. This pattern continues for isochrones.
-
-```python
-# Good: parameterized function call
-sql = text("SELECT * FROM getisochrone(:lon, :lat, :mode, :bands)")
-
-# Bad: building SQL strings in Python
-sql = f"SELECT ... FROM pgr_drivingDistance(...)"
-```
-
-### Pattern 3: GeoJSON Response with dump_geo
-
-WKB hex from PostgreSQL is converted to GeoJSON dict via `dump_geo()`. The frontend receives standard GeoJSON that MapLibre can render directly.
-
-### Pattern 4: Context Separation
-
-Routing and isochrone are different interaction modes. RoutingContext manages two addresses + a route. IsochroneContext manages one origin + time bands + polygons. They share TravelMode but are otherwise independent.
+### Pattern 4: Progressive Enhancement
+The default state (2 waypoints) is functionally identical to the current UI. Users see the same start/end inputs. The "Add stop" button reveals the new capability. This minimizes learning curve and testing surface.
 
 ## Anti-Patterns to Avoid
 
-### Anti-Pattern 1: Extending RoutingContext for Isochrone State
+### Anti-Pattern 1: Sequential pgr_trsp Calls for Via Routing
+**What:** Calling `pgr_trsp(A, B)` then `pgr_trsp(B, C)` then `pgr_trsp(C, D)` in a loop.
+**Why bad:** N-1 separate database round trips for N waypoints. Each call independently optimizes its leg without considering the global path. No `route_agg_cost` for total journey time.
+**Instead:** Use `pgr_trspVia(edges_sql, restrictions_sql, ARRAY[A,B,C,D])` -- single call, single result set with `path_id` per leg and cumulative `route_agg_cost`.
 
-**What:** Adding `isochroneOrigin`, `isochronePolygons`, `timeBands` to RoutingContext.
-**Why bad:** RoutingContext already has 12 state values and 12 setters. Adding isochrone state creates a 20+ field context that re-renders everything when any isochrone state changes. The two features have different lifecycles (routing needs origin+destination, isochrone needs origin only).
-**Instead:** Create a separate IsochroneContext. Components that need both (like MapLibreGLMap) consume both contexts.
+### Anti-Pattern 2: Sending Waypoints as Repeated Query Params
+**What:** `GET /api/route?wp=A&wp=B&wp=C` with repeated parameter names.
+**Why bad:** Some HTTP clients and proxies handle repeated params inconsistently. Query strings have length limits (~2000 chars in practice) that restrict the number of waypoints with addresses.
+**Instead:** Use `POST /api/route` with JSON body `{ "waypoints": [...] }` for multi-stop routes. Keep `GET` for simple 2-point routes (backward compatible).
 
-### Anti-Pattern 2: Using pgr_alphaShape
+### Anti-Pattern 3: Storing Waypoints in Separate useState Calls
+**What:** `const [wp1, setWp1] = useState()`, `const [wp2, setWp2] = useState()`, etc.
+**Why bad:** Fixed number of state variables. Cannot dynamically add/remove waypoints. State updates are not atomic (setting wp1 and wp2 causes two re-renders).
+**Instead:** Single `const [waypoints, setWaypoints] = useState<(IMapFeature | null)[]>([null, null])` with immutable array updates.
 
-**What:** Calling `pgr_alphaShape` to generate isochrone polygons.
-**Why bad:** Deprecated in pgRouting 3.8 (the project's version). Will be removed in a future version. Only works on point clouds, not edge geometries.
-**Instead:** Use `ST_ConcaveHull(ST_Collect(edge_geometries), 0.7)` from PostGIS.
+### Anti-Pattern 4: Recomputing Full Isochrone on Edge-Based Upgrade
+**What:** Changing the API response format or adding new fields when upgrading to edge-based isochrones.
+**Why bad:** Forces frontend changes for what is purely a quality improvement. The polygon shape changes but the data contract stays the same.
+**Instead:** Edge-based isochrone is a SQL-only change. Same `(band_index, minutes, node_count, geom)` return signature. The frontend renders whatever polygon geometry it receives.
 
-### Anti-Pattern 3: Multiple pgr_drivingDistance Calls per Request
-
-**What:** Calling `pgr_drivingDistance` once per time band (e.g., 3 calls for 5/10/15 min).
-**Why bad:** pgr_drivingDistance with max cost already computes all shorter-cost nodes. Calling it 3 times triples query time for no benefit.
-**Instead:** Single call with `max(time_bands) * 60` as cost limit, then filter results by `agg_cost` per band.
-
-### Anti-Pattern 4: Computing Polygons in Python
-
-**What:** Fetching raw node coordinates from pgr_drivingDistance, then using Shapely in Python to compute concave hulls.
-**Why bad:** Transfers 10K-50K node geometries over the network. PostGIS computes ST_ConcaveHull orders of magnitude faster in-database where the geometry data already lives.
-**Instead:** The SQL function returns finished polygons. Python only converts WKB to GeoJSON.
-
-### Anti-Pattern 5: Isochrone as Route Overlay
-
-**What:** Rendering isochrone polygons in the same GeoJSON source as route lines.
-**Why bad:** Fill layers and line layers have different rendering pipelines. Mixing polygon and line features in one source causes MapLibre to attempt rendering lines as fills (invisible) or polygons as lines (just outlines). Also prevents independent show/hide toggling.
-**Instead:** Separate source and layer IDs for isochrone (`isochroneSource`/`isochroneLayer`) and route (`routeSource`/`routeLayer`).
+### Anti-Pattern 5: Mixing Leg Data with Turn Instruction State
+**What:** Using turn instruction resets ("Start") to infer leg boundaries on the frontend.
+**Why bad:** Fragile heuristic. A leg that starts with "Continue on X ST" (when the previous leg ends on the same street) would be missed.
+**Instead:** Use the explicit `leg_index` (from `path_id`) in each feature's properties. The frontend groups by `leg_index`, not by instruction text.
 
 ## Scalability Considerations
 
-| Concern | Small isochrone (5 min) | Medium (15 min) | Large (30 min) |
-|---------|------------------------|-----------------|----------------|
-| pgr_drivingDistance nodes | ~500-2,000 | ~5,000-15,000 | ~20,000-50,000 |
-| Edge geometries collected | ~500-2,000 | ~5,000-15,000 | ~20,000-50,000 |
-| ST_ConcaveHull time | <100ms | 200-500ms | 500ms-2s |
-| Total query time | <500ms | 1-3s | 3-8s |
-| GeoJSON response size | ~5-20 KB | ~20-80 KB | ~80-300 KB |
-| MapLibre render time | Instant | Instant | <100ms |
+### Edge-Based Isochrones
+
+| Concern | Current (node-based) | Edge-based | Notes |
+|---------|---------------------|------------|-------|
+| Geometry data volume | ~500B per node point | ~200B per edge line | Lines have more coordinates but fewer total geometries (edges < nodes) |
+| ST_ConcaveHull quality | Gaps in sparse areas | Follows street network | Edge lines fill gaps where nodes are far apart |
+| ST_ConcaveHull cost | Similar | Similar | Hull algorithm is O(n log n) regardless of point vs line input |
+| Partial edge clipping | N/A | ~0.1ms per edge | ST_LineSubstring is very fast |
+| Polygon complexity | Low (few vertices) | Higher (more vertices) | Add ST_SimplifyPreserveTopology(geom, 50) if needed |
+
+### Waypoint Routing
+
+| Concern | 2 waypoints | 5 waypoints | 10 waypoints |
+|---------|-------------|-------------|--------------|
+| pgr_trspVia time | ~200ms | ~600ms | ~1.5s |
+| Edge result count | 50-200 | 150-600 | 300-1200 |
+| Turn instruction compute | ~50ms | ~150ms | ~300ms |
+| GeoJSON response size | 20-80 KB | 60-240 KB | 120-480 KB |
+| Total request time | <500ms | <1s | <2s |
+| Frontend render time | Instant | <50ms | <100ms |
 
 **Performance mitigations:**
-- Cache results aggressively (5-minute TTL matches route cache)
-- Limit max time band to 30 minutes (NYC network gets huge beyond that)
-- Use `geom_4326` cached column to avoid per-row ST_Transform
-- ST_ConcaveHull `target_percent` of 0.7 balances quality vs speed (lower = tighter but slower)
-- Consider `ST_SimplifyPreserveTopology` on output polygon for very large isochrones to reduce GeoJSON size
+- Bounding box pre-filter on edges for isochrones (already implemented)
+- Cache waypoint routes with full waypoint array as key
+- Limit waypoints to 10 (reasonable for NYC, prevents abuse)
+- Use `geom_4326` cached column throughout (no per-row ST_Transform)
 
-**For 30+ minute isochrones (if needed later):**
-- Pre-aggregate edge geometries using `ST_SnapToGrid` before ST_ConcaveHull
-- Or use `ST_ConvexHull` for the outermost band (fast, acceptable quality at large scales)
-- Or implement server-side polygon simplification before JSON serialization
+## Integration Points with Existing Code
+
+### Edge-Based Isochrones: Minimal Integration
+
+**Modified files (1 file):**
+
+| File | Change | Risk |
+|------|--------|------|
+| `data-importer/src/sql/05_functions.sql` | Replace node_geoms CTE with edge_geoms + clipped_edges CTEs in all 3 isochrone functions | LOW - same return signature |
+
+**No other files need changes.** The isochrone response format `(band_index, minutes, node_count, geom)` is unchanged. The `geom` column contains a polygon either way. `IsochroneService`, `IsochroneContext`, `useIsochroneFetch`, and `MapLibreGLMap` all operate on the polygon geometry without caring how it was generated.
+
+**Testing:** Compare polygon output visually for identical origin/mode/intervals. Edge-based polygons should have smoother boundaries with fewer concavities.
+
+### Waypoint Routing: Broad Integration
+
+**New files (4 files):**
+
+| File | Purpose |
+|------|---------|
+| `api/routes/routing.py` | POST endpoint (added to existing router) |
+| `api/models/schemas.py` | `WaypointRouteRequest`, `LegSummary`, `WaypointRouteResponse` |
+| (SQL functions in existing `05_functions.sql`) | `getdrivingroute_via()`, `getbikingroute_via()`, `getwalkingroute_via()` |
+
+**Modified files (10+ files):**
+
+| File | Change | Risk |
+|------|--------|------|
+| `05_functions.sql` | Add 3-4 new via route functions | LOW - additive |
+| `api/services/routing.py` | Add `get_via_route()` method | LOW - new method |
+| `api/models/schemas.py` | Add waypoint schemas | LOW - additive |
+| `api/dependencies.py` | No changes needed (RoutingService already instantiated) | NONE |
+| `client/src/contexts/RoutingContext.tsx` | Replace `startAddress`/`endAddress` with `waypoints[]` | **HIGH** - touches most components |
+| `client/src/hooks/useRouteFetch.ts` | POST with waypoints body | MEDIUM |
+| `client/src/hooks/useRouteStateSync.ts` | URL format for N waypoints | MEDIUM |
+| `client/src/types/interfaces.ts` | Add `WaypointRoute`, `LegSummary`, extend `RouteProperties` | LOW |
+| `client/src/components/Sidebar.tsx` | Dynamic waypoint inputs | MEDIUM |
+| `client/src/components/controls/Search.tsx` | Waypoint index identity | LOW |
+| `client/src/components/controls/RouteList.tsx` | Per-leg grouping | MEDIUM |
+| `client/src/components/controls/ButtonControls.tsx` | "Add stop" button, multi-waypoint enable check | MEDIUM |
+| `client/src/components/MapLibreGLMap.tsx` | Dynamic waypoint markers (A, B, C, ...) | MEDIUM |
+| `client/src/components/RouteStateManager.tsx` | Multi-waypoint auto-calculate | LOW |
+| `client/src/components/controls/RouteSummaryCard.tsx` | Show per-leg + total summaries | LOW |
+
+### Shared Context Refactoring Strategy
+
+The `RoutingContext` refactor from `startAddress`/`endAddress` to `waypoints[]` is the riskiest change because virtually every component reads `startAddress` or `endAddress`. The recommended approach:
+
+1. **Add `waypoints` array alongside existing fields** (not replacing them yet)
+2. **Derive `startAddress`/`endAddress` from `waypoints[0]`/`waypoints[last]`** as computed values
+3. **Keep all existing component interfaces working** via the derived values
+4. **Gradually migrate components** to read from `waypoints[]` directly
+5. **Remove `startAddress`/`endAddress` fields** once all consumers are migrated
+
+```typescript
+// Transitional RoutingContext (step 2):
+const startAddress = waypoints[0]            // derived, not stored
+const endAddress = waypoints[waypoints.length - 1]  // derived, not stored
+
+// Components still read startAddress/endAddress and work unchanged
+// New waypoint UI reads waypoints[] directly
+```
+
+This lets the "Add stop" feature be built incrementally without breaking the existing 2-point routing flow.
 
 ## Suggested Build Order
 
-Build order follows the data flow from database to frontend, ensuring each layer can be tested independently.
+### Phase 1: Edge-Based Isochrones (SQL-only, isolated)
 
-### Phase 1: SQL Function (Foundation)
+**Build:** Modify `getdrivingisochrone()`, `getbikingisochrone()`, `getwalkingisochrone()` in `05_functions.sql`
 
-**Build:** `getisochrone()` in `05_functions.sql`
+**Why first:**
+- Zero dependencies on waypoint routing
+- SQL-only change with no API or frontend impact
+- Immediate visual quality improvement
+- Can be tested by comparing polygon output in psql
+- Low risk (same return signature, same concave hull approach)
 
-**Why first:** Everything depends on this. Can be tested directly in psql without any API or frontend changes. Validates that pgr_drivingDistance works with the existing edge table and cost columns, and that ST_ConcaveHull produces reasonable polygons.
+**Specific changes:**
+- Replace `node_geoms` CTE (joining `edges_vertices_pgr` for point geometries)
+- With `edge_geoms` CTE (joining `edges` for line geometries)
+- Add `clipped_edges` CTE (using `ST_LineSubstring` for boundary edges)
+- Feed line collection to `ST_ConcaveHull` instead of point collection
+- Adjust `ST_SimplifyPreserveTopology` tolerance if polygons are too complex
 
-**Test:** Run directly in database container:
+**Test:** `SELECT * FROM getdrivingisochrone(-73.985, 40.748, ARRAY[5, 10, 15]::float[])` and visually compare polygon boundaries in QGIS or similar.
+
+**Dependencies:** None
+
+### Phase 2: Via Route SQL Functions (database layer)
+
+**Build:** `getdrivingroute_via()`, `getbikingroute_via()`, `getwalkingroute_via()`, `getdrivingroute_via_with_traffic()` in `05_functions.sql`
+
+**Why second:**
+- Foundation for all waypoint routing
+- Can be tested directly in psql
+- Validates that `pgr_trspVia` works correctly with the existing edge table and restrictions
+- Independent of frontend changes
+
+**Key decisions:**
+- Accept coordinate arrays (not node IDs) -- function handles node snapping internally
+- Return `path_id` column (from `pgr_trspVia`) for leg identification
+- Reuse the existing turn instruction CTE chain, modified to reset at leg boundaries
+- Edge grouping resets at leg boundaries (SUM window function partitioned by `path_id`)
+
+**Test:**
 ```sql
-SELECT time_minutes, node_count, ST_AsText(geom)
-FROM getisochrone(-73.985, 40.748, 'drive', ARRAY[5, 10, 15]);
+SELECT * FROM getdrivingroute_via(
+    ARRAY[40.748, 40.758, 40.731]::float[],
+    ARRAY[-73.985, -73.971, -73.935]::float[]
+);
+-- Should return segments with path_id = 1 (leg 1) and path_id = 2 (leg 2)
 ```
 
-**Dependencies:** None (uses existing edge table and node functions)
+**Dependencies:** None (parallel with Phase 1)
 
-### Phase 2: API Endpoint
+### Phase 3: Waypoint API Endpoint (service + route layer)
 
-**Build:** `IsochroneService`, `IsochroneResponse` schema, `/api/isochrone` endpoint, dependency injection
+**Build:** `WaypointRouteRequest`/`WaypointRouteResponse` schemas, `get_via_route()` service method, `POST /api/route` endpoint
 
-**Why second:** Wraps the SQL function in the service layer pattern. Can be tested via Swagger UI / curl without any frontend changes. Validates WKB-to-GeoJSON conversion, caching, and error handling.
+**Why third:**
+- Wraps SQL functions in service pattern
+- Can be tested via Swagger/curl
+- Validates WKB conversion, caching, error handling for multi-waypoint case
+- Independent of frontend changes
 
-**Test:** `curl "http://localhost:5001/api/isochrone?origin=-73.985,40.748&mode=drive&times=5,10,15"`
+**Test:** `curl -X POST http://localhost:5001/api/route -H "Content-Type: application/json" -d '{"waypoints": ["-73.985,40.748", "-73.971,40.758", "-73.935,40.731"], "mode": "drive"}'`
 
-**Dependencies:** Phase 1 (SQL function must exist)
+**Dependencies:** Phase 2 (SQL functions must exist)
 
-**Reuses:**
-- `parse_coordinates()` for input validation
-- `dump_geo()` for WKB conversion
-- `RouteCache` for caching
-- `get_db_engine()` for database access
-- Pydantic model patterns from `schemas.py`
+### Phase 4: RoutingContext Refactor (frontend state)
 
-### Phase 3: Frontend Rendering
+**Build:** Add `waypoints[]` to RoutingContext with derived `startAddress`/`endAddress`
 
-**Build:** `IsochroneContext`, `useIsochroneFetch`, isochrone fill/outline layers in MapLibreGLMap
+**Why fourth:**
+- The transitional approach (deriving start/end from waypoints) means existing components keep working
+- This is the highest-risk change but is contained within RoutingContext
+- All existing tests should continue to pass with the derived values
+- No visual changes yet -- just state plumbing
 
-**Why third:** With the API working, focus on rendering polygons on the map. Start with hardcoded test data or a simple button that triggers the fetch. The existing `useGeoJsonLayer` hook handles all MapLibre layer management.
+**Dependencies:** None (frontend-independent of backend phases)
 
-**Dependencies:** Phase 2 (API endpoint must be serving GeoJSON)
+### Phase 5: Waypoint UI (sidebar + map + URL sync)
 
-**Reuses:**
-- `useGeoJsonLayer` for fill and line layers
-- `MapInstanceContext` for map access
-- `MessageContext` for error display
+**Build:** Dynamic waypoint inputs in Sidebar, "Add stop" button, waypoint markers on map, URL state sync for N waypoints, per-leg RouteList
 
-### Phase 4: UI Controls
+**Why last:**
+- Most visible, most subjective, most iterative
+- Everything else works without it (can test via POST endpoint)
+- Building UI last lets you validate the data pipeline before adding interaction complexity
 
-**Build:** `IsochroneControls` component (origin picker, time band selector, mode selector, active toggle)
-
-**Why last:** The most subjective part. Everything else works without it -- you can trigger isochrones from the browser console or a test button. Building controls last lets you iterate on UX without touching the data pipeline.
-
-**Dependencies:** Phase 3 (rendering must work to validate controls)
+**Dependencies:** Phases 3 + 4 (API endpoint + context refactor must be done)
 
 ### Phase Dependency Graph
 
 ```
-Phase 1: SQL Function
-    |
-    v
-Phase 2: API Endpoint
-    |
-    v
-Phase 3: Frontend Rendering
-    |
-    v
-Phase 4: UI Controls
+Phase 1: Edge-Based Isochrones -----> (independent, can ship alone)
+              (SQL only)
+
+Phase 2: Via Route SQL Functions ---> Phase 3: Waypoint API ---> Phase 5: Waypoint UI
+              (SQL)                        (API)                      (Frontend)
+                                                                        ^
+Phase 4: RoutingContext Refactor --------------------------------/
+              (Frontend state)
 ```
 
-Linear dependency chain -- each phase requires the previous. No parallelization opportunity within the isochrone feature itself, but each phase can be completed and merged independently.
+**Phases 1 and 2 can run in parallel.** They touch the same SQL file (`05_functions.sql`) but different functions, so merge conflicts are unlikely.
 
-## File Inventory (New and Modified)
+**Phases 2 and 4 can run in parallel.** Backend SQL and frontend state are independent.
 
-| File | Action | Purpose |
-|------|--------|---------|
-| `data-importer/src/sql/05_functions.sql` | Modify | Add `getisochrone()` function |
-| `api/services/isochrone.py` | Create | IsochroneService class |
-| `api/models/schemas.py` | Modify | Add IsochroneResponse, IsochroneFeature models |
-| `api/routes/isochrone.py` | Create | `/api/isochrone` endpoint |
-| `api/dependencies.py` | Modify | Add `get_isochrone_service()` |
-| `api/main.py` | Modify | Register isochrone router |
-| `client/src/contexts/IsochroneContext.tsx` | Create | Isochrone state management |
-| `client/src/hooks/useIsochroneFetch.ts` | Create | API fetch hook |
-| `client/src/types/interfaces.ts` | Modify | Add IsochroneData, IsochroneFeature types |
-| `client/src/components/MapLibreGLMap.tsx` | Modify | Add isochrone fill/outline layers |
-| `client/src/components/controls/IsochroneControls.tsx` | Create | UI for isochrone parameters |
-| `client/src/App.tsx` | Modify | Add IsochroneContextProvider |
+**Phase 5 requires both 3 and 4.** The UI needs the API endpoint (Phase 3) and the waypoints state (Phase 4).
+
+## File Inventory
+
+### Edge-Based Isochrones
+
+| File | Action | Risk |
+|------|--------|------|
+| `data-importer/src/sql/05_functions.sql` | Modify 3 isochrone functions | LOW |
+
+### Waypoint Routing
+
+| File | Action | Risk |
+|------|--------|------|
+| `data-importer/src/sql/05_functions.sql` | Add 3-4 new SQL functions | LOW |
+| `api/services/routing.py` | Add `get_via_route()` method | LOW |
+| `api/models/schemas.py` | Add 3 new Pydantic models | LOW |
+| `api/routes/routing.py` | Add POST endpoint | LOW |
+| `client/src/types/interfaces.ts` | Add/extend 3 interfaces | LOW |
+| `client/src/contexts/RoutingContext.tsx` | Major refactor (waypoints array) | **HIGH** |
+| `client/src/hooks/useRouteFetch.ts` | Switch to POST for 3+ waypoints | MEDIUM |
+| `client/src/hooks/useRouteStateSync.ts` | New URL format | MEDIUM |
+| `client/src/components/Sidebar.tsx` | Dynamic waypoint inputs | MEDIUM |
+| `client/src/components/controls/Search.tsx` | Waypoint index support | LOW |
+| `client/src/components/controls/RouteList.tsx` | Per-leg grouping | MEDIUM |
+| `client/src/components/controls/ButtonControls.tsx` | Add stop button | MEDIUM |
+| `client/src/components/MapLibreGLMap.tsx` | Dynamic markers | MEDIUM |
+| `client/src/components/RouteStateManager.tsx` | Multi-waypoint auto-calc | LOW |
+| `client/src/components/controls/RouteSummaryCard.tsx` | Leg summaries | LOW |
 
 ## Sources
 
-- [pgr_drivingDistance documentation (pgRouting 3.8)](https://docs.pgrouting.org/latest/en/pgr_drivingDistance.html) -- HIGH confidence
-- [pgr_alphaShape deprecation in 3.8 (GitHub issue #2749)](https://github.com/pgRouting/pgrouting/issues/2749) -- HIGH confidence
-- [pgRouting Docker image tags](https://github.com/pgRouting/docker-pgrouting) -- confirms project uses pgRouting 3.8 with PostGIS 3.5 -- HIGH confidence
-- [PostGIS ST_ConcaveHull documentation](https://postgis.net/docs/ST_ConcaveHull.html) -- HIGH confidence
-- [MapLibre fill layer specification](https://maplibre.org/maplibre-style-spec/layers/) -- HIGH confidence
-- [Stadia Maps isochrone tutorial for MapLibre GL JS](https://docs.stadiamaps.com/tutorials/display-isochrones-on-a-map/) -- MEDIUM confidence (external API approach, but rendering pattern is applicable)
-- [pgRouting isochrone alpha shape example (GitHub gist)](https://gist.github.com/audiojack/e5abd3a2f5451fdaff57310ea5734dd1) -- MEDIUM confidence (older pattern, but workflow structure applies)
-- Direct codebase examination of all integration points -- HIGH confidence
+- [pgr_drivingDistance documentation (pgRouting 3.8)](https://docs.pgrouting.org/latest/en/pgr_drivingDistance.html) -- HIGH confidence, verified return columns include `edge`
+- [pgr_trspVia documentation (pgRouting 3.8, proposed)](https://access.crunchydata.com/documentation/pgrouting/latest/pgr_trspVia.html) -- HIGH confidence, verified function signature and `path_id` semantics
+- [pgr_dijkstraVia documentation (pgRouting 3.8, proposed)](https://access.crunchydata.com/documentation/pgrouting/latest/pgr_dijkstraVia.html) -- HIGH confidence, verified function signature
+- [TRSP Family functions (pgRouting 3.8)](https://docs.pgrouting.org/3.8/en/TRSP-family.html) -- HIGH confidence, confirms pgr_trspVia availability
+- [PostGIS ST_LineSubstring documentation](https://postgis.net/docs/ST_LineSubstring.html) -- HIGH confidence, for partial edge clipping
+- [PostGIS ST_ConcaveHull documentation](https://postgis.net/docs/ST_ConcaveHull.html) -- HIGH confidence, works with both points and lines
+- Project codebase examination of `05_functions.sql`, `routing.py`, `isochrone.py`, `RoutingContext.tsx`, `MapLibreGLMap.tsx`, `Sidebar.tsx`, `useRouteFetch.ts`, `useRouteStateSync.ts`, `schemas.py`, `dependencies.py` -- HIGH confidence
+- Docker image `pgrouting/pgrouting:17-3.5-3.8` confirms PostgreSQL 17, PostGIS 3.5, pgRouting 3.8 -- HIGH confidence

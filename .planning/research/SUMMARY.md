@@ -1,290 +1,219 @@
 # Project Research Summary
 
-**Project:** NYC Open Routing - Isochrone/Reachability Visualization
-**Domain:** Multi-modal routing application with pgRouting + PostGIS backend
-**Researched:** 2026-02-13
+**Project:** NYC Open Routing v2.0 -- Edge-Based Isochrones & Waypoint Routing
+**Domain:** Multi-modal routing enhancement with pgRouting 3.8 + PostGIS 3.5 + React/MapLibre
+**Researched:** 2026-02-14
 **Confidence:** HIGH
 
 ## Executive Summary
 
-Isochrone visualization answers the question "where can I reach from here within X minutes?" for the NYC Open Routing app. This feature requires **zero new dependencies** across the entire stack - no new Python packages, no new npm packages, and no Docker image changes. The entire implementation leverages existing capabilities: pgRouting's `pgr_drivingDistance` function for computing reachable nodes via Dijkstra's algorithm, PostGIS's `ST_ConcaveHull` for generating polygon boundaries from point clouds, the existing Shapely/Pydantic pipeline for GeoJSON serialization, and MapLibre GL's `fill` layer type for polygon rendering.
+This milestone adds two major capabilities to the existing NYC Open Routing app: edge-based isochrone visualization (replacing or complementing the current polygon approach with colored street segments showing precise reachability) and multi-stop waypoint routing (allowing intermediate stops between origin and destination). Both features require **zero new dependencies** — everything builds on the existing pgRouting 3.8, PostGIS 3.5, and MapLibre GL 5 stack.
 
-The recommended approach follows the existing routing architecture pattern exactly: SQL functions encapsulate all graph computation logic, a service layer handles caching and coordinate transformation, FastAPI endpoints expose the functionality via REST, and React Context manages frontend state with custom hooks for data fetching and map layer rendering. The only architectural deviation is creating a separate `IsochroneContext` rather than extending `RoutingContext` - this prevents re-render cascades and keeps routing and isochrone state cleanly separated despite their shared use of travel mode selection.
+The recommended approach for edge-based isochrones is a pure SQL upgrade: JOIN the existing `pgr_drivingDistance` edge results to the `edges` table to retrieve line geometries, then run `ST_ConcaveHull` on edge lines instead of node points. This produces tighter, more accurate polygons that follow the street network. The API response format remains unchanged (still returns polygons), making this a zero-impact frontend change. Alternatively, edge geometries can be returned directly to the frontend for line-layer rendering with data-driven color gradients — a more dramatic visual upgrade but with payload and rendering performance concerns at scale (5,000-15,000 edges for a 20-minute driving isochrone).
 
-Key risks are manageable with known mitigations. Performance concerns (pgr_drivingDistance on a 177k-edge graph can take 1-3 seconds) are addressed through aggressive caching, spatial bounding boxes to limit the search space, and computing all time bands in a single database call. Visual rendering artifacts from overlapping transparent polygons are solved by using PostGIS `ST_Difference` to create true concentric donut rings rather than overlapping circles. The most critical finding from pitfalls research: the isochrone SQL must use `time_drive`/`time_bike`/`time_walk` columns (pure travel times) rather than `cost_drive`/`cost_bike`/`cost_walk` columns (which include routing preference penalties) - using cost columns distorts the reachable area and produces misleading isochrones. The only uncertainty is the GEOS version in the Docker image (likely 3.9.0), which affects `ST_ConcaveHull` performance but not functionality, with a clear upgrade path if needed.
+Waypoint routing extends the existing two-point routing to support ordered multi-stop trips using `pgr_trspVia` (or sequential `pgr_trsp` calls as a fallback). The backend changes are isolated (new SQL functions, new API endpoint), but the frontend requires substantial refactoring: `RoutingContext` must shift from `startAddress`/`endAddress` to a `waypoints[]` array, the sidebar needs dynamic waypoint inputs with drag-to-reorder, the map needs numbered waypoint markers, and URL state sync must handle N waypoints. The key architectural risk is the RoutingContext refactor — nearly every component reads start/end addresses, so a transitional approach (deriving start/end from waypoints[0] and waypoints[last]) is critical to avoid breaking existing functionality.
 
 ## Key Findings
 
 ### Recommended Stack
 
-**No new dependencies required.** The isochrone feature is built entirely on capabilities already present in the existing stack. The database layer uses pgRouting 3.8's `pgr_drivingDistance` function to compute all nodes reachable within a time threshold (proven Dijkstra implementation, stable since pgRouting 2.0), and PostGIS 3.5's `ST_ConcaveHull` to generate polygon boundaries from the resulting point clouds. The API layer reuses the existing FastAPI/Pydantic/Shapely pipeline without modification. The frontend layer uses MapLibre GL 5.3.0's existing `fill` layer type with data-driven styling (`["get", "color"]` expressions), rendered via the existing `useGeoJsonLayer` hook.
+**Zero new dependencies.** Both features leverage existing infrastructure:
 
-**Core technologies:**
-- **pgr_drivingDistance (pgRouting 3.8)**: Dijkstra-based reachability computation returning all nodes within cost threshold - reuses existing edge cost columns (`time_drive`/`time_bike`/`time_walk`) and mode accessibility flags
-- **ST_ConcaveHull (PostGIS 3.5)**: Polygon generation from node geometries with tunable concavity parameter (0.7 recommended for street network isochrones) - faster with GEOS 3.11+ but functional with older versions
-- **MapLibre GL fill layers**: Semi-transparent polygon rendering with per-feature color/opacity via data-driven paint properties - existing `useGeoJsonLayer` hook supports this layer type without modification
+**Core technologies (all installed):**
+- **pgRouting 3.8** (`pgr_drivingDistance`, `pgr_trspVia`/`pgr_dijkstraVia`, `pgr_KSP`) — All required functions exist in the current Docker image. `pgr_trspVia` has "Proposed" status in 3.8 but is equally stable as the existing `pgr_trsp` (also Proposed).
+- **PostGIS 3.5** (`ST_LineSubstring`, `ST_ConcaveHull`, `ST_SimplifyPreserveTopology`) — For edge clipping, polygon generation, and geometry simplification.
+- **MapLibre GL 5.3** (`line` layer with `interpolate` expression) — Data-driven line coloring for edge-based isochrones. No new frontend libraries needed.
+- **Existing SQL functions** (`getnearestXXXnode`, `getdrivingroute`, etc.) — Reused for node snapping and turn instruction generation.
 
-**GEOS version uncertainty:** The Docker image `pgrouting/pgrouting:17-3.5-3.8` likely ships with GEOS 3.9.0 based on similar tag examples. PostGIS 3.3+ with GEOS 3.11+ provides a faster native `ST_ConcaveHull` implementation, but the legacy PL/pgSQL fallback is functional and adequate for proof-of-concept (100-500ms per polygon vs 10-50ms native). This must be verified with `SELECT postgis_geos_compiled_version()` during development. Upgrade path exists: change to `pgrouting:17-3.6-3.8` (PostGIS 3.6 with GEOS 3.11+) as a drop-in replacement.
+**Edge-based isochrones:**
+- `pgr_drivingDistance` already returns an `edge` column — JOIN it to the `edges` table to get geometries.
+- Partial edge clipping via `ST_LineSubstring` produces precise time-band boundaries.
+- Two visualization options: (1) polygon improvement (replace node-based hull with edge-based hull) or (2) direct edge rendering (return LineStrings, color by `agg_cost`).
+
+**Waypoint routing:**
+- `pgr_trspVia` (preferred): Single call for all legs, returns `path_id` per leg, handles turn restrictions.
+- Sequential `pgr_trsp` (fallback): Simpler, proven pattern, slightly slower but works with existing functions.
+- `pgr_dijkstraVia`: Alternative for bike/walk modes (no turn restrictions).
 
 ### Expected Features
 
-**Table stakes (users expect from any isochrone tool):**
-- Single-origin isochrone polygons with concentric time bands (5/10/15/20 minutes standard across Mapbox, Valhalla, TravelTime)
-- Multi-modal support (drive/bike/walk) matching the existing routing modes
-- Color-coded polygon fills with transparency (green-to-red sequential palette, decreasing opacity for outer bands)
-- Origin selection via address search (reuse existing Geosupport integration) and click-on-map
-- Loading state during computation (pgr_drivingDistance is slower than point-to-point routing)
-- Clear/reset to dismiss overlay
-- Correct rendering order (largest polygon rendered first, smallest on top, to avoid opacity blending artifacts)
+**Edge-Based Isochrones — Must have (table stakes):**
+- Color street segments by time band (5 min, 10 min, 15 min, 20 min) — core feature value
+- Sequential color ramp (green to red) matching existing polygon scheme — user expectation
+- Line width scaling by zoom — visibility at all zoom levels
+- Loading state during computation — network latency feedback
 
-**Differentiators (unique value propositions):**
-- **Traffic-aware isochrones (drive mode)**: Apply existing traffic factors to isochrone costs to show realistic rush-hour vs off-peak reachability - unique for self-hosted tools, most use free-flow speeds
-- **Edge-based visualization**: Color individual street segments by time band instead of polygon blobs - more accurate, shows exactly which streets are reachable, avoids concave hull "swallowing" unreachable areas
-- **Time slider**: Drag slider to adjust max time dynamically (requires fast backend <1s or client-side caching)
-- **Deep links**: URL sharing with origin/mode/time params (extends existing route deep link pattern)
-- **Summary statistics**: Area covered, street count within each band
+**Edge-Based Isochrones — Should have (differentiators):**
+- Continuous color gradient via `interpolate` expression (smoother than 4 discrete bands)
+- Toggle between polygon and edge view (or show both as overlay)
+- Interactive hover on edges (street name + exact travel time)
 
-**Anti-features (explicit scope exclusions):**
-- Reverse isochrone ("where can reach ME in X minutes") - computationally expensive, niche use case
-- Multi-origin merge/intersection - analytics feature beyond PoC scope
-- Isodistance (distance-based instead of time-based) - time is more intuitive and useful
-- POI overlay/demographic analysis - requires external data integration (separate project)
-- Real-time updates while dragging origin - requires sub-100ms response times (not feasible with pgr_drivingDistance on 177k edges)
-- Public transit mode - requires GTFS integration and schedule-aware routing (massive scope increase)
+**Edge-Based Isochrones — Defer (v2+):**
+- Boundary edge interpolation (HIGH complexity, minimal visual impact)
+- Traffic-colored edges (build after basic edge visualization stable)
+- Voronoi cell filling around edges (unnecessary for dense NYC grid)
 
-**MVP scope:** Core polygon visualization (pgr_drivingDistance SQL → API endpoint → concentric fill layers) + origin selection (address search + map click) + mode selection. Defer traffic-aware variant, time slider, edge-based view, deep links, and summary stats to post-MVP phases.
+**Waypoint Routing — Must have (table stakes):**
+- Add at least 1 intermediate waypoint — minimum viable multi-stop
+- Remove waypoint — standard editing flow
+- Reorder waypoints via drag-and-drop OR up/down buttons — user control
+- Per-leg route display (map markers at waypoints) — visual clarity
+- Per-leg turn-by-turn directions (sidebar grouped by leg) — navigation utility
+- Total route summary (all legs) — trip planning overview
+- URL deep links for waypoints — sharing/bookmarking
+
+**Waypoint Routing — Should have (competitive):**
+- Click-on-map to add waypoint — more intuitive than typing addresses
+- Waypoint address autocomplete — consistency with existing Search UX
+- Swap any adjacent stops (extend existing swap button) — quick reordering
+
+**Waypoint Routing — Defer (v2+):**
+- Via/pass-through waypoints (HIGH SQL complexity, niche use case)
+- Route optimization ("best order") — TSP solver, impractical at this scale
+- Leg-specific travel mode (walk to subway, bike to destination) — massive UI complexity
 
 ### Architecture Approach
 
-Isochrone visualization integrates as a parallel feature to routing with the same database, API patterns, and map rendering infrastructure, but fundamentally different query shape (routing finds a path between two points; isochrones find all reachable nodes from one point and generate a polygon boundary).
+**Edge-based isochrones are a SQL-layer upgrade with minimal integration surface.** The current `getdrivingisochrone()` joins `pgr_drivingDistance` results to `edges_vertices_pgr` for node points, then runs `ST_ConcaveHull`. The edge-based approach joins to `edges` for line geometries instead. The API response format remains `(band_index, minutes, node_count, geom)` — just better polygons. No frontend changes needed for the polygon improvement path. The alternative (direct edge rendering) returns GeoJSON LineStrings with `agg_cost` properties and requires new MapLibre layers but delivers a visually striking upgrade.
+
+**Waypoint routing is a full-stack feature with broad integration impact.** The SQL layer adds `getdrivingroute_via()`, `getbikingroute_via()`, `getwalkingroute_via()` using `pgr_trspVia` (or sequential `pgr_trsp`). The API layer adds a `POST /api/route` endpoint with waypoints array body and extends the `RouteResponse` schema with a `leg` field and per-leg summaries. The frontend refactors `RoutingContext` from two fixed addresses to a `waypoints[]` array, adds dynamic waypoint inputs to the sidebar, renders numbered waypoint markers, updates URL state sync, and groups turn instructions by leg in `RouteList`.
 
 **Major components:**
-1. **Database layer**: `getisochrone()` SQL function encapsulating `pgr_drivingDistance` + edge geometry collection + `ST_ConcaveHull` + coordinate transformation (2263→4326). Reuses existing `getnearestXXXnode()` functions for origin snapping and `time_*` cost columns for accurate travel time computation.
-2. **API layer**: `IsochroneService` class mirroring `RoutingService` pattern (cache-first, parse coordinates, execute SQL, format GeoJSON, cache result) + `/api/isochrone` endpoint with Pydantic request/response models. Reuses `parse_coordinates()`, `dump_geo()`, `RouteCache`, and `get_db_engine()` dependencies.
-3. **Frontend layer**: `IsochroneContext` for state management (separate from `RoutingContext` to avoid re-render cascade) + `useIsochroneFetch` hook for API calls + `useGeoJsonLayer` hook for fill/outline layer rendering (existing hook supports fill layers). Layer z-ordering places isochrones beneath route layers.
-4. **UI controls**: `IsochroneControls` component for origin picker, time band selector, and mode toggle. Integrates with existing sidebar layout as a distinct mode from routing (not layered on top).
-
-**Build order (linear dependencies):**
-- **Phase 1**: SQL function (testable directly in psql, validates pgRouting + PostGIS pipeline)
-- **Phase 2**: API endpoint (testable via Swagger/curl, validates service layer and GeoJSON conversion)
-- **Phase 3**: Frontend rendering (testable with hardcoded data, validates MapLibre fill layers)
-- **Phase 4**: UI controls (most subjective, built last after core visualization works)
-
-**Pattern alignment with existing code:**
-- SQL functions encapsulate all routing logic (matches `getdrivingroute()` pattern)
-- Service layer uses cache-first with mode-specific keys (matches `RoutingService`)
-- WKB-to-GeoJSON conversion via `dump_geo()` (matches route response)
-- Context separation for independent features (prevents context bloat)
-- `useGeoJsonLayer` hook for all map layer management (already supports fill layers)
+1. **SQL functions** (`05_functions.sql`) — Edge-based isochrone geometry retrieval, multi-waypoint routing via `pgr_trspVia`, turn instruction generation per leg
+2. **API service layer** (`routing.py`, `isochrone.py`) — Waypoint route orchestration, response formatting with leg summaries
+3. **RoutingContext** (frontend state) — Waypoint array management, derived start/end addresses for backward compatibility
+4. **Sidebar UI** (frontend) — Dynamic waypoint inputs, add/remove/reorder controls, per-leg turn instruction grouping
+5. **MapLibre layers** (frontend) — Edge-based isochrone line layer (optional), numbered waypoint markers
+6. **URL state sync** (`useRouteStateSync.ts`) — Pipe-separated waypoint encoding, coordinate rounding
 
 ### Critical Pitfalls
 
-1. **Cost unit mismatch between pgr_drivingDistance and edge costs**: The `cost_drive`/`cost_bike`/`cost_walk` columns include routing preference penalties (100x for wrong-way one-ways, 3x-5x for no-bike-lane streets, 50x for highways). Using these as isochrone costs produces wildly distorted reachable areas. **Prevention:** Use `time_drive`/`time_bike`/`time_walk` columns (pure travel times in seconds) as cost input to pgr_drivingDistance, while still filtering by mode accessibility flags (`WHERE driveable=TRUE`). This gives accurate physical reachability without preference distortion.
+1. **Edge-Based Isochrone Payload Explosion** — A 15-minute driving isochrone returns 5,000-15,000 edges (500KB-2MB GeoJSON vs 20-80KB for polygons). **Prevention:** Apply `ST_SimplifyPreserveTopology(geom, 0.0001)` server-side, cap edge count via arterial filtering, use `ST_AsGeoJSON(geom, 5)` for reduced precision, set `maxzoom: 14` on GeoJSON source.
 
-2. **pgr_drivingDistance performance on 177k-edge graph without spatial bounds**: Unoptimized calls run Dijkstra on the entire graph, taking 2-5 seconds for large time bands. **Prevention:** Filter the edge query with a spatial bounding box (`WHERE the_geom && ST_Expand(origin_point, buffer_meters)`) to reduce the search space from 177k to ~30-50k edges. Compute all time bands in a single call (use max time, filter results by `agg_cost`) rather than multiple sequential calls. Add covering index on `(source, target, time_drive) WHERE driveable=TRUE`. Cache aggressively.
+2. **Waypoint Routing Latency Multiplication** — Sequential `pgr_trsp` calls for N waypoints = N+1 × route time (~400ms-1.2s for 3 waypoints). **Prevention:** Use `pgr_trspVia` for single-call multi-leg routing, or accept sequential calls with profiling (may be acceptable for 3-5 waypoints).
 
-3. **SRID mismatch between vertex geometry (2263), ST_ConcaveHull, and GeoJSON output (4326)**: Vertices are stored in SRID 2263 (NY State Plane feet). Running ST_ConcaveHull on 2263 geometries and returning without transformation produces polygons at coordinates like (981000, 196000) instead of (-73.99, 40.73). **Prevention:** Run ST_ConcaveHull on SRID 2263 geometries (correct - projected coordinate system where distances are Euclidean), then transform the final polygon to 4326 as the last step. Return GeoJSON using `ST_AsGeoJSON()` on the 4326 polygon.
+3. **Data-Driven Line Paint Expression Performance** — Coloring 10,000+ line features with `interpolate` expressions evaluated per-frame impacts GPU performance (drops below 30fps on mobile). **Prevention:** Pre-compute `band_index` server-side, use `match` expression (hash lookup) instead of `interpolate` (linear search), use `step` for line-width instead of smooth interpolation.
 
-4. **ST_ConcaveHull fails or produces degenerate geometry for sparse node sets**: Short time bands (1-2 minutes) or origins near water/parks may return only 3-15 nodes, causing ST_ConcaveHull to return a POINT, LINESTRING, or EMPTY GEOMETRYCOLLECTION instead of a POLYGON. MapLibre fill layers silently ignore non-polygon geometry. **Prevention:** Add ST_Buffer fallback for degenerate results. Check geometry type after ST_ConcaveHull and apply a 50-foot buffer if the result is not a polygon. Set minimum node count threshold (use ST_ConvexHull + ST_Buffer for <4 nodes).
+4. **Waypoint URL Length Limits** — N waypoints with addresses can exceed 500 characters, approaching browser/proxy limits (~2,048 chars). **Prevention:** Use pipe-separated coordinates (`via=-73.98,40.75|-73.97,40.76`), parallel `viaAddr` param, round coords to 4 decimal places, limit URL-encoded waypoints to 5-8.
 
-5. **Overlapping isochrone polygons create opacity stacking artifacts**: Concentric bands (5/10/15 min) rendered as overlapping semi-transparent fills produce a "bullseye" effect where the center (most accessible area) appears darkest due to stacked opacity. **Prevention:** Use PostGIS `ST_Difference` to create true concentric donut rings (15-min ring = 15-min polygon MINUS 10-min polygon) so no polygons overlap. Alternatively, render all bands in a single fill layer with data-driven styling to avoid cross-layer blending. Render bands from outermost to innermost (largest polygon first).
+5. **Waypoint Routing Breaks Flat RouteResponse Schema** — Existing `RouteResponse` returns a flat `features[]` array with no leg boundaries. Waypoint routes need per-leg summaries and leg identification. **Prevention:** Add optional `leg` field to `Properties` schema, add `legs: List[LegSummary]` to `RouteResponse`, insert synthetic "waypoint" features at leg boundaries, keep flat array for backward compatibility.
 
 ## Implications for Roadmap
 
-Based on research, suggested phase structure follows the data flow from database to frontend, ensuring each layer can be tested independently before building the next.
+Based on research, the features are independent and can be built in parallel, but waypoint routing has broader architectural impact. Edge-based isochrones are lower complexity with higher visual impact. Suggested phase structure:
 
-### Phase 1: SQL Foundation (pgr_drivingDistance + ST_ConcaveHull)
+### Phase 1: Edge-Based Isochrones (Polygon Improvement Path)
+**Rationale:** SQL-only change, zero frontend impact, immediate quality improvement, isolated from waypoint routing.
+**Delivers:** Tighter isochrone polygons that follow the street network instead of bridging gaps.
+**Addresses:** Edge-based visualization (polygon variant from FEATURES.md), accurate reachability representation.
+**Avoids:** Frontend complexity, payload explosion (still returns 4 polygons), rendering performance concerns.
+**Implementation:** Modify `getdrivingisochrone()`, `getbikingroute()`, `getwalkingisochrone()` in `05_functions.sql` to JOIN `edges` instead of `edges_vertices_pgr`, add `ST_LineSubstring` for partial edge clipping, feed edge lines to `ST_ConcaveHull`.
+**Effort:** LOW (single SQL file, no API or frontend changes)
 
-**Rationale:** The database layer is the foundation for all isochrone functionality. Nothing works without this. Building it first allows validation that pgRouting's reachability algorithm works correctly with the existing edge table, that mode-specific cost columns produce sensible results, and that ST_ConcaveHull generates displayable polygons. This phase can be tested directly in the database container with psql queries without any API or frontend changes.
+### Phase 2: Waypoint SQL Functions
+**Rationale:** Foundation for all waypoint routing, can be tested directly in psql, validates `pgr_trspVia` stability, independent of frontend changes.
+**Delivers:** `getdrivingroute_via()`, `getbikingroute_via()`, `getwalkingroute_via()` SQL functions accepting coordinate arrays and returning `path_id` per leg.
+**Uses:** `pgr_trspVia` (or sequential `pgr_trsp` as fallback), existing turn instruction CTE patterns, existing node snapping functions.
+**Avoids:** Latency multiplication pitfall (single `pgr_trspVia` call vs N+1 sequential).
+**Implementation:** Add 3-4 new functions to `05_functions.sql`, accept `FLOAT[]` arrays for lats/lons, snap all nodes in single query, call `pgr_trspVia`, extend turn instruction logic to reset at leg boundaries.
+**Effort:** MEDIUM (complex SQL, turn instruction grouping per leg, leg boundary handling)
 
-**Delivers:** `getisochrone()` SQL function in `05_functions.sql` returning GeoJSON-ready polygons (SRID 4326) for all requested time bands. Function accepts lon/lat origin, travel mode, and time band array, returning a table with `time_minutes`, `node_count`, `area_sq_ft`, and `geom` columns.
+### Phase 3: Waypoint API Endpoint
+**Rationale:** Wraps SQL functions in service pattern, can be tested via Swagger/curl, validates response format before frontend integration.
+**Delivers:** `POST /api/route` endpoint, `WaypointRouteRequest`/`WaypointRouteResponse` schemas, `get_via_route()` service method.
+**Implements:** Service layer orchestration, per-leg summary computation, backward-compatible schema extension.
+**Avoids:** Breaking flat RouteResponse schema (adds optional `leg` field, preserves flat features array).
+**Implementation:** Add schemas to `schemas.py`, extend `RoutingService` in `routing.py`, create POST endpoint in `routes/routing.py`.
+**Effort:** MEDIUM (service logic, leg summary computation, schema design)
 
-**Addresses:** Core reachability computation using pgr_drivingDistance, mode-specific graph filtering (drive/bike/walk), polygon generation from edge geometries, coordinate system transformation.
+### Phase 4: RoutingContext Refactor
+**Rationale:** Highest-risk frontend change, contained within context, transitional approach (derive start/end from waypoints) keeps existing components working.
+**Delivers:** `waypoints[]` state management with derived `startAddress`/`endAddress`, add/remove/reorder waypoint actions.
+**Implements:** Backward-compatible context refactor, immutable array state updates.
+**Avoids:** Breaking existing components (derive start/end from waypoints[0]/waypoints[last]).
+**Implementation:** Modify `RoutingContext.tsx`, add waypoints array state, derive start/end as computed values, add waypoint management methods, update context provider.
+**Effort:** MEDIUM (broad component impact, careful backward compatibility management)
 
-**Avoids:**
-- Cost unit mismatch pitfall (uses `time_*` columns not `cost_*`)
-- SRID confusion pitfall (runs ST_ConcaveHull in 2263, transforms result to 4326)
-- Degenerate geometry pitfall (ST_Buffer fallback for sparse node sets)
-- Performance pitfall (spatial bounding box on edge query, single call for all bands)
+### Phase 5: Waypoint UI
+**Rationale:** Most visible, most subjective, builds on validated backend (Phases 2-3) and state infrastructure (Phase 4).
+**Delivers:** Dynamic waypoint inputs in sidebar, numbered waypoint markers on map, URL state sync for N waypoints, per-leg RouteList with grouped instructions.
+**Implements:** Mobile/desktop conditional rendering (buttons vs drag), waypoint marker layers, pipe-separated URL encoding.
+**Avoids:** Mobile drag-to-reorder pitfall (use buttons on mobile per `useResponsive` hook), URL length limits (pipe-separated coords, rounded precision).
+**Implementation:** Modify `Sidebar.tsx`, `Search.tsx`, `RouteList.tsx`, `MapLibreGLMap.tsx`, `ButtonControls.tsx`, `useRouteStateSync.ts`, `RouteStateManager.tsx`.
+**Effort:** HIGH (broad UI surface, mobile UX, marker rendering, URL encoding)
 
-**Test:** Direct SQL execution in psql: `SELECT * FROM getisochrone(-73.985, 40.748, 'drive', ARRAY[5, 10, 15])`. Validate polygon coordinates are in lon/lat range, area values are reasonable, and ST_AsText shows valid POLYGON geometry.
-
-**Research needed:** No - pgr_drivingDistance is well-documented in pgRouting 3.8 manual, ST_ConcaveHull is standard PostGIS with clear parameter documentation.
-
-### Phase 2: API Endpoint (Service Layer + Response Models)
-
-**Rationale:** With the SQL function working, wrap it in the existing service layer pattern to provide HTTP access. This phase enables independent testing via Swagger UI or curl without requiring any frontend changes. It validates that WKB-to-GeoJSON conversion works correctly, that caching prevents redundant computation, and that error handling covers edge cases (invalid coordinates, no reachable nodes, etc.).
-
-**Delivers:** `GET /api/isochrone` endpoint accepting `origin` (lon,lat), `mode` (drive/bike/walk), and `times` (comma-separated minutes) query parameters, returning `IsochroneResponse` with GeoJSON FeatureCollection of polygons. `IsochroneService` class in `api/services/isochrone.py` handles business logic. Pydantic models in `api/models/schemas.py` define request/response structure.
-
-**Uses:**
-- `parse_coordinates()` for input validation (existing utility)
-- `dump_geo()` for WKB-to-GeoJSON conversion (existing utility)
-- `RouteCache` for caching (existing utility with mode-specific keys)
-- `get_db_engine()` for database access (existing dependency injection)
-
-**Implements:** `IsochroneService` class following `RoutingService` pattern (cache-first → parse → SQL → format → cache result). Response includes per-feature color and opacity properties so frontend can use data-driven styling.
-
-**Avoids:**
-- Performance issues (aggressive caching with 5-minute TTL)
-- Validation gaps (Pydantic models enforce coordinate ranges, mode enum, time limits)
-
-**Test:** `curl "http://localhost:5001/api/isochrone?origin=-73.985,40.748&mode=drive&times=5,10,15"`. Validate response structure, GeoJSON geometry types, color/opacity properties, cache headers.
-
-**Research needed:** No - mirrors existing `/api/route` endpoint pattern exactly, uses same utilities and patterns.
-
-### Phase 3: Frontend Rendering (Context + Map Layers)
-
-**Rationale:** With a working API serving GeoJSON, focus on visualization. The existing `useGeoJsonLayer` hook already supports fill layers with data-driven styling, so rendering is straightforward. This phase establishes the state management pattern (separate IsochroneContext) and layer z-ordering (isochrones beneath routes). Building this before UI controls allows testing with hardcoded data or browser console to validate rendering before adding interaction complexity.
-
-**Delivers:**
-- `IsochroneContext` for state management (origin, time bands, mode, polygon data, isActive flag)
-- `useIsochroneFetch` hook for API calls (mirrors `useRouteFetch` pattern)
-- Isochrone fill and outline layers in `MapLibreGLMap.tsx` using existing `useGeoJsonLayer` hook
-- Layer z-ordering with `beforeId: "routeHaloLayer"` to place isochrones beneath routes
-
-**Uses:**
-- `useGeoJsonLayer` for fill and line layer rendering (existing hook, supports fill type and beforeId)
-- `MapInstanceContext` for map instance access (existing)
-- `MessageContext` for error display (existing)
-- `removeMapLayerAndSource` utility for cleanup (existing)
-
-**Implements:**
-- Separate `IsochroneContext` (not extending `RoutingContext` to avoid re-render cascade)
-- Fill layer with data-driven `fill-color` and `fill-opacity` via `["get", "property"]` expressions
-- Optional outline layer for crisp boundaries
-
-**Avoids:**
-- Context bloat pitfall (separate IsochroneContext prevents re-renders in route components)
-- Opacity stacking artifacts (polygons use ST_Difference donut rings from Phase 1 SQL)
-- Layer z-order issues (beforeId ensures isochrones render beneath routes)
-
-**Test:** Hardcoded GeoJSON data first, then API integration. Validate fill colors match properties, transparency is correct, layers appear beneath route, clearing works.
-
-**Research needed:** No - MapLibre fill layers are standard, existing `useGeoJsonLayer` hook provides all needed functionality, pattern from Stadia Maps/Mapbox tutorials.
-
-### Phase 4: UI Controls (Origin Selection + Mode Toggle)
-
-**Rationale:** The most subjective part. With the core visualization pipeline working (SQL → API → rendering), UI controls are the final integration piece. Building this last allows iteration on UX without touching the data pipeline. The controls integrate with existing components (Search, TravelModeSelect) and add new interactions (click-on-map origin).
-
-**Delivers:**
-- `IsochroneControls` component with origin picker, time band selector, and clear button
-- Map click handler for origin selection
-- Integration with existing Search component (single-address mode)
-- Mode toggle between "Directions" and "Reachability" in sidebar
-
-**Addresses:**
-- Click-on-map origin (standard isochrone interaction pattern)
-- Address search integration (reuse existing Geosupport Search)
-- Fixed time band presets (5/10/15/20 min - standard across all isochrone tools)
-
-**Avoids:**
-- Over-engineering pitfall (fixed presets not custom time entry initially)
-- Mode switching stale layers pitfall (explicit cleanup when toggling between route/isochrone modes)
-
-**Test:** Manual UX testing - address search, map click, mode switching, clear button. Validate state flows correctly through IsochroneContext.
-
-**Research needed:** No - standard UI controls, existing component patterns.
-
-### Deferred to Future Phases
-
-**Traffic-aware isochrones (HIGH value but adds complexity):** Apply `traffic_factor` multiplication to edge costs in pgr_drivingDistance SQL (same pattern as `getdrivingroute_with_traffic`). Requires testing the traffic factor pipeline with isochrone queries and validating that time-of-day factors produce realistic results. Defer until basic isochrones are validated.
-
-**Time slider (nice UX but requires performance optimization):** Dynamic slider adjusting max time requires either sub-500ms API response times (aggressive optimization) or client-side caching of the full node set with front-end polygon computation. Fixed presets work fine for v1.
-
-**Edge-based visualization (alternative view mode):** Color individual street segments by time band instead of generating polygons. Simpler (no ST_ConcaveHull needed) but less conventional. Add after polygon approach is solid to offer both visualization modes.
-
-**Deep links (low complexity but not MVP-critical):** Encode origin, mode, time bands in URL params. Extends existing `useRouteStateSync` pattern. Low-hanging fruit for post-MVP.
-
-**Summary statistics (requires additional SQL aggregation):** Area covered (ST_Area on polygon), street count (COUNT from pgr_drivingDistance result), estimated population (requires census data overlay). Adds sidebar UI work.
-
-**Animated expansion (pure polish):** Sequential opacity transitions on each band layer with staggered delays. Add last if time permits.
+### Phase 6 (Optional): Edge-Based Isochrones (Direct Line Rendering)
+**Rationale:** Builds on Phase 1, delivers dramatic visual upgrade, optional enhancement if Phase 1 quality improvement is insufficient.
+**Delivers:** Line layer rendering of individual reachable edges, continuous color gradient via `interpolate` expression, toggle between polygon and edge views.
+**Implements:** New API response format (edge GeoJSON FeatureCollection), new MapLibre line layer, toggle control in sidebar.
+**Avoids:** Payload explosion (geometry simplification, edge count cap, reduced precision), rendering performance (pre-compute band_index, use `match`, set maxzoom).
+**Implementation:** New SQL functions (`getdrivingisochroneedges()`, etc.), new API endpoint or response variant, new frontend layer configuration, toggle control in `IsochroneContext`.
+**Effort:** MEDIUM-HIGH (SQL edge retrieval, frontend layer management, performance optimization)
 
 ### Phase Ordering Rationale
 
-- **Linear dependencies enforce build order**: Each phase requires the previous to be complete before testing the next. SQL function must exist before API can call it. API must work before frontend can fetch data. Rendering must work before controls can trigger it.
-
-- **Independent testing at each layer**: Database queries can be tested in psql. API can be tested with curl/Swagger. Rendering can be tested with hardcoded data. This incremental validation reduces debugging complexity.
-
-- **Architecture pattern matching reduces risk**: Every phase mirrors an existing pattern in the codebase (SQL functions like `getdrivingroute`, service classes like `RoutingService`, contexts like `RoutingContext`, hooks like `useRouteFetch`). No novel architectural patterns needed.
-
-- **Critical pitfall avoidance built into Phase 1**: The most severe pitfalls (cost unit mismatch, SRID confusion, degenerate geometry, unbounded performance) are all addressed in the SQL function design. Getting Phase 1 right prevents cascading issues in later phases.
+- **Phase 1 is isolated SQL** — No API or frontend changes, can be shipped independently, immediate quality improvement.
+- **Phases 2-3-4 can partially overlap** — Phase 2 (SQL) and Phase 4 (frontend state) are independent. Phase 3 (API) depends on Phase 2. Phase 5 (UI) depends on Phases 3 + 4.
+- **Phase 5 is last** — Requires validated backend (Phases 2-3) and state infrastructure (Phase 4). Building UI first risks discovering backend limitations late.
+- **Phase 6 is optional** — Edge-based isochrones as direct line rendering is a visual upgrade, not a functional requirement. Phase 1 (polygon improvement) may be sufficient. Phase 6 can be deferred to v2.1 if payload/rendering concerns outweigh visual benefits.
 
 ### Research Flags
 
-**Phases with standard patterns (skip research-phase):**
-- **Phase 1 (SQL)**: pgr_drivingDistance is documented in pgRouting 3.8 manual with clear examples, ST_ConcaveHull is standard PostGIS with parameter documentation
-- **Phase 2 (API)**: Exact pattern match with existing RoutingService, uses same utilities and dependency injection
-- **Phase 3 (Rendering)**: MapLibre fill layers are established pattern, existing `useGeoJsonLayer` hook provides complete abstraction
-- **Phase 4 (Controls)**: Standard UI components, existing Search/TravelModeSelect patterns
+**Needs deeper research during planning:**
+- **Phase 6 (optional edge rendering):** Performance benchmarking with actual NYC data at scale (10K+ edges), MapLibre rendering profiling on mobile devices.
 
-**Runtime verification needed (not research):**
-- **GEOS version check**: `SELECT postgis_geos_compiled_version()` during Phase 1 to determine if fast native ST_ConcaveHull is available (affects performance not functionality)
-- **Performance benchmarking**: Actual pgr_drivingDistance timing with spatial bounds and varying time bands to validate caching strategy
-- **ST_ConcaveHull param tuning**: Test `param_pctconvex` values (0.3, 0.5, 0.7) with real NYC street network data to find best balance of shape quality vs computation time
+**Standard patterns (skip research-phase):**
+- **Phase 1:** Direct SQL upgrade with proven PostGIS functions, existing concave hull pattern.
+- **Phase 2:** Standard pgRouting via-point pattern, well-documented in pgRouting 3.8 manual.
+- **Phase 3:** Standard FastAPI endpoint pattern, existing service layer conventions.
+- **Phase 4:** React context refactor with established backward-compatibility approach.
+- **Phase 5:** Standard UI patterns (drag-to-reorder, marker rendering, URL encoding).
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | Zero new dependencies required - all capabilities exist in current packages. Only uncertainty is GEOS version affecting ST_ConcaveHull performance (not functionality), with clear upgrade path. |
-| Features | MEDIUM-HIGH | Table stakes derived from Mapbox/Valhalla/TravelTime API documentation and production isochrone tool patterns. Differentiators validated against existing traffic data pipeline. Some UX preferences inferred from industry patterns. |
-| Architecture | HIGH | Direct codebase analysis shows exact pattern matches with existing routing implementation. All integration points verified (edge table schema, service layer pattern, context architecture, hook patterns, map layer management). |
-| Pitfalls | HIGH | All pitfalls verified against pgRouting 3.8 documentation, PostGIS 3.5 documentation, MapLibre style specification, and actual codebase constraints (SRID 2263, edge cost columns, layer z-ordering). Cost unit mismatch validated by inspecting `03_cost.sql` penalty logic. |
+| Stack | HIGH | All functions verified in pgRouting 3.8 docs, zero new dependencies confirmed. `pgr_trspVia` availability in Docker image should be verified but is expected (Proposed functions are shipped). |
+| Features | HIGH | Table stakes and differentiators align with Google Maps, Apple Maps patterns. Anti-features are well-reasoned (e.g., unlimited waypoints, TSP optimization). |
+| Architecture | HIGH | Codebase analysis confirms integration points (SQL functions, API service layer, RoutingContext, MapLibre layers). Phase 1 SQL-only path is zero-risk. Phase 4 RoutingContext refactor is highest-risk but mitigated by transitional approach. |
+| Pitfalls | HIGH | Payload explosion, latency multiplication, rendering performance, URL length limits, schema compatibility — all grounded in MapLibre issue reports, pgRouting docs, and direct codebase inspection. Mitigation strategies are specific and actionable. |
 
 **Overall confidence:** HIGH
 
-Research is comprehensive across all domains with primary sources (official documentation, verified codebase analysis). The only low-confidence area is GEOS version in the Docker image (inferred from similar tag examples rather than verified), but this affects only performance optimization, not core functionality, and has a documented upgrade path.
-
 ### Gaps to Address
 
-**GEOS version verification (Phase 1):**
-- Run `SELECT postgis_geos_compiled_version()` in the database container during Phase 1 development
-- If result is >= 3.11.0: Native fast ST_ConcaveHull implementation is available (optimal, 10-50ms per polygon)
-- If result is < 3.11.0: Legacy PL/pgSQL implementation will be used (100-500ms per polygon, acceptable for PoC)
-- If performance is insufficient: Upgrade Docker image from `pgrouting/pgrouting:17-3.5-3.8` to `pgrouting/pgrouting:17-3.6-3.8` (drop-in replacement with PostGIS 3.6 + GEOS 3.11+)
+- **`pgr_trspVia` runtime availability:** Research confirms it exists in pgRouting 3.8 (Proposed status), but actual Docker image verification is needed. Fallback to sequential `pgr_trsp` is viable if unavailable. **Action:** Run `SELECT proname FROM pg_proc WHERE proname = 'pgr_trspvia';` in db container during Phase 2 planning.
 
-**No other gaps identified:** Research covered all integration points, validated against actual codebase structure, and identified clear mitigations for all critical pitfalls.
+- **Edge-based isochrone feature count at scale:** Estimated 5,000-15,000 edges for 20-minute driving isochrone, but actual count depends on NYC network density near origin. **Action:** Test with representative origins (Manhattan CBD, outer boroughs, waterfront) during Phase 1 or Phase 6 planning.
+
+- **MapLibre rendering performance on mobile:** Research cites MapLibre issues with 5,000-10,000 features, but actual performance depends on device GPU and data-driven expression complexity. **Action:** Profile on target devices (iPhone SE, mid-range Android) during Phase 6 planning if direct edge rendering is pursued.
+
+- **Waypoint node snapping quality:** Nearest-node snapping may place waypoints on wrong side of one-way streets, causing detours. This is acceptable for v1 (matches existing origin/destination snapping behavior), but user testing may reveal higher sensitivity at intermediate waypoints. **Action:** Document as known limitation, consider showing snapped location on map (dual marker: drop point + snapped point).
 
 ## Sources
 
 ### Primary (HIGH confidence)
-
-**Stack research:**
-- [pgr_drivingDistance - pgRouting Manual 3.8](https://docs.pgrouting.org/latest/en/pgr_drivingDistance.html) - Function signature, parameters, return columns, version compatibility
-- [ST_ConcaveHull - PostGIS Documentation](https://postgis.net/docs/ST_ConcaveHull.html) - Function parameters, GEOS 3.11+ enhancement, edge cases
-- [MapLibre GL JS Style Spec - Layers](https://maplibre.org/maplibre-style-spec/layers/) - Fill layer paint properties, data-driven styling
-- [pgr_alphaShape Deprecation - pgRouting Issue #2749](https://github.com/pgRouting/pgrouting/issues/2749) - Confirmed deprecated in 3.8
-- [pgRouting Docker Repository](https://github.com/pgRouting/docker-pgrouting) - Image tag conventions and version matrix
-
-**Features research:**
-- [Mapbox Isochrone API Documentation](https://docs.mapbox.com/api/navigation/isochrone/) - 4-contour standard, time limits, profile options
-- [Valhalla Isochrone API Reference](https://valhalla.github.io/valhalla/api/isochrone/api-reference/) - Contour parameters, costing models
-- [pgr_drivingDistance - pgRouting Manual 3.8](https://docs.pgrouting.org/latest/en/pgr_drivingDistance.html) - Reachability algorithm documentation
-
-**Architecture research:**
-- Direct codebase analysis of all integration points - HIGH confidence (actual file inspection)
-- [MapLibre GL JS Style Spec](https://maplibre.org/maplibre-style-spec/layers/) - Fill layer specification
-- [pgr_drivingDistance documentation](https://docs.pgrouting.org/latest/en/pgr_drivingDistance.html) - Algorithm details
-- [PostGIS ST_ConcaveHull](https://postgis.net/docs/ST_ConcaveHull.html) - Polygon generation
-
-**Pitfalls research:**
-- Direct codebase analysis of `03_cost.sql`, `05_functions.sql`, edge table schema, layer management code
-- [ST_ConcaveHull edge cases - PostGIS #1973](https://trac.osgeo.org/postgis/ticket/1973) - Empty geometry bug
-- [MapLibre opacity blending - Mapbox #859](https://github.com/mapbox/mapbox-gl-js/issues/859) - Fill layer opacity stacking
+- [pgRouting 3.8 Manual — pgr_drivingDistance](https://docs.pgrouting.org/3.8/en/pgr_drivingDistance.html) — Confirmed `edge` column for edge-based isochrones
+- [pgRouting 3.8 Manual — pgr_trspVia](https://docs.pgrouting.org/3.8/en/pgr_trspVia.html) — Proposed status, function signature, `path_id` semantics
+- [pgRouting 3.8 Manual — pgr_dijkstraVia](https://docs.pgrouting.org/3.8/en/pgr_dijkstraVia.html) — Alternative for bike/walk modes
+- [pgRouting 3.8 Manual — pgr_KSP](https://docs.pgrouting.org/3.8/en/pgr_KSP.html) — K-shortest paths for alternative routes
+- [MapLibre Style Spec — Layers](https://maplibre.org/maplibre-style-spec/layers/) — Data-driven `line-color` and `line-width` expressions
+- [MapLibre Style Spec — Expressions](https://maplibre.org/maplibre-style-spec/expressions/) — `interpolate`, `match`, `step` syntax
+- [MapLibre GL JS — Large Data Guide](https://maplibre.org/maplibre-gl-js/docs/guides/large-data/) — Performance optimization strategies
+- [PostGIS Manual — ST_LineSubstring](https://postgis.net/docs/ST_LineSubstring.html) — Partial edge clipping
+- [PostGIS Manual — ST_ConcaveHull](https://postgis.net/docs/ST_ConcaveHull.html) — Polygon generation from line geometries
 
 ### Secondary (MEDIUM confidence)
+- [Jeff Allen: Using Network Segments in the Visualization of Urban Isochrones](https://jamaps.github.io/docs/allen_2018_isochrones.pdf) — Academic basis for edge-based visualization
+- [GraphHopper: High Precision Reachability with deck.gl](https://www.graphhopper.com/blog/2018/07/04/high-precision-reachability/) — Edge-based visualization at scale
+- [Google Routes API: Intermediate Waypoints](https://developers.google.com/maps/documentation/routes/intermed_waypoints) — Leg-per-waypoint response structure
+- [Google Routes API: Waypoint Types](https://developers.google.com/maps/documentation/routes/waypoint-types) — Stopover vs pass-through distinction
+- [MapLibre issue #4364](https://github.com/maplibre/maplibre-gl-js/issues/4364) — FeatureCollection update performance benchmarks
+- [MapLibre issue #106](https://github.com/maplibre/maplibre-gl-js/issues/106) — JSON.stringify bottleneck with large LineStrings
 
-- [Stadia Maps Isochrone Tutorial](https://docs.stadiamaps.com/tutorials/display-isochrones-on-a-map/) - MapLibre fill layer implementation pattern
-- [Maptoolkit Isochrone Example](https://www.maptoolkit.com/doc/routing/isochrone-example-maplibre/) - Fill + line layer pattern
-- [ColorBrewer](https://colorbrewer2.org/) - Sequential palette recommendations
-- [GraphHopper High-Precision Reachability](https://www.graphhopper.com/blog/2018/07/04/high-precision-reachability/) - Edge-based vs polygon visualization
-- [Isochrone UX Patterns](https://ux-patterns.webgeodatavore.com/isochrone-map/index.html) - Common interaction patterns
-
-### Tertiary (LOW confidence - needs validation)
-
-- GEOS version in `pgrouting/pgrouting:17-3.5-3.8` inferred as 3.9.0 from similar tag examples - must verify with `postgis_geos_compiled_version()`
+### Codebase Analysis (HIGH confidence)
+- Direct examination of `05_functions.sql`, `routing.py`, `isochrone.py`, `schemas.py`, `RoutingContext.tsx`, `IsochroneContext.tsx`, `MapLibreGLMap.tsx`, `Sidebar.tsx`, `useRouteFetch.ts`, `useRouteStateSync.ts`, `mapHelpers.ts`, `style.ts`, `cache.py` — Integration points verified, existing patterns identified, component dependencies mapped.
 
 ---
-*Research completed: 2026-02-13*
+*Research completed: 2026-02-14*
 *Ready for roadmap: yes*

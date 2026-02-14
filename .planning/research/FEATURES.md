@@ -1,232 +1,346 @@
-# Feature Landscape: Isochrone / Reachability Visualization
+# Feature Landscape: Edge-Based Isochrones & Waypoint Routing
 
-**Domain:** Isochrone (travel-time reachability) features for a multi-modal routing application
-**Researched:** 2026-02-13
-**Focus:** "How far can I go in X minutes?" visualization with concentric time bands
-**Confidence:** MEDIUM-HIGH (patterns derived from Mapbox/Valhalla/TravelTime APIs, pgRouting docs, and production isochrone tools)
+**Domain:** Enhanced routing features for a multi-modal routing application
+**Researched:** 2026-02-14
+**Focus:** Two new capabilities: (1) edge-based isochrone visualization as an alternative/complement to existing polygon isochrones, and (2) multi-stop waypoint routing with via-point support
+**Confidence:** MEDIUM-HIGH
 
----
-
-## Table Stakes
-
-Features users expect from any isochrone tool. Missing these and the feature feels broken or incomplete.
-
-| Feature | Why Expected | Complexity | Notes |
-|---------|--------------|------------|-------|
-| Single-origin isochrone polygons | Core feature: show area reachable from a point within N minutes | HIGH | pgr_drivingDistance + PostGIS ST_ConcaveHull pipeline. Heaviest backend work. |
-| Concentric time bands (5/10/15/20 min) | Standard across all isochrone tools (Mapbox, Valhalla, TravelTime, Smappen). Users expect multiple bands to compare reach at different thresholds. | MEDIUM | 4 bands is the sweet spot. Mapbox caps at 4 contours; Valhalla allows more but 4 is standard. |
-| Multi-modal support (drive/bike/walk) | App already supports 3 modes for routing. Isochrones must support the same modes or users will be confused. | LOW | Reuses existing cost columns (cost_drive, cost_bike, cost_walk) in pgr_drivingDistance SQL. |
-| Color-coded polygon fill with transparency | Universal pattern: each time band gets a distinct color at ~30-50% opacity so the base map shows through. | LOW | MapLibre fill layer with data-driven fill-color and fill-opacity. |
-| Origin point selection via address search | App already has Geosupport address search. Isochrone origin must use the same search UX rather than requiring a separate input. | LOW | Reuse existing Search component with single-address mode. |
-| Click-on-map to set origin | Standard interaction across all isochrone tools (Smappen, iso4app, Geoapify). Users expect to click the map and see isochrones instantly. | MEDIUM | Requires new map click handler, reverse geocoding (or just use raw coordinates), and wiring to isochrone fetch. |
-| Loading state during computation | pgr_drivingDistance + polygon generation is slower than point-to-point routing (multiple Dijkstra expansions + geometry ops). Users need feedback. | LOW | Existing LoadingSpinner/isFetching pattern. |
-| Clear/reset isochrone | Users must be able to dismiss the isochrone overlay to return to the normal map view. | LOW | Clear button or toggle. Removes the fill/line layers. |
-| Responsive rendering order | Largest polygon (20 min) rendered first, smallest (5 min) on top. Otherwise transparency stacking causes color blending artifacts. | LOW | Sort features by time descending before adding to GeoJSON source, or use separate layers with explicit z-ordering. |
+**Existing capabilities (already built):**
+- Point-to-point routing (drive/bike/walk) with turn restrictions via pgr_trsp
+- Polygon-based isochrones (5/10/15/20 min concentric bands) via pgr_drivingDistance + ST_ConcaveHull
+- Traffic-aware drive mode with departure time picker
+- Address search (Geosupport), URL deep links, responsive sidebar UI
+- AppMode toggle between "Route" and "Reachability" modes
 
 ---
 
-## Differentiators
+## FEATURE 1: Edge-Based Isochrone Visualization
 
-Features that set this apart from basic isochrone tools. Not expected, but valued.
+### What It Is
+
+Instead of (or alongside) the existing polygon fill, color each individual reachable street segment by its travel-time band. The user sees the actual road network lit up in green-to-red gradients, showing precisely which streets are reachable and how long it takes to reach them. This is fundamentally different from concave hull polygons, which approximate reachable area but can swallow unreachable zones (parks, water, fenced areas).
+
+Academic basis: Jeff Allen's "Using Network Segments in the Visualization of Urban Isochrones" (Cartographica, 2018) demonstrates that edge-based isochrones highlight transport network structure, enable visual comparison across modes/times, and avoid polygon approximation artifacts. GraphHopper's deck.gl reachability demo proved this works at scale in browsers with millions of edges.
+
+### Table Stakes (Edge-Based Isochrones)
+
+Features that are required for edge-based visualization to feel complete and usable.
+
+| Feature | Why Expected | Complexity | Dependencies |
+|---------|--------------|------------|--------------|
+| Color street segments by time band | Core feature: each reachable edge gets a color based on its agg_cost band (0-5 min, 5-10, 10-15, 15-20) | MEDIUM | Existing pgr_drivingDistance already returns `edge` and `agg_cost` columns. Need new API endpoint or response format to return edge geometries instead of/alongside polygons. |
+| Toggle between polygon and edge view | Users need a way to switch visualization modes. Some prefer the polygon overview, others want street-level detail. | LOW | Frontend toggle control. Both views use the same pgr_drivingDistance data, just rendered differently. |
+| Sequential color ramp (green to red) | Must match the existing isochrone color scheme (ISOCHRONE_BAND_COLORS) for visual consistency. Users mentally associate green=close, red=far. | LOW | MapLibre `step` or `interpolate` expression on `line-color` using the `agg_cost` property from each edge feature. Existing data-driven styling pattern in style.ts. |
+| Line width scaling by zoom | Street segments must be visible at city-wide zoom (thin) and readable at neighborhood zoom (thick). Without this, edges are either invisible at z12 or overwhelming at z16. | LOW | MapLibre zoom-interpolated `line-width`, identical pattern to existing route layer. |
+| Loading state during computation | Edge-based data is larger than polygon data (hundreds to thousands of LineString features vs 4 polygons). Users need feedback. | LOW | Reuse existing `isFetching` pattern from `useIsochroneFetch`. |
+| Legend showing time-band color mapping | With edges colored by time, users need a legend explaining what each color means. The polygon view uses colored dots in the sidebar (already built); edge view needs the same. | LOW | Extend existing IsochroneControls sidebar section. |
+
+### Differentiators (Edge-Based Isochrones)
 
 | Feature | Value Proposition | Complexity | Notes |
 |---------|-------------------|------------|-------|
-| Traffic-aware isochrones (drive mode) | Most isochrone tools use free-flow speeds. NYC Open Routing already has traffic factors -- applying them to isochrone costs shows realistic drive-time reach during rush hour vs off-peak. Unique for a self-hosted tool. | MEDIUM | Use cost_drive * traffic_factor in pgr_drivingDistance SQL, same as getdrivingroute_with_traffic. Time-of-day support included. |
-| Edge-based visualization (colored streets) | Instead of (or alongside) polygon blobs, color each reachable street segment by its time band. More accurate than polygons -- shows exactly which streets are reachable and avoids the "concave hull swallowing unreachable areas" problem. | MEDIUM | pgr_drivingDistance returns node+edge pairs. Color edges directly as line layers in MapLibre. No polygon generation needed for this view. |
-| Time slider for band adjustment | Let users drag a slider to adjust the max time (e.g., 1-30 min). Isochrone updates live as slider moves. More engaging than fixed presets. | MEDIUM | Frontend slider component + debounced API calls. Requires fast backend response (<1s) or client-side caching of the full node set. |
-| Isochrone deep links (URL sharing) | Encode origin, mode, time bands, and traffic setting in URL params so isochrones can be shared. Consistent with existing route deep link pattern. | LOW | Extend existing useRouteStateSync hook. Add params like `iso_origin=lon,lat&iso_mode=drive&iso_time=20`. |
-| Summary statistics in sidebar | Show area covered (sq mi), estimated population reached, or street count within each band. Gives the isochrone practical meaning beyond "cool map visual." | MEDIUM | Area: PostGIS ST_Area on polygons. Population: would need census data overlay (defer). Street count: COUNT from pgr_drivingDistance result. |
-| Animated isochrone expansion | Smooth animation showing the isochrone growing outward from the origin, band by band. Visually engaging "reveal" effect. | LOW-MEDIUM | Sequential opacity transitions on each band layer with staggered delays. CSS/MapLibre paint property transitions. |
-| Dual-mode comparison | Show two isochrones side-by-side (e.g., drive vs walk from same origin) to visually compare modal reach. | MEDIUM | Two concurrent API calls, two sets of fill layers with different color ramps. Need careful z-order and legend. |
+| Continuous color gradient (not banded) | Instead of 4 discrete color bands, use a smooth interpolation from green (0 min) to red (max min) based on actual agg_cost. Shows fine-grained time variation within bands. | LOW | MapLibre `interpolate` expression on `line-color` with `agg_cost` property. More informative than discrete `step` bands. |
+| Edge + polygon overlay mode | Show both polygon fill (faded) and colored edges simultaneously. The polygon gives spatial context while edges show detail. Best of both worlds. | LOW | Render polygon fill at very low opacity (0.1) beneath the edge line layer. Both layers use same data source. |
+| Interactive hover on edge segments | Hover over a street segment to see its name and exact travel time (e.g., "Broadway - 7.3 min"). Gives precise information that neither polygons nor colored lines alone can convey. | MEDIUM | MapLibre `mouseenter`/`mouseleave` events on the edge layer. Requires street name and travel time in the GeoJSON properties. |
+| Edge-based isochrone with traffic coloring | In drive mode with traffic enabled, color edges not by time band but by traffic factor -- showing which reachable streets have congestion. Unique combination of reachability + traffic awareness. | MEDIUM | Requires joining traffic_factor data to pgr_drivingDistance edge results. Extends existing traffic color scale in style.ts. |
+| Boundary edge interpolation | For edges that cross a time-band boundary (partially reachable within the cutoff), clip the edge geometry at the precise cutoff point using linear interpolation along the line. Avoids the jarring effect of an edge being fully colored when only part of it is within reach. | HIGH | Requires PostGIS ST_LineSubstring with (cutoff - node_agg_cost) / edge_cost ratio. Adds significant SQL complexity. |
 
----
-
-## Anti-Features
-
-Features to explicitly NOT build. These add complexity without proportional value for a proof-of-concept.
+### Anti-Features (Edge-Based Isochrones)
 
 | Anti-Feature | Why Avoid | What to Do Instead |
 |--------------|-----------|-------------------|
-| Reverse isochrone ("where can reach ME in X minutes") | Requires running pgr_drivingDistance from every node to the target, or a reverse Dijkstra. Computationally expensive for a PoC. Valhalla supports it but it is a niche use case. | Build standard forward isochrone only. Note reverse as future possibility. |
-| Multi-origin isochrone merge/intersection | Overlaying isochrones from multiple origins and computing their union/intersection is an analytics feature (site selection, facility placement). Way beyond PoC scope. | Support single-origin only. |
-| Isodistance (distance-based instead of time-based) | Time-based isochrones are more intuitive and useful for most users. Distance-based adds a second mode that needs UI controls without much added value. | Only support time-based. The edge costs are already in time units. |
-| POI overlay / demographic analysis | Smappen and TravelTime offer POI counts and census overlays within isochrones. This requires external data integration (NYC open data, census API) that is a separate project. | Show the polygon on the map. Let the user visually assess what is within reach. |
-| Real-time isochrone updates as origin is dragged | Continuously recomputing isochrones while dragging a marker requires sub-100ms response times. pgr_drivingDistance on 177K edges will not hit that. | Use click-to-place (not drag) and show loading during computation. |
-| Custom time interval entry | Letting users type arbitrary minute values (e.g., 7, 13, 22) instead of using preset bands. Over-engineers the UI for minimal value. | Use fixed presets: 5, 10, 15, 20 min. A slider (differentiator) covers the "custom" need. |
-| GeoTIFF / raster export | Valhalla supports GeoTIFF export for grid data. Overkill for a web visualization PoC. | Display polygons on the map only. No export needed. |
-| Public transit isochrone | Would require GTFS data integration, schedule-aware routing, and a fundamentally different routing engine. Massive scope increase. | Stick with drive/bike/walk modes that match existing routing capabilities. |
-| Polygon smoothing (ST_ChaikinSmoothing) | Adds visual polish but can mask real network topology. Smoothed polygons may cover areas that are genuinely unreachable (rivers, parks, fenced areas). | Use raw concave hull output. The slight roughness is more honest and costs zero extra computation. |
+| Voronoi cell coloring around edges | GraphHopper's advanced approach creates colored Voronoi cells around each edge to fill space between streets. Computationally expensive (PostGIS ST_VoronoiPolygons) and adds visual noise for a dense NYC street grid. | Color the edges directly as lines. NYC's grid is dense enough that colored streets create a clear visual pattern without needing to fill gaps. |
+| Binary/custom format for edge data | GraphHopper uses a custom binary edge format (5x smaller than GeoJSON). Premature optimization for this app's scale (NYC has ~177K edges, pgr_drivingDistance returns a subset). | Use standard GeoJSON. The reachable edge set for a 20-min isochrone is typically 2K-10K edges -- well within GeoJSON's practical limits for MapLibre. |
+| Client-side edge rendering without server geometry | Fetching all edge geometries to the client upfront and filtering client-side. Would require sending 177K LineStrings (~50MB+) to the browser. | Return only reachable edges with geometries from the API. The server does the spatial join and returns a focused GeoJSON FeatureCollection. |
+| 3D edge visualization (height = time) | Extruding street segments vertically by travel time creates a dramatic 3D effect but requires WebGL overhead and hurts readability on a 2D base map. | Keep visualization 2D. Color encodes time. |
+
+---
+
+## FEATURE 2: Waypoint / Via-Point Routing
+
+### What It Is
+
+Allow users to add intermediate stops (waypoints) between origin and destination. The route passes through each waypoint in order, creating a multi-leg journey. This is the "add a stop" feature familiar from Google Maps, Apple Maps, and every turn-by-turn navigation app.
+
+Two distinct waypoint types exist in the routing domain:
+1. **Stopover waypoints** -- the route stops at this location (for pickup, errand, etc.). Creates separate route legs with independent turn-by-turn directions.
+2. **Via/pass-through waypoints** -- the route passes through this point without stopping. Used to influence route shape ("go via the bridge, not the tunnel"). Creates a single leg.
+
+For this app, **stopover waypoints are the primary use case**. Via/pass-through points are a secondary enhancement.
+
+### Table Stakes (Waypoint Routing)
+
+| Feature | Why Expected | Complexity | Dependencies |
+|---------|--------------|------------|--------------|
+| Add at least 1 intermediate waypoint | Every major mapping app supports adding stops. Users expect to plan multi-stop trips (e.g., "home -> coffee shop -> office"). Without this, the app is limited to single-leg routes. | MEDIUM | Requires extending RoutingContext from 2 addresses to N addresses. New waypoint state management. |
+| Remove a waypoint | Users must be able to delete a waypoint they added. Standard pattern: X button next to the waypoint in the sidebar list. | LOW | Remove from waypoint array, re-fetch route. |
+| Reorder waypoints via drag-and-drop | Google Maps, Apple Maps, Roadtrippers all use drag handles (6-dot grip icon or hamburger lines) to reorder stops. Users expect to rearrange stops by dragging them up or down in the sidebar list. | MEDIUM | MUI supports drag-and-drop list reordering. Need to integrate with route re-fetch on drop. |
+| Per-leg route display | Each leg (origin->WP1, WP1->WP2, WP2->dest) should be visually distinguishable on the map. At minimum, waypoint markers should appear between legs. | MEDIUM | Multiple route segments rendered as separate layers or a single layer with waypoint markers overlaid. pgr_trspVia or sequential pgr_trsp calls return path_id per leg. |
+| Per-leg turn-by-turn directions | The sidebar RouteList must show directions grouped by leg. "Leg 1: Home to Coffee Shop" with its own instruction list, then "Leg 2: Coffee Shop to Office" with separate instructions. | MEDIUM | Existing _format_route_response works per-leg. Need to call it per path_id and wrap in a leg-level grouping structure. |
+| Total route summary (all legs) | Show aggregate distance and time across all legs, plus per-leg breakdown. Users want both the total trip stats and individual leg stats. | LOW | Sum travel_time and distance across all leg responses. Display in RouteList header. |
+| Waypoint markers on map | Each waypoint needs a numbered or lettered marker on the map (A, B, C or 1, 2, 3) to show its position in the route sequence. Start (green) and End (red) markers already exist. | LOW | Add intermediate point markers with neutral color (blue or gray) and sequence labels. Extend existing startPointSource/endPointSource pattern. |
+| URL deep links for waypoints | The existing deep link system encodes start/end in URL params. Waypoints must also be encoded so multi-stop routes can be shared. | LOW | Extend useRouteStateSync. Add params like `&via1=-73.98,40.75&via1Addr=Coffee+Shop`. |
+
+### Differentiators (Waypoint Routing)
+
+| Feature | Value Proposition | Complexity | Notes |
+|---------|-------------------|------------|-------|
+| Click-on-map to add waypoint | After setting origin and destination, clicking the map (or clicking on the route line) adds a waypoint at that location. More intuitive than typing addresses for every stop. | MEDIUM | Map click handler that inserts a waypoint. Needs to determine insertion position (between which existing stops based on proximity to route segments). |
+| Swap any adjacent stops | Extend existing swap button (SwapVert) to work between any adjacent pair in the waypoint list, not just origin/destination. Quick reordering without full drag-and-drop. | LOW | Swap two items in the waypoint array. |
+| "Add stop" button between each pair | Show a subtle "+" button between each consecutive pair of stops in the sidebar. Clicking opens a search input to add a waypoint at that specific position. Google Maps uses this pattern. | LOW | Insert a new empty search input at the clicked position. |
+| Via/pass-through waypoints | A toggle per waypoint: "Stop here" vs "Pass through". Pass-through waypoints influence route shape without creating separate legs. Useful for forcing a route via a specific bridge, tunnel, or street. | HIGH | pgr_trspVia treats all vertices as stopovers. Pass-through would require splitting the route differently or using pgr_withPoints for arbitrary on-edge points. Significant SQL complexity. |
+| Waypoint address autocomplete | Each waypoint input field should have the same Geosupport autocomplete as the existing Start/End search. Users expect consistent search UX. | LOW | Reuse existing Search component. Each waypoint gets its own Search instance. |
+| Leg-specific travel mode | Allow different travel modes per leg (e.g., walk to subway, then bike to destination). Multi-modal trip planning. | HIGH | Requires separate routing calls per leg with different mode parameters. Significant UI and state complexity. Per-leg mode selector in sidebar. |
+| Route optimization ("best order") | Automatically reorder waypoints to minimize total travel time. Google Routes API offers this for up to 25 waypoints. | HIGH | Requires solving the Traveling Salesman Problem (TSP). pgRouting has pgr_TSP but it needs a full cost matrix (N^2 routing calls). Impractical for real-time use with >5 waypoints on this backend. |
+
+### Anti-Features (Waypoint Routing)
+
+| Anti-Feature | Why Avoid | What to Do Instead |
+|--------------|-----------|-------------------|
+| Unlimited waypoints | Google Maps caps at 25 intermediate waypoints (and charges more for >10). For a PoC, supporting unlimited waypoints creates UI complexity (scrolling lists, performance issues with many legs) and backend load (N+1 routing calls). | Cap at 3-5 intermediate waypoints. This covers the vast majority of real-world multi-stop trips. |
+| Drag route line to add waypoints | Google Maps lets you drag the route polyline on the map to create a detour waypoint. This requires complex hit-testing on the rendered route, snapping to the nearest road, and inserting a waypoint at the correct sequence position. | Use "click map to add waypoint" instead. Simpler to implement, works with existing click handlers, and is more explicit about user intent. |
+| Real-time re-routing as waypoints are dragged on map | Continuously re-computing the route while a waypoint marker is being dragged on the map. Requires sub-second routing responses for smooth UX. | Re-fetch route only after marker is placed (on drag-end). Show loading indicator during re-computation. |
+| Waypoint scheduling / time windows | Allowing users to set "arrive by" or "depart at" times for each waypoint. This is a logistics/fleet optimization feature, not a consumer mapping feature. | Show estimated arrival time at each waypoint based on cumulative travel time. No scheduling input. |
+| Multi-modal per-leg routing | See differentiators. While valuable, the UI and backend complexity of per-leg mode switching is disproportionate to its value in a PoC. Every leg would need its own mode selector, and the existing pgr_trspVia assumes uniform edge costs. | Use a single travel mode for the entire trip. This matches the existing mode selector UX. |
 
 ---
 
 ## Feature Dependencies
 
+### Edge-Based Isochrones
+
 ```
-Address Search (existing) -----> Origin Selection
-                                      |
-                                      v
-Click-on-Map Origin -----------> Isochrone API Endpoint
-                                      |
-                                      v
-Travel Mode Select (existing) -> pgr_drivingDistance SQL Functions
-                                      |
-                                      v
-                              Polygon Generation (ST_ConcaveHull)
-                                      |
-                              +-------+--------+
-                              |                |
-                              v                v
-                     Polygon Fill Layer   Edge-Based Layer
-                     (concentric bands)  (colored streets)
-                              |                |
-                              +-------+--------+
-                                      |
-                                      v
-                              Isochrone UI Controls
-                              (time presets, clear, toggle)
-                                      |
-                              +-------+--------+-------+
-                              |       |        |       |
-                              v       v        v       v
-                        Traffic   Time      Deep    Summary
-                        Toggle   Slider    Links    Stats
+pgr_drivingDistance (existing) -----> Returns node + edge + agg_cost
+                                           |
+                                           v
+                               Edge geometry JOIN (new SQL)
+                               Join edges table on edge ID
+                               Return LineString + agg_cost + street
+                                           |
+                                    +------+------+
+                                    |             |
+                                    v             v
+                           New API response    Existing polygon
+                           format (edges)      response (unchanged)
+                                    |             |
+                                    v             v
+                           MapLibre line      MapLibre fill
+                           layer (new)        layer (existing)
+                                    |             |
+                                    +------+------+
+                                           |
+                                           v
+                                 Toggle control (new)
+                                 polygon | edges | both
+                                           |
+                                           v
+                                 Sidebar legend (extend)
 ```
 
-**Critical path:** Origin Selection -> API Endpoint -> SQL Functions -> Polygon Generation -> Map Layer
+**Critical dependency:** The existing pgr_drivingDistance functions already return `edge` IDs. The main new work is the geometry JOIN -- selecting edge geometries from the `edges` table using the edge IDs from pgr_drivingDistance results. This is a SQL extension, not a rewrite.
 
-**Independent after core:** Traffic toggle, time slider, deep links, and summary stats can all be built independently once the core isochrone pipeline works.
+### Waypoint Routing
 
-**Edge-based vs polygon:** These are two visualization approaches for the same underlying data (pgr_drivingDistance result). Edge-based is simpler (no polygon generation), but polygon is more conventional. Build polygon first, add edge-based as an enhancement.
+```
+Address Search (existing) ---------> Waypoint State (new)
+                                     Array of IMapFeature[]
+                                           |
+                                           v
+                                     Waypoint UI Controls (new)
+                                     Add / Remove / Reorder
+                                           |
+                                           v
+                                     API Extension (new)
+                                     GET /api/route?orig=...&dest=...&via=lon,lat&via=lon,lat
+                                           |
+                                           v
+                                     pgr_trspVia / sequential pgr_trsp (new SQL)
+                                     Returns path_id per leg
+                                           |
+                                           v
+                                     Multi-leg response format (new)
+                                     RouteResponse with legs[] array
+                                           |
+                                    +------+------+
+                                    |             |
+                                    v             v
+                              Map rendering    Sidebar RouteList
+                              waypoint markers  per-leg directions
+                              per-leg lines     leg summaries
+                                    |             |
+                                    +------+------+
+                                           |
+                                           v
+                                     URL deep links (extend)
+                                     useRouteStateSync with via params
+```
+
+**Critical dependency:** Waypoint routing requires changes across all layers: state management (RoutingContext), UI (Search components + drag-reorder), API (new endpoint params), SQL (pgr_trspVia or sequential calls), response format (legs array), and map rendering (waypoint markers).
+
+### Cross-Feature Dependencies
+
+These two features are independent of each other. They can be built in parallel or in either order. Both depend on existing infrastructure:
+
+- Edge-based isochrones depend on: existing isochrone SQL functions, existing MapLibre layer system
+- Waypoint routing depends on: existing routing SQL functions, existing Search component, existing RoutingContext
+
+Neither feature requires the other. However, both benefit from:
+- The existing `useGeoJsonLayer` hook (already handles add/update/remove for any GeoJSON)
+- The existing `useRouteStateSync` hook (URL deep linking framework)
+- The existing color/style utilities in `style.ts`
 
 ---
 
 ## MVP Recommendation
 
-**Prioritize these features for the initial isochrone milestone:**
+### Edge-Based Isochrones -- Build First (lower complexity, higher visual impact)
 
-1. **pgr_drivingDistance SQL functions** (3 modes) -- Backend foundation. Nothing works without this.
-2. **Polygon generation via ST_ConcaveHull** -- Converts node set to displayable GeoJSON polygons.
-3. **API endpoint** (`GET /api/isochrone`) -- Serves polygon GeoJSON to the frontend.
-4. **Concentric band fill layers** (5/10/15/20 min) -- Core visualization on the map.
-5. **Origin via address search** -- Reuse existing Search component in single-address mode.
-6. **Click-on-map origin** -- Standard isochrone interaction pattern.
-7. **Mode selection** -- Reuse existing TravelModeSelect toggle.
-8. **Clear/reset button** -- Essential for dismissing the isochrone overlay.
-9. **Loading state** -- Required given computation time.
+**Priority order:**
+1. **Edge geometry SQL function** -- Extend existing isochrone SQL to return edge LineStrings with agg_cost bands instead of (or alongside) polygons. JOIN pgr_drivingDistance edge IDs back to the edges table for geom_4326.
+2. **API response format** -- Add edge-based GeoJSON FeatureCollection to IsochroneResponse (each feature: LineString geometry + properties: { agg_cost, band_index, street }).
+3. **MapLibre edge line layer** -- New line layer with data-driven `line-color` using `step` expression on `band_index`. Follows existing pattern in style.ts.
+4. **Toggle control** -- Simple segmented button or icon toggle: polygon view | edge view | both. In sidebar near existing isochrone controls.
+5. **Legend integration** -- Extend existing IsochroneControls color dots to label the edge view too.
 
-**Defer to post-MVP:**
-- **Traffic-aware isochrones:** HIGH value but adds complexity to the SQL and requires testing the traffic factor pipeline with pgr_drivingDistance. Ship basic isochrones first, then layer traffic on.
-- **Time slider:** Nice UX but requires fast response times or client-side caching strategy. Fixed presets work fine for V1.
-- **Edge-based visualization:** Alternative view mode. Add after polygon approach is solid.
-- **Deep links:** Low complexity but not needed for initial feature validation.
-- **Summary statistics:** Requires additional SQL aggregation and sidebar UI work.
-- **Animated expansion:** Pure polish. Add last.
-- **Dual-mode comparison:** Complex UI. Defer to a future milestone.
+**Defer:**
+- Continuous gradient coloring (use discrete bands first, match polygon colors)
+- Hover interactions on edges (nice-to-have, not required for V1)
+- Boundary edge interpolation (HIGH complexity, low visual impact at city scale)
+- Traffic-colored edges (build after basic edge visualization is stable)
+
+### Waypoint Routing -- Build Second (higher complexity, broader feature surface)
+
+**Priority order:**
+1. **Waypoint state management** -- Extend RoutingContext to hold `waypoints: IMapFeature[]` array between start and end addresses. Add setWaypoints, addWaypoint, removeWaypoint, reorderWaypoints.
+2. **Sidebar waypoint UI** -- "Add stop" button that inserts a new Search input between existing stops. X button to remove. Drag handle to reorder (can defer drag to V2 if needed).
+3. **API extension** -- Accept `via` query param(s) on `/api/route`. Parse into coordinate pairs. Route through them in order.
+4. **SQL via-routing** -- Use pgr_dijkstraVia (stable) or pgr_trspVia (proposed, with turn restrictions) to compute multi-leg route. Return path_id per leg.
+5. **Multi-leg response** -- Extend RouteResponse schema with legs array. Each leg contains its own features[], distance, travel_time, and turn instructions.
+6. **Map rendering** -- Numbered waypoint markers. Per-leg route segments (can be same color, differentiated by markers).
+7. **URL deep links** -- Encode waypoints in URL params for sharing.
+
+**Defer:**
+- Click-on-map to add waypoint (build after sidebar-based waypoint addition works)
+- Via/pass-through waypoints (HIGH SQL complexity, niche use case)
+- Route optimization / TSP (impractical at this backend scale)
+- Per-leg travel mode (massive scope increase)
+- Drag-and-drop reorder (can ship with up/down arrow buttons first, add drag later)
 
 ---
 
 ## UX Pattern Recommendations
 
-### Origin Placement
+### Edge-Based Isochrone Toggle
 
-**Pattern:** Two entry points for setting the isochrone origin:
-1. **Address search** -- Single input field (not the two-input origin/destination UI). User types an NYC address, selects from autocomplete, isochrone computes.
-2. **Map click** -- User clicks anywhere on the map. A marker appears, isochrone computes. Clicking elsewhere moves the origin.
+**Pattern:** Add a small icon toggle or segmented control near the existing isochrone controls. Three states: "Area" (polygon), "Streets" (edges), "Both" (overlay). Default to "Area" to match current behavior.
 
-**Rationale:** Every production isochrone tool (Smappen, Geoapify, iso4app, TravelTime) supports both patterns. Address-only forces users to know exact addresses; click-only prevents precise address entry.
+**Rationale:** Users who are familiar with the polygon view should not be surprised by a change. The edge view is an enhancement, not a replacement. "Both" mode shows polygon fill at very low opacity with colored edges on top -- useful for understanding both the approximate area and the precise network.
 
-### Time Band Controls
+**Interaction:** Switching between modes should not require a new API call if both polygon and edge data are already loaded. The toggle only changes which MapLibre layers are visible.
 
-**Pattern:** Fixed preset buttons (5 / 10 / 15 / 20 min) displayed as toggle chips or a segmented control, with all selected by default.
+### Waypoint Addition
 
-**Rationale:** Mapbox caps at 4 contours per request. Valhalla defaults to ~4 intervals. Users understand concentric rings when there are 3-5 bands. More than 5 becomes visually noisy. Allow toggling individual bands on/off.
+**Pattern:** The Google Maps pattern is the established standard:
+1. A "+" button (or "Add stop" text button) appears between the last filled search input and the destination.
+2. Clicking it inserts a new empty search input at that position.
+3. The new input has the same autocomplete behavior as Start/End.
+4. An "X" button on each waypoint removes it and collapses the list.
 
-### Color Scheme
+**Sidebar layout in route mode with waypoints:**
+```
+[ From: Home                          [X] [loc] ]
+   [+] Add stop
+[ Via: Coffee Shop                    [X] [loc] ]
+   [+] Add stop
+[ To: Office                          [X] [loc] ]
+   [swap] [clear]
+```
 
-**Recommendation:** Use a sequential ColorBrewer palette (colorblind-safe) with 4 classes. Specific recommendation:
+**Rationale:** This is the most familiar pattern. Users understand it immediately because Google Maps trained the behavior. The vertical list of inputs clearly shows the route sequence.
 
-| Band | Time | Color | Hex | Opacity |
-|------|------|-------|-----|---------|
-| 1 | 5 min | Dark green | #238b45 | 0.40 |
-| 2 | 10 min | Medium green | #74c476 | 0.35 |
-| 3 | 15 min | Light orange | #fd8d3c | 0.30 |
-| 4 | 20 min | Orange-red | #e6550d | 0.25 |
+### Waypoint Reorder
 
-**Rationale:** Green-to-red is intuitive (close = good/green, far = caution/orange-red). Decreasing opacity on outer bands prevents the map from being overwhelmed. ColorBrewer sequential palettes are proven colorblind-safe.
+**Pattern:** Two approaches, in order of implementation simplicity:
 
-**Alternative for mode-specific coloring:** Use the existing `MODE_COLORS` from the app theme (blue for drive, green for bike, yellow for walk) with lightness-graduated bands within each hue. This maintains visual consistency with the existing route display.
+1. **V1: Up/down arrow buttons** -- Small up/down arrow icons on each waypoint (not on origin/destination). Clicking swaps with adjacent stop. Simple, accessible, works on touch devices.
+2. **V2: Drag-and-drop** -- Grip handle (6-dot icon) on the left of each waypoint. User clicks, holds, and drags to reorder. Existing SwapVert button between Start/End can remain for the simple 2-point swap case.
 
-### Polygon Rendering Order
+**Rationale:** Drag-and-drop is the expected pattern but is harder to implement correctly (touch support, accessibility, visual feedback during drag). Up/down arrows give 80% of the value with 20% of the complexity.
 
-**Pattern:** Render the largest polygon (20 min) first as the bottom layer. Render smallest (5 min) last on top. Each polygon's fill color uses decreasing opacity so all bands remain visible.
+### Waypoint Map Markers
 
-**Rationale:** Without this ordering, overlapping transparent polygons create color blending artifacts where the 5-min area appears darker than intended (stacked opacity from all 4 layers). The Mapbox isochrone tutorial and Stadia Maps tutorial both follow this pattern.
+**Pattern:** Intermediate waypoints get numbered circular markers with a neutral color (e.g., blue #3b82f6 or gray #6b7280) and white text showing the stop number. Start remains green, end remains red.
 
-### Sidebar Integration
+```
+[green A] ----route---- [blue 1] ----route---- [blue 2] ----route---- [red B]
+```
 
-**Pattern:** The isochrone feature should be a distinct "mode" from point-to-point routing, not layered on top of it. When the user activates isochrone mode:
-- The two-input search (origin/destination) collapses to a single-input search (origin only)
-- The RouteList (turn-by-turn directions) is replaced by isochrone summary info (time bands, area)
-- The travel mode selector remains
-- Traffic toggle remains (drive mode only, same as routing)
+**Rationale:** Numbered markers create a clear visual sequence. Using a neutral color for intermediates avoids confusion with start (green) and end (red) markers. The letter/number distinction (A/B for endpoints, 1/2/3 for waypoints) is used by Google Maps and is intuitive.
 
-**Rationale:** Isochrone and point-to-point routing are fundamentally different features with different inputs (1 point vs 2 points) and different outputs (polygons vs route line). Trying to show both simultaneously creates visual and cognitive overload.
+### Multi-Leg Route Display
 
-### Mode Switching
+**Pattern:** All legs rendered as a single continuous route line (same color), with waypoint markers overlaid at each stop. The turn-by-turn directions in the sidebar are grouped by leg with a header: "Leg 1: Home to Coffee Shop (12 min, 2.3 mi)".
 
-**Pattern:** Add a toggle or tab at the top of the sidebar: "Directions" | "Reachability" (or "How Far?"). This switches the entire sidebar between routing mode and isochrone mode.
-
-**Rationale:** Google Maps uses tabs for different feature modes. This keeps the UI clean and avoids the "too many controls" problem. The map clears the previous mode's visualization when switching.
+**Alternative considered and rejected:** Different colors per leg. This creates visual confusion when 3-5 legs overlap or run adjacent. A single color with marker breaks is cleaner.
 
 ---
 
-## Competitive Landscape
+## Backend Considerations
 
-### What Production Tools Offer
+### Edge-Based Isochrones: SQL Approach
 
-| Feature | Mapbox | Valhalla | TravelTime | Smappen | OpenRouteService | **NYC Open Routing (proposed)** |
-|---------|--------|----------|------------|---------|-----------------|-------------------------------|
-| Max contours | 4 | Unlimited | Unlimited | 10+ | 10 | 4 (fixed) |
-| Max time | 60 min | Configurable | 4 hrs | 12 hrs | 60 min | 20 min |
-| Modes | drive, walk, cycle, traffic | auto, bike, pedestrian, multimodal | All + transit | car, bike, walk, transit | car, bike, walk | drive, bike, walk |
-| Polygon method | Raster contour | Raster contour | Proprietary | Proprietary | Proprietary | Network (pgr_drivingDistance + ST_ConcaveHull) |
-| Traffic-aware | Yes (drive) | Yes (auto) | Yes | Limited | No | Yes (drive, unique for self-hosted) |
-| Edge-based view | No | No | No | No | No | **Possible differentiator** |
-| POI overlay | No (via other APIs) | No | Yes | Yes (250M POIs) | No | No (anti-feature) |
-| Reverse isochrone | No | Yes | Yes | No | No | No (anti-feature) |
-| Self-hosted | No (SaaS) | Yes (OSS) | No (SaaS) | No (SaaS) | Yes (OSS) | **Yes** |
-| Cost | Per-request pricing | Free (self-hosted) | Per-request pricing | Subscription | Free | **Free** |
+The existing isochrone functions call `pgr_drivingDistance` which returns `(seq, depth, start_vid, pred, node, edge, cost, agg_cost)`. The `edge` column contains the spanning tree edges. To get ALL reachable edges (not just the spanning tree), use:
 
-### NYC Open Routing's Niche
+```sql
+-- Approach: All edges connecting any two reachable nodes
+WITH reachable AS (
+    SELECT node, agg_cost FROM pgr_drivingDistance(...)
+)
+SELECT DISTINCT ON (e.id)
+    e.id, e.street, e.geom_4326,
+    LEAST(rn1.agg_cost, rn2.agg_cost) AS min_agg_cost,
+    -- Assign band index
+    CASE
+        WHEN LEAST(rn1.agg_cost, rn2.agg_cost) <= 5 THEN 1
+        WHEN LEAST(rn1.agg_cost, rn2.agg_cost) <= 10 THEN 2
+        WHEN LEAST(rn1.agg_cost, rn2.agg_cost) <= 15 THEN 3
+        ELSE 4
+    END AS band_index
+FROM edges e
+JOIN reachable rn1 ON e.source = rn1.node
+JOIN reachable rn2 ON e.target = rn2.node
+WHERE e.{mode}able = TRUE;
+```
 
-The differentiators for this project are:
-1. **NYC-specific network data** (LION dataset) -- more accurate for NYC than OSM-based tools
-2. **Traffic-aware isochrones** using real NYC DOT traffic data -- no other self-hosted tool offers this
-3. **Edge-based visualization** -- shows actual reachable streets rather than polygon approximations
-4. **Integrated with existing routing** -- same app does point-to-point and reachability, switching between them seamlessly
+This returns all edges where BOTH endpoints are reachable within the max interval. Using `LEAST(source_cost, target_cost)` assigns the band based on the closer endpoint, giving the earliest arrival time to that edge.
+
+### Waypoint Routing: pgr_trspVia vs Sequential pgr_trsp
+
+Two approaches:
+
+1. **pgr_trspVia** (proposed in pgRouting 3.7+): Single function call with vertex array and restrictions SQL. Returns path_id per leg. Handles turn restrictions. Status is "proposed" -- may not be available in the Docker image's pgRouting 3.8.
+
+2. **Sequential pgr_trsp calls**: Call the existing `getdrivingroute(lat1, lon1, lat2, lon2)` function once per leg. Concatenate results with a leg_index. Guaranteed to work with existing infrastructure. Slightly less efficient but simpler.
+
+**Recommendation:** Start with sequential calls to existing routing functions. This is guaranteed to work with zero SQL changes. The Python service layer chains N routing calls and assembles the multi-leg response. If pgr_trspVia is available and stable, migrate to it later for a single-query optimization.
 
 ---
 
 ## Sources
 
-- [pgr_drivingDistance - pgRouting Manual 3.8](https://access.crunchydata.com/documentation/pgrouting/3.8.0/pgr_drivingDistance.html) -- Function signature, algorithm (Dijkstra-based), return columns, directed/equicost options
-- [Valhalla Isochrone API Reference](https://valhalla.github.io/valhalla/api/isochrone/api-reference/) -- Contour parameters, costing models, denoise/generalize options, GeoJSON response format
-- [Mapbox Isochrone API Documentation](https://docs.mapbox.com/api/navigation/isochrone/) -- 4-contour max, 60-min max, profiles, rate limits, polygon vs linestring output
-- [Mapbox Isochrone Tutorial](https://docs.mapbox.com/help/tutorials/get-started-isochrone-api/) -- Reference implementation with mode selector and time controls
-- [Visualize Travel Time with Isochrones in MapLibre GL JS - Stadia Maps](https://docs.stadiamaps.com/tutorials/display-isochrones-on-a-map/) -- Fill layer implementation, color assignment via feature properties, 3-band example (5/10/15 min)
-- [PostGIS ST_ConcaveHull](https://postgis.net/docs/ST_ConcaveHull.html) -- Concave hull for polygon generation from node points
-- [PostGIS ST_AlphaShape](https://postgis.net/docs/ST_AlphaShape.html) -- Alpha shape alternative (requires SFCGAL)
-- [Isochrones are not Alpha Shapes - Darafei Praliaskouski](https://www.patreon.com/posts/isochrones-are-20933638) -- Why alpha shapes are flawed for isochrones (don't nest, miss holes)
-- [Isochrone Map UX Patterns](https://ux-patterns.webgeodatavore.com/isochrone-map/index.html) -- Definition and common usage patterns
-- [Dataviz Catalogue: Isochrone Maps](https://datavizcatalogue.com/blog/isochrone-maps/) -- Visualization approaches (polygon, heatmap, colored streets), color coding patterns
-- [ColorBrewer](https://colorbrewer2.org/) -- Colorblind-safe sequential palettes for 4-class isochrone bands
-- [GraphHopper: High Precision Reachability with deck.gl](https://www.graphhopper.com/blog/2018/07/04/high-precision-reachability/) -- Edge-based vs polygon visualization, Voronoi cell approach
-- [Smappen Features](https://www.smappen.com/features/) -- POI overlay, demographic analysis, multi-origin (anti-feature reference)
-- [TravelTime Products](https://traveltime.com/products) -- Multi-polygon output, transit support (feature comparison reference)
-- [OpenRouteService](https://openrouteservice.org/) -- Open-source isochrone generation, 10-interval/60-min limits
-- [Isochrone OpenStreetMap Wiki](https://wiki.openstreetmap.org/wiki/Isochrone) -- Edge-based coloring alternative, community tool listings
-- [Wikipedia: Isochrone Map](https://en.wikipedia.org/wiki/Isochrone_map) -- Definition, history, use in urban planning
+- [pgr_dijkstraVia - pgRouting Manual 3.8](https://access.crunchydata.com/documentation/pgrouting/3.8.0/pgr_dijkstraVia.html) -- Via vertex routing function signature, return columns (path_id, route_agg_cost), behavior with multiple waypoints
+- [pgr_trspVia - pgRouting Manual (proposed)](https://access.crunchydata.com/documentation/pgrouting/latest/pgr_trspVia.html) -- Turn-restricted via routing, proposed status, two-phase algorithm (Dijkstra then TRSP for restricted segments)
+- [pgr_drivingDistance - pgRouting Manual 3.8](https://docs.pgrouting.org/latest/en/pgr_drivingDistance.html) -- Return columns including edge (spanning tree), agg_cost; basis for edge-based isochrone extraction
+- [Google Routes API: Intermediate Waypoints](https://developers.google.com/maps/documentation/routes/intermed_waypoints) -- Leg-per-waypoint response structure, stopover vs pass-through distinction, 25 waypoint max
+- [Google Routes API: Waypoint Types](https://developers.google.com/maps/documentation/routes/waypoint-types) -- via (boolean) for pass-through, vehicleStopover for stops, sideOfRoad preference
+- [Google Routes API: Pass-Through Points](https://developers.google.com/maps/documentation/routes/pass-through) -- Single-leg behavior for via waypoints vs multi-leg for stopovers
+- [GraphHopper: High Precision Reachability with deck.gl](https://www.graphhopper.com/blog/2018/07/04/high-precision-reachability/) -- Edge-based visualization approach, binary edge format, deck.gl performance with millions of edges, animated time-dependent reachability
+- [Jeff Allen: Using Network Segments in the Visualization of Urban Isochrones](https://jamaps.github.io/docs/allen_2018_isochrones.pdf) -- Academic basis for edge-based isochrone visualization, advantages over polygon approaches, Toronto case study
+- [MapLibre Style Spec: Layers](https://maplibre.org/maplibre-style-spec/layers/) -- line-color data-driven styling, step/interpolate expressions for property-based coloring
+- [MapLibre Expressions & Data-Driven Styling](https://deepwiki.com/maplibre/maplibre-gl-js/3.2-expressions-and-data-driven-styling) -- get, match, step, interpolate expression patterns for feature-property-based styling
+- [Drag & Drop UX Best Practices - Pencil & Paper](https://www.pencilandpaper.io/articles/ux-pattern-drag-and-drop) -- Grab handle patterns, visual feedback during drag, touch device considerations
+- [TRSP Family - pgRouting Manual 3.6](https://docs.pgrouting.org/3.6/en/TRSP-family.html) -- pgr_trsp, pgr_trspVia, pgr_trspVia_withPoints function family overview
 
 ---
-*Feature research for: NYC Open Routing Isochrone/Reachability Milestone*
-*Researched: 2026-02-13*
+*Feature research for: NYC Open Routing v2.0 -- Edge-Based Isochrones & Waypoint Routing*
+*Researched: 2026-02-14*

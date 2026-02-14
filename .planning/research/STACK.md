@@ -1,391 +1,464 @@
-# Technology Stack: Isochrone Visualization
+# Technology Stack: Edge-Based Isochrones & Waypoint Routing
 
-**Project:** NYC Open Routing -- Isochrone/Reachability Feature
-**Researched:** 2026-02-13
-**Confidence:** HIGH (database layer), MEDIUM (GEOS version), HIGH (frontend layer)
-**Mode:** Subsequent milestone -- minimal new dependencies, leveraging existing stack
+**Project:** NYC Open Routing -- v2.0 Milestone
+**Researched:** 2026-02-14
+**Confidence:** HIGH (database layer), HIGH (frontend layer), MEDIUM (waypoint routing)
+**Mode:** Subsequent milestone -- extending existing stack, zero new dependencies
 
 ## Executive Summary
 
-Isochrone visualization requires **zero new npm packages** and **zero new Python packages**. The entire feature is built on capabilities already present in the existing stack: pgRouting's `pgr_drivingDistance` for reachability computation, PostGIS's `ST_ConcaveHull` for polygon generation, the existing Shapely/Pydantic pipeline for GeoJSON serialization, and MapLibre GL's `fill` layer type for polygon rendering. The only uncertainty is whether the Docker image's GEOS version supports the fast native `ST_ConcaveHull` implementation -- this must be verified at development time and has a clear upgrade path if needed.
+Both edge-based isochrone visualization and waypoint routing require **zero new npm packages, zero new Python packages, and zero new PostgreSQL extensions**. Everything builds on the existing pgRouting 3.8 + PostGIS 3.5 + MapLibre GL 5 stack.
+
+**Edge-based isochrones** replace the current polygon (ST_ConcaveHull) approach with line geometry from the actual reachable street network. The key insight: `pgr_drivingDistance` already returns an `edge` column -- JOIN it to the `edges` table to get geometries. Each edge carries its `agg_cost`, enabling time-band coloring via MapLibre's data-driven `line-color` expressions. This produces a more accurate, visually striking result than polygons.
+
+**Waypoint routing** uses `pgr_dijkstraVia` (Proposed in 3.8, official in 4.0) or sequential `pgr_trsp` calls. Given that the project already uses `pgr_trsp` (also Proposed in 3.8) without issues, `pgr_trspVia` is the natural choice for turn-restriction-aware multi-stop routing. Alternatively, chaining `pgr_trsp` calls in a PL/pgSQL function provides identical results with a familiar pattern.
 
 ## Recommended Stack Additions
 
-### Database Layer: pgRouting + PostGIS (No Changes to Docker Image)
+### Database Layer: Edge-Based Isochrones (No New Extensions)
 
 | Technology | Version | Purpose | Confidence |
 |------------|---------|---------|------------|
-| `pgr_drivingDistance` | pgRouting 3.8 (installed) | Compute all reachable nodes within time threshold | HIGH |
-| `ST_ConcaveHull` | PostGIS 3.5 (installed) | Generate polygon boundaries from reachable node point clouds | MEDIUM |
-| `ST_Collect` | PostGIS 3.5 (installed) | Aggregate node geometries into multipoint for hull input | HIGH |
-| `ST_Transform` / `geom_4326` | PostGIS 3.5 (installed) | Coordinate system handling (SRID 2263 -> 4326 for GeoJSON) | HIGH |
+| `pgr_drivingDistance` | pgRouting 3.8 (installed) | Compute reachable spanning tree with edge IDs | HIGH |
+| `JOIN edges` on `edge` column | Existing table | Retrieve `geom_4326` for each reachable edge | HIGH |
+| `ST_Transform` / `geom_4326` | PostGIS 3.5 (installed) | Geometry already cached in WGS84 on edges table | HIGH |
 
-#### pgr_drivingDistance -- How It Works
+#### How Edge-Based Isochrones Work
 
-`pgr_drivingDistance` implements Dijkstra's algorithm to find all graph nodes reachable within a specified cost threshold from a source node. It returns a spanning tree of reachable nodes with their accumulated costs.
-
-**Function signature (pgRouting 3.8):**
-```sql
-pgr_drivingDistance(
-    'SELECT id, source, target, cost, reverse_cost FROM edges',  -- Edges SQL
-    start_vid,    -- Source node (BIGINT)
-    distance,     -- Maximum cost threshold (FLOAT)
-    directed      -- BOOLEAN, default TRUE
-)
--- Returns: (seq, depth, start_vid, pred, node, edge, cost, agg_cost)
-```
-
-**Key return columns for isochrone use:**
-- `node` -- Reachable vertex ID (join to `edges_vertices_pgr` for geometry)
-- `agg_cost` -- Accumulated cost from source (used to assign time bands)
-
-**Integration with existing edge costs:**
-The function accepts arbitrary cost SQL. This project's edges table already has mode-specific cost columns (`cost_drive`, `cost_bike`, `cost_walk`) and their reverse counterparts. The `distance` parameter uses cost units, which in this project are **minutes** (the `time_drive`, `time_bike`, `time_walk` columns are pre-computed travel times).
-
-**Edges SQL per mode:**
-```sql
--- Drive (uses existing cost columns, filtered by driveable flag)
-'SELECT id, source, target, cost_drive AS cost, rcost_drive AS reverse_cost FROM edges WHERE driveable=TRUE'
-
--- Bike
-'SELECT id, source, target, cost_bike AS cost, rcost_bike AS reverse_cost FROM edges WHERE bikeable=TRUE'
-
--- Walk (undirected -- set directed=FALSE)
-'SELECT id, source, target, cost_walk AS cost, rcost_walk AS reverse_cost FROM edges WHERE walkable=TRUE'
-```
-
-**Traffic-aware isochrones (drive mode):** Apply the same traffic factor multiplication used in `getdrivingroute_with_traffic()`:
-```sql
-'SELECT id, source, target,
-    cost_drive * COALESCE(traffic_factor, 1.0) AS cost,
-    rcost_drive * COALESCE(traffic_factor, 1.0) AS reverse_cost
-FROM edges WHERE driveable=TRUE'
-```
-
-**Version compatibility:** `pgr_drivingDistance` has been stable since pgRouting 2.0.0. The v3.6.0 update standardized output columns (adding `depth` and `start_vid`), which is the format in pgRouting 3.8. No compatibility concerns.
-
-#### ST_ConcaveHull -- Polygon Generation
-
-**Function signature:**
-```sql
-ST_ConcaveHull(
-    param_geom GEOMETRY,       -- Input point collection
-    param_pctconvex FLOAT,     -- 0.0 (most concave) to 1.0 (convex hull)
-    param_allow_holes BOOLEAN  -- Default FALSE
-)
--- Returns: GEOMETRY (Polygon)
-```
-
-**The pctconvex parameter** controls how tightly the hull wraps around the point cloud. It determines a length threshold as a fraction of the difference between the longest and shortest edges in the Delaunay Triangulation. Triangulation edges longer than this threshold are removed.
-
-**Recommended values for street network isochrones:**
-- `0.7` -- Good starting point. Produces a natural-looking boundary that follows the general shape of the reachable area without excessive concavity that could create artifacts at network edges
-- `0.5` -- Tighter fit. Better for walking/biking isochrones where reachable areas are smaller and more irregular
-- `0.3` -- Very tight. May produce spiky shapes with sparse point distributions; avoid unless the point cloud is dense
-
-**Why NOT `0.99`:** Values close to 1.0 produce near-convex hulls that include large unreachable areas (water, parks, highways). Values close to 0.0 can produce very jagged boundaries or even degenerate geometries with sparse points.
-
-**CRITICAL: GEOS Version Dependency**
-
-PostGIS 3.3.0 enhanced `ST_ConcaveHull` with a native GEOS implementation, but **only when compiled with GEOS 3.11 or later**. With older GEOS versions, it falls back to the legacy PL/pgSQL implementation which is slower but functional.
-
-The project's Docker image (`pgrouting/pgrouting:17-3.5-3.8`) is based on `postgis/postgis:17-3.5`, which likely ships with **GEOS 3.9.0** (based on the pgRouting Docker README showing GEOS 3.9.0 for the 17-3.5-3.7 example). This means the fast native implementation may NOT be available.
-
-**Impact assessment:**
-- For isochrone generation, we run `ST_ConcaveHull` on 4 point clouds (one per time band) with ~1,000-5,000 points each
-- The legacy PL/pgSQL implementation handles this scale adequately (estimated 100-500ms per hull)
-- Total isochrone query time with legacy implementation: ~1-3 seconds (acceptable for POC)
-- The native GEOS 3.11+ implementation would reduce this to ~50-200ms total
-
-**Verification step (must run during development):**
-```sql
--- Check GEOS version in the running container
-SELECT postgis_geos_compiled_version();
--- If >= 3.11.0: native fast implementation is available
--- If < 3.11.0: legacy implementation, still functional
-```
-
-**Upgrade path if performance is insufficient:**
-Change Docker image from `pgrouting/pgrouting:17-3.5-3.8` to `pgrouting/pgrouting:17-3.6-3.8` (PostGIS 3.6 with Bookworm = GEOS 3.11+). This is a drop-in replacement with no SQL changes needed.
-
-#### Complete Isochrone SQL Pattern
-
-Single query producing all 4 time bands as polygons:
+`pgr_drivingDistance` returns `(seq, depth, start_vid, pred, node, edge, cost, agg_cost)`. The `edge` column is the edge ID used to reach each node. JOIN this to the `edges` table to get actual street geometry:
 
 ```sql
--- SQL function: getdrivingisochrone(lon, lat, max_minutes)
-WITH reachable_nodes AS (
-    SELECT
-        dd.node,
-        dd.agg_cost,
-        v.geom  -- Vertex geometry in SRID 2263
+-- Edge-based isochrone: returns line geometries with time costs
+WITH reachable AS (
+    SELECT dd.edge, dd.agg_cost
     FROM pgr_drivingDistance(
         'SELECT id, source, target, cost_drive AS cost, rcost_drive AS reverse_cost
-         FROM edges WHERE driveable=TRUE',
+         FROM edges WHERE driveable = TRUE',
         getnearestdrivenode(:lon, :lat),
-        :max_minutes,  -- e.g., 20.0 for 20-minute maximum
-        TRUE           -- directed graph
-    ) AS dd
-    JOIN edges_vertices_pgr v ON dd.node = v.id
-),
-time_bands AS (
-    SELECT
-        band,
-        ST_ConcaveHull(
-            ST_Collect(rn.geom),
-            0.7,    -- pctconvex (tunable)
-            FALSE   -- no holes
-        ) AS geom
-    FROM reachable_nodes rn
-    CROSS JOIN unnest(ARRAY[5, 10, 15, 20]) AS band
-    WHERE rn.agg_cost <= band
-    GROUP BY band
-    HAVING COUNT(*) >= 3  -- Need at least 3 points for a polygon
+        :max_minutes,
+        TRUE  -- directed
+    ) dd
+    WHERE dd.edge != -1  -- Exclude start node row (edge = -1)
 )
 SELECT
-    band AS time_minutes,
-    ST_AsGeoJSON(ST_Transform(geom, 4326))::json AS geojson
-FROM time_bands
-ORDER BY band DESC;  -- Largest first (for correct rendering order)
+    r.edge AS edge_id,
+    r.agg_cost,
+    e.street,
+    e.length_feet,
+    e.geom_4326 AS geom
+FROM reachable r
+JOIN edges e ON e.id = r.edge
+ORDER BY r.agg_cost;
 ```
 
-**Key design decisions in this SQL:**
-1. **Single `pgr_drivingDistance` call** with the maximum time (20 min). Filter nodes per band with `WHERE agg_cost <= band`. This avoids 4 separate Dijkstra runs.
-2. **`CROSS JOIN unnest`** generates bands from a single query result.
-3. **`ORDER BY band DESC`** returns largest polygon first -- MapLibre renders features in array order, so largest must come first to appear beneath smaller bands.
-4. **`HAVING COUNT(*) >= 3`** prevents degenerate geometries when too few nodes are reachable.
-5. **Traffic-aware variant** uses the same traffic factor SQL from `getdrivingroute_with_traffic()`.
+**Why this replaces ST_ConcaveHull:**
+1. Actual street geometry -- no polygon approximation covering parks/water
+2. Per-edge time cost enables continuous color gradients
+3. Faster -- no hull computation (ST_ConcaveHull was 100-500ms per band)
+4. More informative -- users see which streets are reachable, not just an area blob
+
+**Time-band assignment** happens either server-side (classify `agg_cost` into bands) or client-side (MapLibre expression on the `agg_cost` property). Server-side classification is simpler:
+
+```sql
+-- Add band assignment to the query
+SELECT
+    e.id AS edge_id,
+    r.agg_cost,
+    CASE
+        WHEN r.agg_cost <= 5 THEN 1
+        WHEN r.agg_cost <= 10 THEN 2
+        WHEN r.agg_cost <= 15 THEN 3
+        ELSE 4
+    END AS band_index,
+    e.street,
+    e.geom_4326 AS geom
+FROM reachable r
+JOIN edges e ON e.id = r.edge
+```
+
+**Or use continuous coloring** (recommended) -- pass raw `agg_cost` to the frontend and let MapLibre interpolate colors smoothly across the time range. This avoids arbitrary band boundaries and produces a more natural visualization.
+
+#### Performance Comparison: Edge-Based vs Polygon
+
+| Operation | Polygon (Current) | Edge-Based (New) | Notes |
+|-----------|-------------------|-------------------|-------|
+| `pgr_drivingDistance` | 200-800ms | 200-800ms | Same call |
+| Geometry retrieval | ST_ConcaveHull x4: 400-2000ms | JOIN edges: ~5ms | Simple index lookup |
+| Response size | 4 polygons (~2KB) | 1000-5000 edges (~200-500KB) | Larger but compressible |
+| MapLibre render | <16ms (4 polygons) | <30ms (line layer) | WebGL handles thousands of lines |
+| **Total** | **600-2800ms** | **200-810ms** | **2-3x faster** |
+
+The tradeoff is response size: edge-based returns more geometry data (each edge is a LineString). For a 20-minute driving isochrone in NYC, expect ~3000-5000 edges. At ~100 bytes per edge GeoJSON feature, that is ~300-500KB uncompressed, ~50-100KB gzipped. Acceptable for a POC.
+
+### Database Layer: Waypoint/Via-Point Routing
+
+| Technology | Version | Purpose | Confidence |
+|------------|---------|---------|------------|
+| `pgr_trspVia` | pgRouting 3.8 (Proposed) | Multi-stop routing with turn restrictions | MEDIUM |
+| `pgr_dijkstraVia` | pgRouting 3.8 (Proposed) | Multi-stop routing without turn restrictions | HIGH |
+| Sequential `pgr_trsp` calls | pgRouting 3.8 (Proposed, already in use) | Fallback: chain A->B->C as separate calls | HIGH |
+
+#### Waypoint Routing: Three Approaches
+
+**Approach 1: `pgr_trspVia` (Recommended if turn restrictions matter)**
+
+```sql
+SELECT * FROM pgr_trspVia(
+    'SELECT id, source, target, cost_drive AS cost, rcost_drive AS reverse_cost
+     FROM edges WHERE driveable = TRUE',
+    'SELECT path, cost FROM restrictions_for_driving',
+    ARRAY[start_node, via_node_1, via_node_2, end_node],
+    directed => TRUE,
+    strict => FALSE,      -- Return partial route if segment fails
+    U_turn_on_edge => TRUE
+);
+-- Returns: (seq, path_id, path_seq, start_vid, end_vid, node, edge, cost, agg_cost, route_agg_cost)
+```
+
+Status: Proposed in pgRouting 3.8. Same status as `pgr_trsp` which this project already uses successfully. The "Proposed" designation means the function is available and tested but its API signature may change in the next major release (4.0). Given that `pgr_trsp` has been Proposed since 3.4 and works reliably, `pgr_trspVia` is expected to be equally stable.
+
+**Approach 2: `pgr_dijkstraVia` (Simpler, no turn restrictions)**
+
+```sql
+SELECT * FROM pgr_dijkstraVia(
+    'SELECT id, source, target, cost_drive AS cost, rcost_drive AS reverse_cost
+     FROM edges WHERE driveable = TRUE',
+    ARRAY[start_node, via_node_1, via_node_2, end_node],
+    directed => TRUE,
+    strict => FALSE,
+    U_turn_on_edge => TRUE
+);
+-- Returns: same columns as pgr_trspVia
+```
+
+Status: Proposed in 3.8, promoted to official in 4.0. Simpler than `pgr_trspVia` but ignores turn restrictions. For bike/walk modes (where restrictions are minimal), this may be sufficient.
+
+**Approach 3: Sequential `pgr_trsp` calls (Safest, most familiar)**
+
+Chain individual `pgr_trsp` calls in a PL/pgSQL function, one per leg:
+
+```sql
+-- Pseudo-code for PL/pgSQL wrapper
+FOR i IN 1..(array_length(via_vertices, 1) - 1) LOOP
+    -- Route from via_vertices[i] to via_vertices[i+1]
+    SELECT * FROM pgr_trsp(edges_sql, restrictions_sql,
+                           via_vertices[i], via_vertices[i+1], TRUE)
+    -- Append to result with path_id = i
+END LOOP;
+```
+
+This is the safest approach because:
+- Uses the same `pgr_trsp` call pattern already working in `getdrivingroute()`
+- Full control over per-leg error handling
+- Easy to add per-leg turn instructions using existing CTE pattern
+- No dependency on Via function API stability
+
+**Recommendation:** Use **sequential `pgr_trsp` calls** (Approach 3) for the initial implementation. It reuses the existing, proven pattern from `getdrivingroute()`. Migrate to `pgr_trspVia` later if the sequential approach has performance issues (unlikely for 2-5 waypoints).
+
+#### Return Column Differences
+
+| Column | `pgr_trsp` (current) | `pgr_trspVia` / `pgr_dijkstraVia` |
+|--------|----------------------|-------------------------------------|
+| `seq` | Row sequence | Row sequence |
+| `path_id` | N/A | Leg identifier (1, 2, 3...) |
+| `path_seq` | Sequence within path | Sequence within leg |
+| `node` | Vertex ID | Vertex ID |
+| `edge` | Edge ID | Edge ID |
+| `cost` | Edge cost | Edge cost |
+| `agg_cost` | Total from start | Total from leg start |
+| `route_agg_cost` | N/A | Total from route start |
+
+The Via functions add `path_id` (which leg) and `route_agg_cost` (cumulative across all legs) -- useful for total trip time and per-leg instruction grouping.
+
+### Database Layer: K-Shortest Paths (Alternative Routes)
+
+| Technology | Version | Purpose | Confidence |
+|------------|---------|---------|------------|
+| `pgr_KSP` | pgRouting 3.8 (Official) | K alternative routes between two points | HIGH |
+
+`pgr_KSP` implements Yen's algorithm. It is an **official function** since pgRouting 2.0.0 -- fully stable.
+
+```sql
+SELECT * FROM pgr_KSP(
+    'SELECT id, source, target, cost_drive AS cost, rcost_drive AS reverse_cost
+     FROM edges WHERE driveable = TRUE',
+    start_node, end_node,
+    3,                    -- K = number of alternative routes
+    directed => TRUE,
+    heap_paths => FALSE   -- Only return K best paths
+);
+-- Returns: (seq, path_id, path_seq, start_vid, end_vid, node, edge, cost, agg_cost)
+```
+
+**Caveats:**
+- Does NOT support turn restrictions (uses Dijkstra internally, not TRSP)
+- `heap_paths => TRUE` can return many more paths than K (N * K where N is edge count of shortest path) -- avoid for large networks
+- Alternative routes may share most edges (Yen's finds mathematically shortest alternatives, not necessarily geographically distinct routes)
+- For a POC, K=3 with `heap_paths => FALSE` is sufficient
+
+**Use case:** Show 2-3 alternative routes to choose from. NOT for waypoint routing.
 
 ### API Layer: FastAPI (No New Dependencies)
 
 | Technology | Version | Purpose | Confidence |
 |------------|---------|---------|------------|
-| FastAPI | 0.115.12 (installed) | New `/api/isochrone` endpoint | HIGH |
-| Pydantic | 2.11.1 (installed) | `IsochroneResponse` model | HIGH |
-| Shapely | 2.0.7 (installed) | WKB-to-GeoJSON conversion (existing `dump_geo()`) | HIGH |
-| SQLAlchemy | 2.0.40 (installed) | Database query execution (existing pattern) | HIGH |
+| FastAPI | Installed | Extended `/api/isochrone` endpoint, new waypoint param on `/api/route` | HIGH |
+| Pydantic | Installed | Extended response models | HIGH |
+| Shapely | Installed | WKB-to-GeoJSON conversion (existing `dump_geo()`) | HIGH |
+| SQLAlchemy | Installed | Database query execution (existing pattern) | HIGH |
 
-**Why NOT geojson-pydantic:** The existing project defines its own lightweight `Feature` model with `geometry: Dict[str, Any]`. Adding `geojson-pydantic` (v2.1.0) would introduce a dependency for a single new endpoint when the existing pattern works. The project's `dump_geo()` function already handles WKB -> GeoJSON dict conversion via Shapely. Keep the existing pattern for consistency.
+#### Edge-Based Isochrone Response Model
 
-**New Pydantic models (extend existing `schemas.py`):**
+Extend existing `IsochroneResponse` or create a new response type:
 
 ```python
-class IsochroneProperties(BaseModel):
-    """Properties of an isochrone time band polygon."""
-    time_minutes: int        # Time band value (5, 10, 15, 20)
-    mode: TravelMode         # Travel mode used
-    color: str               # Hex color for this band
-    opacity: float           # Opacity value (0.0-1.0)
+class IsochroneEdgeProperties(BaseModel):
+    """Properties for a single reachable edge in edge-based isochrone."""
+    edge_id: int
+    agg_cost: float           # Minutes from origin
+    street: Optional[str]
+    length_feet: Optional[float]
 
-class IsochroneFeature(BaseModel):
-    """GeoJSON Feature for an isochrone polygon."""
+class IsochroneEdgeFeature(BaseModel):
+    """GeoJSON Feature for a reachable edge."""
     type: Literal["Feature"] = "Feature"
-    properties: IsochroneProperties
-    geometry: Dict[str, Any]  # Polygon GeoJSON
+    properties: IsochroneEdgeProperties
+    geometry: Dict[str, Any]  # LineString GeoJSON
 
-class IsochroneResponse(BaseModel):
-    """Response model for the isochrone endpoint."""
-    features: List[IsochroneFeature]
-    origin: Dict[str, Any]    # Origin point GeoJSON (for marker)
+class IsochroneEdgeResponse(BaseModel):
+    """Response model for edge-based isochrone endpoint."""
+    features: List[IsochroneEdgeFeature]
+    origin: Dict[str, Any]    # Origin point GeoJSON
+    max_minutes: float
 ```
 
-**API endpoint pattern:**
+#### Waypoint Route API Extension
+
+Add optional `via` parameter to existing `/api/route`:
 
 ```python
-@router.get("/isochrone", response_model=IsochroneResponse)
-def get_isochrone(
-    origin: str = Query(..., description="Origin (longitude,latitude)"),
-    mode: TravelMode = Query(..., description="Travel mode: drive, bike, or walk"),
-    max_time: int = Query(default=20, ge=5, le=30, description="Max time in minutes"),
-    use_traffic: bool = Query(default=True, description="Use traffic factors (drive only)"),
-):
+@router.get("/route", response_model=RouteResponse)
+def get_route(
+    orig: str = Query(..., description="Origin (lon,lat)"),
+    dest: str = Query(..., description="Destination (lon,lat)"),
+    via: Optional[str] = Query(
+        default=None,
+        description="Via points as semicolon-separated lon,lat pairs (e.g., '-73.98,40.75;-73.97,40.76')"
+    ),
+    mode: TravelMode = Query(...),
     ...
-```
-
-**Color assignment per band** should happen server-side (embedded in feature properties) so the frontend can use `["get", "color"]` expressions without band-specific logic:
-
-```python
-ISOCHRONE_COLORS = {
-    5:  {"color": "#1a9641", "opacity": 0.35},  # Green -- closest
-    10: {"color": "#a6d96a", "opacity": 0.30},  # Light green
-    15: {"color": "#fdae61", "opacity": 0.25},  # Orange
-    20: {"color": "#d7191c", "opacity": 0.20},  # Red -- farthest
-}
+):
 ```
 
 ### Frontend Layer: MapLibre GL (No New Dependencies)
 
 | Technology | Version | Purpose | Confidence |
 |------------|---------|---------|------------|
-| MapLibre GL JS | 5.3.0 (installed) | `fill` layer for polygon rendering | HIGH |
+| MapLibre GL JS | 5.3.0 (installed) | `line` layer with data-driven `line-color` for edge isochrones | HIGH |
 | React | 18.2.x (installed) | State management via existing Context API | HIGH |
-| MUI | 7.0.1 (installed) | UI controls (slider, toggle) | HIGH |
+| MUI | 7.0.1 (installed) | UI controls | HIGH |
 
-#### MapLibre Fill Layer Configuration
+#### Edge-Based Isochrone: Line Layer with Time-Based Coloring
 
-Use a single GeoJSON source with a FeatureCollection containing all time band polygons. The `fill` layer type with data-driven styling renders them correctly:
+Use a `line` layer type instead of `fill`. Data-driven `line-color` with `interpolate` on the `agg_cost` property creates smooth time-gradient coloring:
 
 ```typescript
-// Single source with all isochrone polygons
+// Edge-based isochrone layer
 useGeoJsonLayer(
   map,
-  "isochroneSource",
-  "isochroneLayer",
-  isochrone?.features || null,
-  {
-    type: "fill",
-    paint: {
-      "fill-color": ["get", "color"],        // Per-feature color from properties
-      "fill-opacity": ["get", "opacity"],     // Per-feature opacity from properties
-      "fill-outline-color": ["get", "color"], // Outline matches fill color
-    },
-  },
-  "routeHaloLayer",  // Render beneath route layers
-)
-```
-
-**Why a single layer with data-driven styling (not 4 separate layers):**
-1. The existing `useGeoJsonLayer` hook already handles FeatureCollection sources with multiple features
-2. One source/layer pair is simpler to manage (add/remove/update) than 4 pairs
-3. Data-driven `fill-color` and `fill-opacity` via `["get", "property"]` expressions are well-supported since MapLibre Style Spec v0.19.0
-4. Feature ordering within the FeatureCollection controls rendering order -- no z-index management needed
-
-**Rendering order for concentric polygons:**
-The API returns features ordered largest-first (20 min, then 15, 10, 5). MapLibre renders features in array order within a single layer, so the largest polygon renders first (bottom) and the smallest renders last (top). This produces the correct visual stacking without multiple layers.
-
-**Optional: Outline layer for band boundaries:**
-```typescript
-useGeoJsonLayer(
-  map,
-  "isochroneOutlineSource",
-  "isochroneOutlineLayer",
-  isochrone?.features || null,
+  "isochroneEdgeSource",
+  "isochroneEdgeLayer",
+  isochroneEdgeFeatures,
   {
     type: "line",
     paint: {
-      "line-color": ["get", "color"],
-      "line-width": 1.5,
-      "line-opacity": 0.6,
+      // Continuous color gradient based on travel time
+      "line-color": [
+        "interpolate",
+        ["linear"],
+        ["get", "agg_cost"],
+        0,  "#22c55e",   // Green at origin (0 min)
+        5,  "#84cc16",   // Yellow-green at 5 min
+        10, "#facc15",   // Yellow at 10 min
+        15, "#f97316",   // Orange at 15 min
+        20, "#ef4444",   // Red at 20 min
+      ],
+      // Width varies by zoom
+      "line-width": [
+        "interpolate", ["linear"], ["zoom"],
+        10, 1.5,
+        14, 3,
+        16, 5,
+      ],
+      "line-opacity": 0.85,
     },
   },
-  "isochroneLayer",  // On top of fill layer
 )
 ```
 
-#### Layer Z-Ordering
+**Why `interpolate` on `agg_cost` (not band_index):**
+- Smooth color gradient across the entire time range -- no visible band boundaries
+- `line-color` fully supports data-driven `interpolate` expressions (since MapLibre GL JS 0.23.0)
+- `line-width` also supports data-driven expressions (since 0.39.0)
+- Both are well within MapLibre GL 5.3.0's capabilities
 
-Isochrone layers should render **beneath** all route and marker layers:
+**Critical: `line-gradient` is NOT the right choice.** `line-gradient` colors along a single LineString's length and does NOT support data-driven expressions from feature properties (open issue [maplibre/maplibre-gl-js#5037](https://github.com/maplibre/maplibre-gl-js/issues/5037)). For edge-based isochrones, each edge is a separate feature with its own `agg_cost` property, so standard `line-color` with `["get", "agg_cost"]` is correct.
+
+#### Layer Z-Ordering Update
+
+Edge-based isochrone lines should render below route layers:
 
 ```
 Bottom (map tiles)
-  -> isochroneLayer (fill)
-  -> isochroneOutlineLayer (line, optional)
+  -> isochroneEdgeLayer (line, time-colored reachable edges)
   -> routeHaloLayer (existing)
   -> routeLayer (existing)
+  -> waypointLayers (new, for via points)
   -> startPointLayer (existing)
   -> endPointLayer (existing)
   -> label layers (existing)
 Top
 ```
 
-The existing `useGeoJsonLayer` hook supports a `beforeId` parameter for layer ordering. Place isochrone layers before `routeHaloLayer` to ensure correct stacking.
+Update `CUSTOM_LAYER_ORDER` in `mapHelpers.ts` to include `isochroneEdgeLayer` (and remove old polygon layers if fully replaced).
 
-## What NOT to Use (and Why)
+#### Waypoint Markers
+
+For via-point markers, reuse the existing `useGeoJsonLayer` circle pattern with sequential labels (A, B, C...):
+
+```typescript
+// Via point markers: intermediate points between start and end
+useGeoJsonLayer(
+  map,
+  "waypointSource",
+  "waypointLayer",
+  waypointFeatures,  // Array of point features with {label: "B", index: 1} properties
+  {
+    type: "circle",
+    paint: {
+      ...addressPointPaint,
+      "circle-color": "#6366f1",  // Indigo for waypoints (distinct from green start, red end)
+    },
+  },
+)
+```
+
+## What NOT to Add (and Why)
 
 | Technology | Why Not |
 |------------|---------|
-| `pgr_alphaShape` | **Deprecated in pgRouting 3.8.** Officially removed. Use PostGIS ST_ConcaveHull instead. |
-| `ST_AlphaShape` / `CG_AlphaShape` | Requires SFCGAL extension, which is not installed in the `pgrouting/pgrouting` Docker image. Would require custom Docker image or extension installation. |
-| `pgr_pointsAsPolygon` | Legacy wrapper around pgr_alphaShape. Also deprecated. |
-| `ST_ConvexHull` | Produces convex boundaries that include large unreachable areas (water bodies, parks). Visually misleading for urban isochrones. |
-| `fill-extrusion` layer type | 3D polygon extrusion is unnecessary for 2D isochrone visualization. Opacity is per-layer (not per-feature), preventing band-specific transparency. Adds visual complexity without value. |
-| `geojson-pydantic` library | Project already has a working GeoJSON model pattern. Adding a dependency for one endpoint introduces unnecessary coupling. |
-| `turf.js` (client-side) | All polygon generation happens server-side in PostGIS. No need for client-side geometry processing. |
-| Multiple pgr_drivingDistance calls | A single call with max_time=20 + client-side band filtering is 4x more efficient than 4 separate Dijkstra computations. |
-| Voronoi/Delaunay client-side | All spatial computation belongs in PostGIS where it can leverage spatial indexes and the GEOS library. |
+| `ST_ConcaveHull` for edge-based isochrones | Edge geometries from the edges table are more accurate and faster than hull computation. Keep polygon isochrones as a fallback option, but edge-based is the primary visualization. |
+| `line-gradient` MapLibre property | Does not support data-driven expressions from feature properties. Use `line-color` with `["interpolate", ..., ["get", "agg_cost"]]` instead. |
+| `turf.js` | All geometry processing happens server-side. No client-side spatial computation needed. |
+| `deck.gl` / `kepler.gl` | Overkill for line rendering. MapLibre's native line layer handles thousands of features at 60fps. |
+| `pgr_turnRestrictedPath` | Experimental status in pgRouting 3.8 with "possible server crash" warning. Avoid entirely. |
+| `pgr_KSP` with `heap_paths => TRUE` | Returns N*K paths for large networks. With 177k edges, this could be hundreds of paths. Always use `heap_paths => FALSE`. |
+| `pgr_withPoints` family | Designed for routing from arbitrary points on edges (not vertices). Waypoint routing between intersections (vertices) doesn't need this. Only useful if accepting arbitrary lat/lon waypoints snapped to edge midpoints -- the existing nearest-node functions are simpler. |
+| `geojson-pydantic` | Same rationale as before -- existing lightweight model pattern works. |
+| New GeoJSON library (client) | TypeScript interfaces already handle the response structure. |
+| WebSocket for isochrones | Response time is <1 second. HTTP request-response is simpler. |
 
 ## Alternatives Considered
 
 | Category | Recommended | Alternative | Why Not Alternative |
 |----------|-------------|-------------|---------------------|
-| Polygon generation | `ST_ConcaveHull` | `ST_AlphaShape` | Requires SFCGAL (not installed). ST_ConcaveHull uses GEOS (always available). |
-| Polygon generation | `ST_ConcaveHull` | `pgr_alphaShape` | Deprecated in pgRouting 3.8. Will be removed in future versions. |
-| Polygon tightness | `pctconvex=0.7` | `pctconvex=0.3` | Too tight for sparse outer bands -- produces spiky/degenerate polygons. 0.7 balances shape fidelity with visual quality. |
-| API response | Custom Pydantic models | `geojson-pydantic` library | Adds dependency for 1 endpoint. Existing pattern works. |
-| Frontend rendering | Single fill layer + expressions | 4 separate fill layers | More layer management code. `useGeoJsonLayer` already handles FeatureCollections. Data-driven styling is simpler. |
-| Docker image | Keep `17-3.5-3.8` | Upgrade to `17-3.6-3.8` | Only upgrade if GEOS version causes performance issues. Verify first with `postgis_geos_compiled_version()`. |
-| Time bands | Fixed [5, 10, 15, 20] | User-configurable | Adds UI complexity for marginal value. Fixed bands match industry standard (Google Maps, Mapbox). |
+| Isochrone visualization | Edge-based lines | Polygon (ST_ConcaveHull) | Polygons cover parks/water. Lines show actual street network. Faster too. |
+| Isochrone coloring | Continuous `interpolate` on `agg_cost` | Discrete band_index match | Continuous is more informative, no arbitrary boundaries |
+| Waypoint routing | Sequential `pgr_trsp` calls | `pgr_trspVia` | Sequential reuses proven pattern, easier per-leg instructions |
+| Waypoint routing | Sequential `pgr_trsp` calls | `pgr_dijkstraVia` | No turn restrictions -- worse route quality for driving |
+| Alternative routes | `pgr_KSP` (K=3) | Multiple `pgr_trsp` with penalty | KSP is official, single call, mathematically optimal |
+| Edge isochrone response | Raw `agg_cost` per edge | Pre-classified bands | Let frontend interpolate for smoother gradients |
+| Waypoint API design | `via` query param | Separate `/route/via` endpoint | Single endpoint with optional `via` is simpler |
+| Waypoint markers | Circle + label (existing pattern) | Custom SVG markers | Consistency with existing start/end markers |
+
+## Integration with Existing Codebase
+
+### SQL Function Additions (in `05_functions.sql`)
+
+New functions needed:
+
+1. **`getdrivingisochroneedges(lon, lat, intervals, use_traffic, hour, day_of_week)`** -- Edge-based driving isochrone
+2. **`getbikingisochroneedges(lon, lat, intervals)`** -- Edge-based biking isochrone
+3. **`getwalkingisochroneedges(lon, lat, intervals)`** -- Edge-based walking isochrone
+4. **`getdrivingroutevia(lats, lons)`** -- Multi-stop driving route (wrapping sequential pgr_trsp calls)
+5. **`getbikingroutevia(lats, lons, avoid_ferries)`** -- Multi-stop biking route
+6. **`getwalkingroutevia(lats, lons, avoid_ferries)`** -- Multi-stop walking route
+
+These follow the existing naming convention (`get{mode}{feature}`) and reuse the same CTE patterns for turn instructions.
+
+### Python Service Layer
+
+- `IsochroneService` -- Add edge-based methods alongside existing polygon methods
+- `RoutingService` -- Add `get_driving_route_via()`, `get_biking_route_via()`, `get_walking_route_via()` methods
+
+### Frontend State
+
+- `IsochroneContext` -- Add `displayMode: "polygon" | "edges"` toggle
+- `RoutingContext` -- Add `waypoints: GeoJSON.Point[]` array and `addWaypoint` / `removeWaypoint` / `reorderWaypoints` actions
 
 ## Performance Characteristics
 
-| Operation | Expected Time | Network Size | Notes |
-|-----------|--------------|-------------|-------|
-| `pgr_drivingDistance` (20 min drive) | 200-800ms | 177k edges | Dijkstra on full driveable subgraph (~120k edges) |
-| `pgr_drivingDistance` (20 min walk) | 100-400ms | 177k edges | Smaller walkable subgraph, lower max cost |
-| `ST_ConcaveHull` per band (legacy GEOS) | 100-500ms | 1-5k points | With GEOS < 3.11, PL/pgSQL fallback |
-| `ST_ConcaveHull` per band (native GEOS) | 10-50ms | 1-5k points | With GEOS >= 3.11, native C implementation |
-| Total isochrone query (legacy) | 1-3s | -- | Acceptable for POC |
-| Total isochrone query (native) | 300-900ms | -- | Optimal |
-| MapLibre fill layer render | <16ms | 4 polygons | Negligible -- WebGL polygon rendering is instant for 4 features |
+| Operation | Expected Time | Scale | Notes |
+|-----------|--------------|-------|-------|
+| Edge-based isochrone (20 min drive) | 200-810ms | ~5000 edges | pgr_drivingDistance + JOIN |
+| Edge-based isochrone (20 min walk) | 100-450ms | ~2000 edges | Smaller walkable subgraph |
+| Waypoint route (3 stops, drive) | 300-600ms | 2 pgr_trsp calls | Linear in number of legs |
+| Waypoint route (5 stops, drive) | 600-1200ms | 4 pgr_trsp calls | Linear in number of legs |
+| `pgr_KSP` (K=3, drive) | 500-1500ms | 177k edges | Yen's algorithm, 3 iterations |
+| MapLibre line render (5000 features) | <30ms | -- | WebGL line rendering |
+| MapLibre marker render (5 waypoints) | <1ms | -- | Negligible |
 
 ## Installation
 
 ### Python Dependencies
 ```bash
 # No new packages needed
-# All isochrone functionality uses existing dependencies:
-# - sqlalchemy (database queries)
-# - shapely (WKB -> GeoJSON)
-# - pydantic (response models)
-# - fastapi (endpoint)
 ```
 
 ### JavaScript Dependencies
 ```bash
 # No new packages needed
-# MapLibre GL 5.3.0 already supports fill layers with data-driven styling
 ```
 
 ### Database
 ```sql
 -- No extensions to install
--- pgRouting 3.8 includes pgr_drivingDistance
--- PostGIS 3.5 includes ST_ConcaveHull, ST_Collect, ST_Transform
--- All already available in pgrouting/pgrouting:17-3.5-3.8
-
--- Verify GEOS version (run during development):
-SELECT postgis_geos_compiled_version();
+-- All functions (pgr_drivingDistance, pgr_trsp, pgr_dijkstraVia, pgr_KSP)
+-- are included in pgrouting/pgrouting:17-3.5-3.8
 ```
 
 ## Verification Checklist
 
-Before implementation, verify these assumptions:
+Before implementation:
 
-- [ ] Run `SELECT postgis_geos_compiled_version();` in the DB container to confirm GEOS version
-- [ ] Run a test `pgr_drivingDistance` query to confirm function availability and performance
-- [ ] Run a test `ST_ConcaveHull` on a sample point set to confirm it produces valid polygons
-- [ ] Verify `geom_4326` cached WGS84 geometries exist on `edges_vertices_pgr` (may need to add -- currently only on `edges` table)
-- [ ] Test MapLibre `fill` layer with `["get", "color"]` expression on a sample FeatureCollection
+- [ ] Run test `pgr_drivingDistance` with `JOIN edges` to confirm edge geometry retrieval works
+- [ ] Verify `geom_4326` exists on `edges` table (confirmed -- used in existing route functions)
+- [ ] Test `pgr_dijkstraVia` with ARRAY[node1, node2, node3] to confirm function availability
+- [ ] Test MapLibre `line-color` with `["interpolate", ["linear"], ["get", "agg_cost"]]` expression
+- [ ] Confirm response size for 20-min driving isochrone is acceptable (~300-500KB uncompressed)
+- [ ] Benchmark sequential `pgr_trsp` calls for 3-5 waypoints vs single `pgr_trspVia`
 
 ## Sources
 
-**HIGH Confidence (Official Documentation):**
-- [pgr_drivingDistance -- pgRouting Manual 3.8](https://docs.pgrouting.org/latest/en/pgr_drivingDistance.html) -- Function signature, parameters, return columns, version history
-- [ST_ConcaveHull -- PostGIS Documentation](https://postgis.net/docs/ST_ConcaveHull.html) -- Function signature, pctconvex parameter, GEOS 3.11+ enhancement note
-- [MapLibre GL JS Style Spec -- Layers](https://maplibre.org/maplibre-style-spec/layers/) -- Fill layer paint properties, data-driven styling support
-- [pgr_alphaShape Deprecation -- pgRouting Issue #2749](https://github.com/pgRouting/pgrouting/issues/2749) -- Deprecated in 3.8, replaced by PostGIS ST_ConcaveHull
+**HIGH Confidence (Official Documentation, verified for pgRouting 3.8):**
+- [pgr_drivingDistance -- pgRouting 3.8 Manual](https://docs.pgrouting.org/3.8/en/pgr_drivingDistance.html) -- Returns `(seq, depth, start_vid, pred, node, edge, cost, agg_cost)`. Confirmed `edge` column for edge-based isochrones.
+- [pgr_KSP -- pgRouting 3.8 Manual](https://docs.pgrouting.org/3.8/en/pgr_KSP.html) -- Official since 2.0.0. One-to-One signature with K, directed, heap_paths parameters.
+- [MapLibre Style Spec -- Layers](https://maplibre.org/maplibre-style-spec/layers/) -- `line-color` supports data-driven styling since GL JS 0.23.0. `line-width` since 0.39.0.
+- [MapLibre Style Spec -- Expressions](https://maplibre.org/maplibre-style-spec/expressions/) -- `interpolate` expression syntax for smooth color gradients.
 
-**MEDIUM Confidence (Verified with Multiple Sources):**
-- [pgRouting Docker Repository](https://github.com/pgRouting/docker-pgrouting) -- Tag naming convention, PostGIS 3.5 with GEOS 3.9.0 (from README example output)
-- [PostGIS 3.5.0 Release](https://postgis.net/2024/09/PostGIS-3.5.0/) -- Minimum GEOS 3.8, recommended GEOS 3.12+
-- [Stadia Maps Isochrone Tutorial](https://docs.stadiamaps.com/tutorials/display-isochrones-on-a-map/) -- MapLibre fill layer with data-driven color/opacity from feature properties
-- [MapLibre Isochrone Example -- Maptoolkit](https://www.maptoolkit.com/doc/routing/isochrone-example-maplibre/) -- Fill + line layer pattern for isochrone visualization
-- [pgr_drivingDistance Performance Issue #882](https://github.com/pgRouting/pgrouting/issues/882) -- Array-of-vertices can crash; single-vertex calls are safe
+**MEDIUM Confidence (Official docs, Proposed function status):**
+- [pgr_dijkstraVia -- pgRouting 3.8 Manual](https://docs.pgrouting.org/3.8/en/pgr_dijkstraVia.html) -- Proposed. Signature: `(Edges SQL, via vertices, [directed, strict, U_turn_on_edge])`.
+- [pgr_trspVia -- pgRouting 3.8 Manual](https://docs.pgrouting.org/3.8/en/pgr_trspVia.html) -- Proposed. Signature: `(Edges SQL, Restrictions SQL, via vertices, [directed, strict, U_turn_on_edge])`.
+- [TRSP Family -- pgRouting 3.8](https://docs.pgrouting.org/3.8/en/TRSP-family.html) -- All TRSP functions are Proposed in 3.8. pgr_trsp itself is Proposed but proven stable in this project.
 
 **LOW Confidence (Needs Runtime Verification):**
-- GEOS version in `pgrouting/pgrouting:17-3.5-3.8` -- Inferred as 3.9.0 from similar tag example; must verify with `postgis_geos_compiled_version()`
-- ST_ConcaveHull performance with legacy GEOS -- Estimated from general PostGIS benchmarks; must benchmark with actual data
+- `pgr_trspVia` reliability -- Same "Proposed" status as `pgr_trsp` which works fine, but pgr_trspVia hasn't been tested in this project yet.
+- Edge-based isochrone response size -- Estimated 300-500KB for 20-min driving; actual size depends on NYC network density near origin.
+- MapLibre rendering performance with 5000+ line features -- Expected to be fine based on WebGL capabilities, but should benchmark with actual data.
+
+**NOT a valid source (open issue, unresolved):**
+- [line-gradient data-driven styling -- maplibre/maplibre-gl-js#5037](https://github.com/maplibre/maplibre-gl-js/issues/5037) -- Confirms `line-gradient` does NOT support feature-property expressions. Use `line-color` instead.
 
 ---
-*Stack research for: NYC Open Routing -- Isochrone Visualization*
-*Researched: 2026-02-13*
+*Stack research for: NYC Open Routing -- Edge-Based Isochrones & Waypoint Routing*
+*Researched: 2026-02-14*
