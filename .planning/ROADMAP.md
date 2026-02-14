@@ -31,11 +31,11 @@
   3. No unnecessary abstractions — every layer of indirection earns its keep; over-engineered patterns are simplified
   4. Control flow is straightforward — no tangled state, no surprising side effects, no logic that requires mental gymnastics to trace
   5. Existing tests still pass after all changes (zero regressions)
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 14-01: TBD
-- [ ] 14-02: TBD
+- [ ] 14-01-PLAN.md — Backend code quality review (api/ + data-importer/ + scripts/)
+- [ ] 14-02-PLAN.md — Frontend code quality review (client/src/)
 
 ### Phase 15: Repo Cleanup
 **Goal**: Repository contains only files that belong in a public open-source project
@@ -74,7 +74,7 @@ Plans:
 
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
-| 14. Code Quality Review | 0/TBD | Not started | - |
+| 14. Code Quality Review | 0/2 | Not started | - |
 | 15. Repo Cleanup | 0/TBD | Not started | - |
 | 16. Documentation & Public Release | 0/TBD | Not started | - |
 
