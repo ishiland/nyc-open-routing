@@ -11,6 +11,7 @@ import {
 import { RoutingContext } from "../../contexts/RoutingContext"
 import { MODE_COLORS } from "../../utils/theme"
 import {
+  formatDistance,
   formatTotalRouteDistance,
   formatTotalRouteTime,
   formatArrivalTime,
@@ -24,12 +25,37 @@ import {
  * - Total duration
  * - Estimated arrival time
  * - Traffic status (for driving mode)
+ * - Leg count when waypoint route is active
  */
 export const RouteSummaryCard: React.FC = () => {
-  const { route, mode, useTraffic } = useContext(RoutingContext)
+  const { route, mode, useTraffic, waypointRoute } = useContext(RoutingContext)
 
   // Memoize expensive calculations
   const { totalDistance, totalTime, arrivalTime } = useMemo(() => {
+    // Prefer waypoint route summary if available
+    if (waypointRoute?.summary) {
+      const dist = formatDistance(waypointRoute.summary.total_distance)
+      const time = waypointRoute.summary.total_travel_time
+      let timeStr = ""
+      if (time > 60) {
+        const hrs = Math.floor(time / 60)
+        const mins = Math.floor(time % 60)
+        timeStr = `${hrs} hr ${mins} min`
+      } else {
+        timeStr = `${Math.floor(time)} min`
+      }
+      // Arrival time
+      const now = new Date()
+      const arrival = new Date(now.getTime() + time * 60000)
+      let hours = arrival.getHours()
+      const minutes = arrival.getMinutes()
+      const ampm = hours >= 12 ? "PM" : "AM"
+      hours = hours % 12 || 12
+      const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes
+      const arrivalStr = `Arrive ${hours}:${formattedMinutes} ${ampm}`
+      return { totalDistance: dist, totalTime: timeStr, arrivalTime: arrivalStr }
+    }
+    // Fall back to regular route
     if (!route?.features?.length) {
       return { totalDistance: "", totalTime: "", arrivalTime: "" }
     }
@@ -38,10 +64,10 @@ export const RouteSummaryCard: React.FC = () => {
       totalTime: formatTotalRouteTime(route.features),
       arrivalTime: formatArrivalTime(route.features),
     }
-  }, [route?.features])
+  }, [route?.features, waypointRoute?.summary])
 
   // Don't render if no route
-  if (!route?.features?.length) {
+  if (!route?.features?.length && !waypointRoute?.summary) {
     return null
   }
 
@@ -105,6 +131,13 @@ export const RouteSummaryCard: React.FC = () => {
             />
           )}
         </Box>
+
+        {/* Leg count for waypoint routes */}
+        {waypointRoute?.summary && (
+          <Typography variant="body2" sx={{ mb: 1, color: "text.secondary" }}>
+            {waypointRoute.summary.num_legs} leg{waypointRoute.summary.num_legs > 1 ? "s" : ""}
+          </Typography>
+        )}
 
         {/* Route Statistics */}
         <Box
