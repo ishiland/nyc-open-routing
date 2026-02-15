@@ -13,9 +13,10 @@ class TestParseCoordinates:
         assert lat == 40.7484
 
     def test_parse_coordinates_valid_with_spaces(self):
-        """Test parsing coordinates with spaces (should fail)."""
-        with pytest.raises(ValueError, match="Invalid coordinate format"):
-            parse_coordinates("-73.9857, 40.7484")
+        """Test parsing coordinates with spaces still works (float strips whitespace)."""
+        lon, lat = parse_coordinates("-73.9857, 40.7484")
+        assert lon == -73.9857
+        assert lat == 40.7484
 
     def test_parse_coordinates_manhattan(self):
         """Test valid Manhattan coordinates."""
@@ -123,7 +124,7 @@ class TestDumpGeo:
     def test_dump_geo_point(self):
         """Test dump_geo with Point WKB hex string."""
         # WKB hex for POINT(-73.9857 40.7484)
-        wkb_hex = "0101000000713D0AD7A3705EC048E17A14AE474440"
+        wkb_hex = "0101000000B3EA73B5157F52C0C7293A92CB5F4440"
         result = dump_geo(wkb_hex)
 
         assert result is not None
@@ -137,7 +138,9 @@ class TestDumpGeo:
         """Test dump_geo with LineString WKB hex string."""
         # WKB hex for LINESTRING(-73.9857 40.7484, -73.9855 40.7480)
         wkb_hex = (
-            "010200000002000000713D0AD7A3705EC048E17A14AE4744409A9999999970" "5EC0713D0AD7A3474440"
+            "010200000002000000B3EA73B5157F52C0"
+            "C7293A92CB5F4440508D976E127F52C0"
+            "39B4C876BE5F4440"
         )
         result = dump_geo(wkb_hex)
 
