@@ -21,7 +21,7 @@
 ### Phases
 
 - [x] **Phase 23: Repo Cleanup** - Remove duplicate Dockerfiles, stale artifacts, and fix outdated references
-- [ ] **Phase 24: Developer Onboarding** - Top-level Makefile and architecture documentation
+- [x] **Phase 24: Developer Onboarding** - Top-level Makefile and architecture documentation
 
 ### Phase Details
 
@@ -52,16 +52,16 @@ Plans:
 **Plans**: TBD
 
 Plans:
-- [ ] 24-01: Create top-level Makefile
-- [ ] 24-02: Write architecture documentation
+- [x] 24-01: Create top-level Makefile
+- [x] 24-02: Write architecture documentation
 
 ### Progress
 
 | Phase | Milestone | Plans Complete | Status | Completed |
 |-------|-----------|----------------|--------|-----------|
 | 23. Repo Cleanup | v4.2 | 1/1 | Complete | 2026-02-15 |
-| 24. Developer Onboarding | v4.2 | 0/2 | Not started | - |
+| 24. Developer Onboarding | v4.2 | 2/2 | Complete | 2026-02-15 |
 
 ---
 
-*Last updated: 2026-02-15 after Phase 23 complete*
+*Last updated: 2026-02-15 after Phase 24 complete — v4.2 milestone done*

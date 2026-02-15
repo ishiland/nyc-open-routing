@@ -57,8 +57,9 @@ docker/dev/.env
 CLAUDE.md
 docs/
 
-# Exception: keep README screenshots
+# Exception: keep README screenshots and architecture doc
 !docs/
 docs/*
 !docs/images/
 !docs/images/*.jpeg
+!docs/ARCHITECTURE.md

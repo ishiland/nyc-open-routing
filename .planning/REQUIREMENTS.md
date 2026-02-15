@@ -16,11 +16,11 @@ Requirements for developer experience polish. Clean up cruft, improve onboarding
 
 ### Developer Tooling
 
-- [ ] **DX-01**: Top-level Makefile with commands for build, up, down, test, lint, format, import, db shell, and logs
+- [x] **DX-01**: Top-level Makefile with commands for build, up, down, test, lint, format, import, db shell, and logs
 
 ### Documentation
 
-- [ ] **DOC-01**: Brief `docs/ARCHITECTURE.md` covering data flow, import pipeline, routing algorithm, and key SQL functions (1-2 pages)
+- [x] **DOC-01**: Brief `docs/ARCHITECTURE.md` covering data flow, import pipeline, routing algorithm, and key SQL functions (1-2 pages)
 
 ## Future Requirements
 
@@ -42,8 +42,8 @@ None — this is a cleanup milestone.
 | CLN-02 | Phase 23 | Complete |
 | CLN-03 | Phase 23 | Complete |
 | CLN-04 | Phase 23 | Complete |
-| DX-01 | Phase 24 | Pending |
-| DOC-01 | Phase 24 | Pending |
+| DX-01 | Phase 24 | Complete |
+| DOC-01 | Phase 24 | Complete |
 
 **Coverage:**
 - v4.2 requirements: 6 total
