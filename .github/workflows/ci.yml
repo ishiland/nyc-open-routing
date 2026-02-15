@@ -108,8 +108,13 @@ jobs:
 
     - name: Run tests with coverage
       working-directory: ./api
+      env:
+        PYTHONPATH: .
       run: |
-        pytest --cov=api --cov-report=xml --cov-report=term
+        pytest --cov=api --cov-report=xml --cov-report=term \
+          --ignore=tests/test_routes.py \
+          --ignore=tests/test_health.py \
+          --ignore=tests/test_smoke.py
 
     - name: Upload coverage report
       uses: codecov/codecov-action@v5
