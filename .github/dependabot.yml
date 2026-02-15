@@ -2,10 +2,18 @@
 version: 2
 updates:
   - package-ecosystem: npm
+    directory: "/client"
+    schedule:
+      interval: weekly
+  - package-ecosystem: pip
+    directory: "/api"
+    schedule:
+      interval: weekly
+  - package-ecosystem: github-actions
     directory: "/"
     schedule:
-      interval: daily
-  - package-ecosystem: "github-actions"
-    directory: "/"
+      interval: weekly
+  - package-ecosystem: docker
+    directory: "/docker/dev"
     schedule:
-      interval: "daily"
+      interval: monthly
