@@ -15,8 +15,6 @@ interface UseIsochroneFetchArgs {
   intervals: number[]
   isochroneView: IsochroneView
   useTraffic: boolean
-  trafficHour: number | null
-  trafficDayOfWeek: number | null
   setIsochrone: (data: IsochroneResponse | null) => void
   displayMessage: MessageContextType["displayMessage"]
 }
@@ -27,8 +25,6 @@ export const useIsochroneFetch = ({
   intervals,
   isochroneView,
   useTraffic,
-  trafficHour,
-  trafficDayOfWeek,
   setIsochrone,
   displayMessage,
 }: UseIsochroneFetchArgs) => {
@@ -67,9 +63,6 @@ export const useIsochroneFetch = ({
         let url = `/api/isochrone?orig=${startCoords}&mode=${mode}&intervals=${intervals.join(",")}&view=${isochroneView}`
         if (mode === "drive") {
           url += `&use_traffic=${useTraffic}`
-          if (useTraffic && trafficHour !== null && trafficDayOfWeek !== null) {
-            url += `&hour=${trafficHour}&day_of_week=${trafficDayOfWeek}`
-          }
         }
 
         const response = await fetch(url, { signal: controller.signal })
@@ -134,8 +127,6 @@ export const useIsochroneFetch = ({
     intervals,
     isochroneView,
     useTraffic,
-    trafficHour,
-    trafficDayOfWeek,
     setIsochrone,
     displayMessage,
   ])

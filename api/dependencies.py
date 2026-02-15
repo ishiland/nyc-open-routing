@@ -1,7 +1,6 @@
 import pathlib
 from typing import Dict
 
-import pytz
 from geosupport import Geosupport
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine
@@ -13,7 +12,6 @@ from services.routing import RoutingService
 from services.search import SearchService
 from services.traffic import TrafficRefreshService
 from utils.cache import get_route_cache, get_tile_cache
-from utils.clock import Clock
 
 
 # Load SQL queries from files
@@ -47,16 +45,15 @@ _db_engine = create_engine(
     echo=False,
 )
 _sql_queries = load_sql_queries()
-_clock = Clock(tz=pytz.timezone("America/New_York"))
 
 # Geosupport instances (singleton pattern for performance)
 _geosupport = Geosupport()
 _geosupport_suggest = GeosupportSuggest(_geosupport)
 
 # Services
-_routing_service = RoutingService(_db_engine, _sql_queries, _clock)
+_routing_service = RoutingService(_db_engine, _sql_queries)
 _search_service = SearchService(_geosupport_suggest)
-_isochrone_service = IsochroneService(_db_engine, _clock)
+_isochrone_service = IsochroneService(_db_engine)
 
 # Traffic service (only created when enabled)
 _traffic_service = None

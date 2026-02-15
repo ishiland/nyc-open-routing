@@ -11,8 +11,6 @@ interface UseRouteFetchArgs {
   mode: TravelMode
   useTraffic: boolean
   avoidFerries: boolean
-  trafficHour: number | null
-  trafficDayOfWeek: number | null
   setRoute: (route: Route | null) => void
   setSelectedStreet: (street: RouteFeature | null) => void
   displayMessage: MessageContextType["displayMessage"]
@@ -24,8 +22,6 @@ export const useRouteFetch = ({
   mode,
   useTraffic,
   avoidFerries,
-  trafficHour,
-  trafficDayOfWeek,
   setRoute,
   setSelectedStreet,
   displayMessage,
@@ -72,13 +68,10 @@ export const useRouteFetch = ({
       const timeoutId = setTimeout(() => controller.abort(), 30000) // 30 second timeout
 
       try {
-        // Build URL with traffic and time parameters (only for drive mode)
+        // Build URL with traffic parameters (only for drive mode)
         let url = `/api/route?orig=${startCoords}&dest=${endCoords}&mode=${mode}`
         if (mode === "drive") {
           url += `&use_traffic=${useTraffic}`
-          if (useTraffic && trafficHour !== null && trafficDayOfWeek !== null) {
-            url += `&hour=${trafficHour}&day_of_week=${trafficDayOfWeek}`
-          }
         }
         if (mode === "bike" || mode === "walk") {
           url += `&avoid_ferries=${avoidFerries}`
@@ -158,8 +151,6 @@ export const useRouteFetch = ({
     mode,
     useTraffic,
     avoidFerries,
-    trafficHour,
-    trafficDayOfWeek,
     setRoute,
     setSelectedStreet,
     displayMessage,

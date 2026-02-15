@@ -15,7 +15,6 @@ import { TrafficToggle } from "../../components/controls/TrafficToggle"
 import { FerryToggle } from "../../components/controls/FerryToggle"
 import InfoModal from "../../components/shared/InfoModal"
 import { TravelModeSelect } from "../../components/controls/TravelModeSelect"
-import { TimeSelector } from "../../components/controls/TimeSelector"
 
 // Register toHaveNoViolations matcher with vitest
 expect.extend(vitestAxeMatchers)
@@ -29,8 +28,6 @@ const mockContextValue: RoutingContextType = {
   selectedStreet: null,
   useTraffic: true,
   avoidFerries: false,
-  trafficHour: null,
-  trafficDayOfWeek: null,
   waypoints: [],
   waypointRoute: null,
   setAddress: vi.fn(),
@@ -46,8 +43,6 @@ const mockContextValue: RoutingContextType = {
   setSelectedStreet: vi.fn(),
   setUseTraffic: vi.fn(),
   setAvoidFerries: vi.fn(),
-  setTrafficHour: vi.fn(),
-  setTrafficDayOfWeek: vi.fn(),
   addWaypoint: vi.fn(),
   removeWaypoint: vi.fn(),
   updateWaypoint: vi.fn(),
@@ -140,31 +135,6 @@ describe("ARIA Labels Accessibility Tests", () => {
 
     it("passes axe-core audit", async () => {
       const { container } = renderWithContext(<TravelModeSelect />)
-      const results = await a11yAxe(container)
-      expect(results).toHaveNoViolations()
-    })
-  })
-
-  describe("TimeSelector", () => {
-    it("has accessible slider with correct name", () => {
-      renderWithContext(<TimeSelector />, {
-        mode: "drive",
-        useTraffic: true,
-        trafficHour: 12,
-        trafficDayOfWeek: 1,
-      })
-      expect(
-        screen.getByRole("slider", { name: /hour of day/i }),
-      ).toBeInTheDocument()
-    })
-
-    it("passes axe-core audit", async () => {
-      const { container } = renderWithContext(<TimeSelector />, {
-        mode: "drive",
-        useTraffic: true,
-        trafficHour: 12,
-        trafficDayOfWeek: 1,
-      })
       const results = await a11yAxe(container)
       expect(results).toHaveNoViolations()
     })

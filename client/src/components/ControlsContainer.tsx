@@ -6,7 +6,6 @@ import { AppModeToggle } from "./controls/AppModeToggle"
 import { TravelModeSelect } from "./controls/TravelModeSelect"
 import { TrafficToggle } from "./controls/TrafficToggle"
 import { FerryToggle } from "./controls/FerryToggle"
-import { DepartureTimePicker } from "./controls/DepartureTimePicker"
 import { TitleBar } from "./shared/TitleBar"
 import { ControlsContainerProps } from "../types/interfaces"
 
@@ -29,7 +28,6 @@ const ControlsContainerComponent: React.FC<ControlsContainerProps> = ({
         <AppModeToggle />
         <TravelModeSelect />
         <TrafficToggle />
-        <DepartureTimePicker />
         <FerryToggle />
       </Box>
       <Box

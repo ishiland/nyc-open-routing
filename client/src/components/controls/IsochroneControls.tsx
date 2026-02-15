@@ -22,7 +22,7 @@ import { IsochroneFeature, IsochroneView } from "../../types/interfaces"
 import { ISOCHRONE_BAND_COLORS } from "../../utils/style"
 
 export const IsochroneControls: React.FC = () => {
-  const { startAddress, mode, useTraffic, trafficHour, trafficDayOfWeek } =
+  const { startAddress, mode, useTraffic } =
     useContext<RoutingContextType>(RoutingContext)
   const {
     isochrone,
@@ -39,8 +39,6 @@ export const IsochroneControls: React.FC = () => {
     intervals,
     isochroneView,
     useTraffic,
-    trafficHour,
-    trafficDayOfWeek,
     setIsochrone,
     displayMessage,
   })

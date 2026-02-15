@@ -1,5 +1,3 @@
-from typing import Optional
-
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from dependencies import get_routing_service
@@ -24,25 +22,6 @@ def get_route(
     avoid_ferries: bool = Query(
         default=False, description="Avoid ferry crossings for bike/walk modes"
     ),
-    hour: Optional[int] = Query(
-        default=None,
-        ge=0,
-        le=23,
-        description=(
-            "Hour of day for time-specific traffic (0-23)."
-            " Null uses current time or static factors."
-        ),
-    ),
-    day_of_week: Optional[int] = Query(
-        default=None,
-        ge=1,
-        le=7,
-        description=(
-            "Day of week for time-specific traffic"
-            " (1=Monday, 7=Sunday)."
-            " Null uses current time or static factors."
-        ),
-    ),
     routing_service: RoutingService = Depends(get_routing_service),
 ):
     """
@@ -50,16 +29,9 @@ def get_route(
 
     Supports drive, bike, and walk modes. For drive mode, traffic-aware routing can be
     toggled with the use_traffic parameter (defaults to True if traffic data is available).
-
-    Time-specific traffic (drive mode only):
-    - If hour and day_of_week are provided, routes use dynamic traffic data for that specific time
-    - If omitted, routes use current time or static traffic factors
-    - Requires traffic data to be imported with --download-traffic flag
     """
     if mode == TravelMode.DRIVE:
-        return routing_service.get_driving_route(
-            orig, dest, use_traffic=use_traffic, hour=hour, day_of_week=day_of_week
-        )
+        return routing_service.get_driving_route(orig, dest, use_traffic=use_traffic)
     elif mode == TravelMode.BIKE:
         return routing_service.get_biking_route(orig, dest, avoid_ferries=avoid_ferries)
     elif mode == TravelMode.WALK:
@@ -86,15 +58,6 @@ def get_waypoint_route(
     ),
     avoid_ferries: bool = Query(
         default=False, description="Avoid ferry crossings (bike/walk only)"
-    ),
-    hour: Optional[int] = Query(
-        default=None, ge=0, le=23, description="Hour of day for time-specific traffic (0-23)"
-    ),
-    day_of_week: Optional[int] = Query(
-        default=None,
-        ge=1,
-        le=7,
-        description="Day of week for time-specific traffic (1=Monday, 7=Sunday)",
     ),
     routing_service: RoutingService = Depends(get_routing_service),
 ):
@@ -129,6 +92,4 @@ def get_waypoint_route(
         mode=mode.value,
         use_traffic=use_traffic,
         avoid_ferries=avoid_ferries,
-        hour=hour,
-        day_of_week=day_of_week,
     )

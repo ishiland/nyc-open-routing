@@ -29,12 +29,6 @@ def get_isochrone(
         description="Visualization type: polygon hulls or edge street segments",
     ),
     use_traffic: bool = Query(default=True, description="Use traffic-aware costs for drive mode"),
-    hour: Optional[int] = Query(
-        default=None, ge=0, le=23, description="Hour of day for traffic (0-23)"
-    ),
-    day_of_week: Optional[int] = Query(
-        default=None, ge=1, le=7, description="Day of week for traffic (1=Mon, 7=Sun)"
-    ),
     isochrone_service: IsochroneService = Depends(get_isochrone_service),
 ):
     """
@@ -68,8 +62,6 @@ def get_isochrone(
             mode=mode.value,
             intervals=parsed_intervals,
             use_traffic=use_traffic,
-            hour=hour,
-            day_of_week=day_of_week,
         )
 
     return isochrone_service.get_isochrone(
@@ -77,6 +69,4 @@ def get_isochrone(
         mode=mode.value,
         intervals=parsed_intervals,
         use_traffic=use_traffic,
-        hour=hour,
-        day_of_week=day_of_week,
     )

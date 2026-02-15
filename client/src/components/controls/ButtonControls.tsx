@@ -29,14 +29,10 @@ export const ButtonControls: React.FC = () => {
     mode,
     useTraffic,
     avoidFerries,
-    trafficHour,
-    trafficDayOfWeek,
     setAddress,
     setMode,
     setUseTraffic,
     setAvoidFerries,
-    setTrafficHour,
-    setTrafficDayOfWeek,
     waypoints,
     setWaypointRoute,
   } = useContext<RoutingContextType>(RoutingContext)
@@ -49,8 +45,6 @@ export const ButtonControls: React.FC = () => {
     mode,
     useTraffic,
     avoidFerries,
-    trafficHour,
-    trafficDayOfWeek,
     setRoute,
     setSelectedStreet,
     displayMessage,
@@ -63,8 +57,6 @@ export const ButtonControls: React.FC = () => {
     mode,
     useTraffic,
     avoidFerries,
-    trafficHour,
-    trafficDayOfWeek,
     setWaypointRoute,
     setRoute,
     setSelectedStreet,
@@ -77,14 +69,10 @@ export const ButtonControls: React.FC = () => {
     mode,
     useTraffic,
     avoidFerries,
-    trafficHour,
-    trafficDayOfWeek,
     setAddress,
     setMode,
     setUseTraffic,
     setAvoidFerries,
-    setTrafficHour,
-    setTrafficDayOfWeek,
   })
 
   // Auto-recalculate route when mode, traffic toggle, or time selection changes if both addresses are set
@@ -105,10 +93,10 @@ export const ButtonControls: React.FC = () => {
         fetchRoute()
       }
     }
-    // Note: Intentionally only depend on 'mode', 'useTraffic', 'trafficHour', and 'trafficDayOfWeek'
+    // Note: Intentionally only depend on 'mode' and 'useTraffic'
     // The fetchRoute/fetchWaypointRoute callbacks will use current startAddress/endAddress/waypoints values
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek])
+  }, [mode, useTraffic, avoidFerries])
 
   const routeButtonEnabled = !!(startAddress?.geometry && endAddress?.geometry)
   const hasValidWaypoints =

@@ -1,11 +1,9 @@
-from datetime import datetime
 from unittest.mock import MagicMock
 
 import pytest
 
 from services.routing import RoutingService
 from utils.cache import get_route_cache
-from utils.clock import Clock
 
 
 @pytest.fixture(autouse=True)
@@ -27,24 +25,12 @@ def mock_sql_queries():
     return {
         "routing": (
             "SELECT * FROM getdrivingroute_with_traffic"
-            "(:orig_lon, :orig_lat, :dest_lon, :dest_lat,"
-            " :hour, :day_of_week)"
+            "(:orig_lon, :orig_lat, :dest_lon, :dest_lat)"
         )
     }
 
 
 @pytest.fixture
-def mock_clock():
-    """Mock Clock class."""
-    clock = MagicMock(spec=Clock)
-    # Set default return values
-    clock.hour = 12
-    clock.day_of_week = 1
-    clock.now.return_value = datetime(2023, 1, 1, 12, 0, 0)
-    return clock
-
-
-@pytest.fixture
-def mock_routing_service(mock_db_engine, mock_sql_queries, mock_clock):
+def mock_routing_service(mock_db_engine, mock_sql_queries):
     """Return a mocked RoutingService."""
-    return RoutingService(mock_db_engine, mock_sql_queries, mock_clock)
+    return RoutingService(mock_db_engine, mock_sql_queries)

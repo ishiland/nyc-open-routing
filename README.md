@@ -13,7 +13,6 @@ Multi-modal routing for New York City using pgRouting and NYC's LION street netw
 - **Multi-stop waypoint routing** -- Plan routes with up to 3 stops, with per-leg summaries and an overall route summary
 - **Traffic-aware routing** -- Adjust driving routes using NYC DOT traffic volume data and TRANSCOM real-time speed data
 - **NYC address autocomplete** -- Search NYC addresses with type-ahead suggestions powered by Geosupport
-- **Departure time selection** -- Choose hour and day of week for time-dependent traffic routing
 - **Responsive design** -- Desktop sidebar layout, tablet view, and mobile bottom sheet
 - **Shareable routes** -- Deep link URLs encode origin, destination, mode, and waypoints for sharing
 
@@ -93,8 +92,6 @@ Point-to-point routing between two coordinates.
 | `mode` | string | yes | Travel mode: `drive`, `bike`, or `walk` |
 | `use_traffic` | bool | no | Traffic-aware routing for drive mode (default: `true`) |
 | `avoid_ferries` | bool | no | Avoid ferry crossings for bike/walk (default: `false`) |
-| `hour` | int | no | Hour of day for time-specific traffic, 0-23 |
-| `day_of_week` | int | no | Day of week for time-specific traffic, 1 (Mon) - 7 (Sun) |
 
 Example request:
 
@@ -140,8 +137,6 @@ Multi-stop routing through 2-3 waypoints.
 | `mode` | string | yes | Travel mode: `drive`, `bike`, or `walk` |
 | `use_traffic` | bool | no | Traffic-aware routing for drive mode (default: `true`) |
 | `avoid_ferries` | bool | no | Avoid ferry crossings for bike/walk (default: `false`) |
-| `hour` | int | no | Hour of day for time-specific traffic, 0-23 |
-| `day_of_week` | int | no | Day of week for time-specific traffic, 1 (Mon) - 7 (Sun) |
 
 ```bash
 curl "http://localhost:5001/api/route/waypoints?waypoints=-73.98,40.75|-73.99,40.76|-74.00,40.77&mode=drive"
@@ -158,8 +153,6 @@ Reachability analysis from an origin point.
 | `intervals` | string | no | Comma-separated minutes (default: `5,10,15,20`) |
 | `view` | string | no | Visualization: `polygon` or `edges` (default: `polygon`) |
 | `use_traffic` | bool | no | Traffic-aware costs for drive mode (default: `true`) |
-| `hour` | int | no | Hour of day for traffic, 0-23 |
-| `day_of_week` | int | no | Day of week for traffic, 1 (Mon) - 7 (Sun) |
 
 ```bash
 curl "http://localhost:5001/api/isochrone?orig=-73.9857,40.7484&mode=walk&intervals=5,10,15"

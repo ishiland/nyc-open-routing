@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List
 
 from fastapi import HTTPException
 from sqlalchemy import text
@@ -13,7 +13,6 @@ from models.schemas import (
     IsochroneResponse,
 )
 from utils.cache import get_route_cache
-from utils.clock import Clock
 from utils.geo import dump_geo, parse_coordinates
 
 logger = logging.getLogger(__name__)
@@ -23,9 +22,8 @@ DEFAULT_INTERVALS = [5, 10, 15, 20]
 
 
 class IsochroneService:
-    def __init__(self, db_engine: Engine, clock: Clock):
+    def __init__(self, db_engine: Engine):
         self.engine = db_engine
-        self.clock = clock
         self.cache = get_route_cache()
 
     def get_isochrone(
@@ -34,24 +32,14 @@ class IsochroneService:
         mode: str,
         intervals: List[float] = None,
         use_traffic: bool = True,
-        hour: Optional[int] = None,
-        day_of_week: Optional[int] = None,
     ) -> IsochroneResponse:
         if intervals is None:
             intervals = DEFAULT_INTERVALS
 
-        # Default to current time if traffic is enabled but no time specified (drive only)
-        if mode == "drive" and use_traffic and hour is None and day_of_week is None:
-            hour = self.clock.hour
-            day_of_week = self.clock.day_of_week + 1
-            logger.info(
-                f"Using current time for isochrone traffic: hour={hour}, day_of_week={day_of_week}"
-            )
-
         # Cache key
         intervals_str = ",".join(str(i) for i in intervals)
         if mode == "drive" and use_traffic:
-            cache_suffix = f"iso-traffic-h{hour}-d{day_of_week}"
+            cache_suffix = "iso-traffic"
         else:
             cache_suffix = f"iso-{mode}"
         cached = self.cache.get(orig, intervals_str, cache_suffix)
@@ -69,17 +57,13 @@ class IsochroneService:
         try:
             if mode == "drive":
                 sql = text(
-                    "SELECT * FROM getdrivingisochrone"
-                    "(:lon, :lat, :intervals,"
-                    " :use_traffic, :hour, :day_of_week)"
+                    "SELECT * FROM getdrivingisochrone(:lon, :lat, :intervals, :use_traffic)"
                 )
                 params = {
                     "lon": orig_lon,
                     "lat": orig_lat,
                     "intervals": intervals,
                     "use_traffic": use_traffic,
-                    "hour": hour,
-                    "day_of_week": day_of_week,
                 }
             elif mode == "bike":
                 sql = text("SELECT * FROM getbikingisochrone(:lon, :lat, :intervals)")
@@ -116,9 +100,7 @@ class IsochroneService:
                 logger.warning(
                     "Traffic data not available for isochrone, falling back to non-traffic"
                 )
-                return self.get_isochrone(
-                    orig, mode, intervals, use_traffic=False, hour=None, day_of_week=None
-                )
+                return self.get_isochrone(orig, mode, intervals, use_traffic=False)
             raise HTTPException(status_code=500, detail="Error processing isochrone request.")
 
         # Convert to response
@@ -156,26 +138,15 @@ class IsochroneService:
         mode: str,
         intervals: List[float] = None,
         use_traffic: bool = True,
-        hour: Optional[int] = None,
-        day_of_week: Optional[int] = None,
     ) -> IsochroneResponse:
         """Get edge-based isochrone returning LineString features per street segment."""
         if intervals is None:
             intervals = DEFAULT_INTERVALS
 
-        # Default to current time if traffic is enabled but no time specified (drive only)
-        if mode == "drive" and use_traffic and hour is None and day_of_week is None:
-            hour = self.clock.hour
-            day_of_week = self.clock.day_of_week + 1
-            logger.info(
-                f"Using current time for edge isochrone traffic: "
-                f"hour={hour}, day_of_week={day_of_week}"
-            )
-
         # Cache key (separate prefix to avoid collisions with polygon cache)
         intervals_str = ",".join(str(i) for i in intervals)
         if mode == "drive" and use_traffic:
-            cache_suffix = f"iso-edges-traffic-h{hour}-d{day_of_week}"
+            cache_suffix = "iso-edges-traffic"
         else:
             cache_suffix = f"iso-edges-{mode}"
         cached = self.cache.get(orig, intervals_str, cache_suffix)
@@ -193,17 +164,13 @@ class IsochroneService:
         try:
             if mode == "drive":
                 sql = text(
-                    "SELECT * FROM getdrivingisochrone_edges"
-                    "(:lon, :lat, :intervals,"
-                    " :use_traffic, :hour, :day_of_week)"
+                    "SELECT * FROM getdrivingisochrone_edges(:lon, :lat, :intervals, :use_traffic)"
                 )
                 params = {
                     "lon": orig_lon,
                     "lat": orig_lat,
                     "intervals": intervals,
                     "use_traffic": use_traffic,
-                    "hour": hour,
-                    "day_of_week": day_of_week,
                 }
             elif mode == "bike":
                 sql = text("SELECT * FROM getbikingisochrone_edges(:lon, :lat, :intervals)")
@@ -240,9 +207,7 @@ class IsochroneService:
                 logger.warning(
                     "Traffic data not available for edge isochrone, falling back to non-traffic"
                 )
-                return self.get_isochrone_edges(
-                    orig, mode, intervals, use_traffic=False, hour=None, day_of_week=None
-                )
+                return self.get_isochrone_edges(orig, mode, intervals, use_traffic=False)
             raise HTTPException(status_code=500, detail="Error processing edge isochrone request.")
 
         # Convert to response
