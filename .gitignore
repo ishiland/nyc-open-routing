@@ -56,3 +56,9 @@ docker/dev/.env
 # Internal dev docs
 CLAUDE.md
 docs/
+
+# Exception: keep README screenshots
+!docs/
+docs/*
+!docs/images/
+!docs/images/*.jpeg
