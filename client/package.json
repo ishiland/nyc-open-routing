@@ -13,7 +13,7 @@
     "@turf/helpers": "^7.2.0",
     "autosuggest-highlight": "^3.3.4",
     "maplibre-gl": "^5.3.0",
-    "react": "^18.2.0",
+    "react": "^19.2.4",
     "react-dom": "^18.2.0",
     "react-error-boundary": "^4.0.13",
     "turf-extent": "^1.0.4"
@@ -37,7 +37,7 @@
     "@testing-library/user-event": "^14.5.2",
     "@types/autosuggest-highlight": "^3.2.3",
     "@types/node": "^20.12.12",
-    "@types/react": "^18.2.47",
+    "@types/react": "^19.2.14",
     "@types/react-dom": "^18.2.18",
     "@vitejs/plugin-react": "^4.2.1",
     "@typescript-eslint/eslint-plugin": "^7",
