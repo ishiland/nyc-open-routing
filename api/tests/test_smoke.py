@@ -77,13 +77,15 @@ def validate_route_response(response_data: dict) -> None:
 
         # Type validation
         assert isinstance(props["seq"], int), f"Feature {i} seq should be int"
-        assert isinstance(props["distance"], (int, float)), f"Feature {i} distance should be numeric"
-        assert isinstance(props["travel_time"], (int, float)), f"Feature {i} travel_time should be numeric"
+        # distance and travel_time may be None for synthetic segments (e.g., ferry connections)
+        assert isinstance(props["distance"], (int, float, type(None))), f"Feature {i} distance should be numeric or None"
+        assert isinstance(props["travel_time"], (int, float, type(None))), f"Feature {i} travel_time should be numeric or None"
 
-        # Value validation
-        assert props["distance"] > 0, f"Feature {i} distance should be positive"
-        # Allow travel_time to be 0 due to JSON precision rounding for very short segments
-        assert props["travel_time"] >= 0, f"Feature {i} travel_time should be non-negative"
+        # Value validation (skip for None values like ferry segments)
+        if props["distance"] is not None:
+            assert props["distance"] > 0, f"Feature {i} distance should be positive"
+        if props["travel_time"] is not None:
+            assert props["travel_time"] >= 0, f"Feature {i} travel_time should be non-negative"
 
         # Validate geometry
         assert "geometry" in feature, f"Feature {i} missing 'geometry'"
