@@ -74,13 +74,7 @@ Import the LION street network (takes 10-30 minutes on first run):
 docker compose exec api sh /data-imports/import-lion.sh 25a
 ```
 
-Navigate to [http://localhost:3002](http://localhost:3002) when the import completes.
-
-To include traffic volume data for traffic-aware routing, add the `--download-traffic` flag:
-
-```bash
-docker compose exec api sh /data-imports/import-lion.sh 25a --download-traffic
-```
+Navigate to [http://localhost:3002](http://localhost:3002) when the import completes. Traffic data is fetched automatically at runtime by the background traffic refresh service.
 
 ## Architecture
 
@@ -195,8 +189,7 @@ curl "http://localhost:5001/api/search?address=350%20fifth"
 
 - [LION](https://www.nyc.gov/site/planning/data-maps/open-data/dwn-lion.page) -- NYC Department of City Planning street network dataset
 - [Geosupport](https://www.nyc.gov/site/planning/data-maps/open-data/dwn-gde-home.page) -- NYC geocoding system, via [python-geosupport](https://github.com/ishiland/python-geosupport) and [geosupport-suggest](https://github.com/ishiland/geosupport-suggest)
-- [NYC DOT Traffic Volumes](https://data.cityofnewyork.us/Transportation/Automated-Traffic-Volume-Counts/7ym2-wayt) -- Static traffic volume data (optional, via `--download-traffic`)
-- [TRANSCOM Speed Data](https://data.cityofnewyork.us/Transportation/Real-Time-Traffic-Speed-Data/qkm5-nuaq) -- Real-time traffic speed sensors (optional, via `scripts/import_traffic_speeds.py`)
+- [TRANSCOM Speed Data](https://data.cityofnewyork.us/Transportation/Real-Time-Traffic-Speed-Data/qkm5-nuaq) -- Real-time traffic speed data (auto-refreshed by background service)
 
 ## License
 

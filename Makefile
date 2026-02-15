@@ -1,5 +1,5 @@
 .PHONY: help build up down test test-api test-client lint lint-api lint-client \
-       format format-api format-client import import-traffic db logs clean
+       format format-api format-client import db logs clean
 
 help: ## Show this help
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -39,9 +39,6 @@ format-client: ## Format client code (prettier)
 
 import: ## Import LION street data (first run, ~10-30 min)
 	docker compose exec api sh /data-imports/import-lion.sh 25a
-
-import-traffic: ## Import LION data with traffic volumes
-	docker compose exec api sh /data-imports/import-lion.sh 25a --download-traffic
 
 db: ## Open database shell (psql)
 	docker compose exec db psql -U postgres -d routing

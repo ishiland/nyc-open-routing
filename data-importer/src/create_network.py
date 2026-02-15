@@ -1,7 +1,6 @@
 import os
 from datetime import datetime
 import psycopg
-from traffic_volumes import import_traffic_volumes, process_traffic_data, create_traffic_routing_functions
 from utils import TqdmLoggingHandler, logger
 
 def setup_notice_handler(conn):
@@ -549,8 +548,6 @@ def main():
         import sys
         sys.exit(1)
 
-    traffic_data = os.getenv('TRAFFIC_DATA_FILE')  # Path to traffic data CSV (optional)
-
     logger.info(f"Starting network creation process")
 
     try:
@@ -630,16 +627,6 @@ def main():
                 except Exception as e:
                     logger.error(f"Failed at step: create_performance_indexes - {e}")
                     raise
-
-                # Process traffic data if available
-                if traffic_data:
-                    try:
-                        import_traffic_volumes(cur, conn, traffic_data)
-                        process_traffic_data(cur, conn)
-                        create_traffic_routing_functions(cur, conn)
-                    except Exception as e:
-                        logger.error(f"Failed at step: traffic data processing - {e}")
-                        raise
 
                 conn.commit()
 

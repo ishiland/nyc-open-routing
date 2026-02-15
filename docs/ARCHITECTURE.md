@@ -50,7 +50,7 @@ make import  # or: docker compose exec api sh /data-imports/import-lion.sh 25a
 | 08 | `08_cached_geometries.sql` | Pre-transform geometries to WGS84 for API responses |
 | 09 | `09_ferry_connections.sql` | Isolate ferry internal nodes from bridge/tunnel topology |
 
-Optional `--download-traffic` flag imports NYC DOT traffic volume data into `traffic_volumes` table and sets `edges.traffic_factor`.
+Traffic data is populated automatically at runtime by the `TrafficRefreshService` (TRANSCOM speed data), which sets `edges.traffic_factor`.
 
 ## Routing Algorithm
 
@@ -94,4 +94,3 @@ All functions are defined in `data-importer/src/sql/05_functions.sql`.
 
 **`restrictions`** — Turn restriction table for pgr_trsp. Generated from LION's grade-separation fields.
 
-**`traffic_volumes`** — Static NYC DOT traffic counts per street segment.

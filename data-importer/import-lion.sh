@@ -1,99 +1,32 @@
 #!/bin/bash
 set -e
 
-TRAFFIC_DATA_URL="https://data.cityofnewyork.us/api/views/7ym2-wayt/rows.csv"
-TRAFFIC_DATA_PATH="/data-imports/data/traffic_data.csv"
 DEFAULT_LION="25a"
 
 
 print_usage() {
-  echo "Usage: $0 [LION_VERSION] [OPTIONS]"
-  echo "Options:"
-  echo "  --download-traffic  Download latest traffic volume data from NYC Open Data"
-  echo "  --traffic-file PATH  Use local traffic data file at PATH"
+  echo "Usage: $0 [LION_VERSION]"
   echo ""
   echo "Examples:"
-  echo "  $0 23a                            # Import LION 23a without traffic data"
-  echo "  $0 23a --download-traffic         # Import LION 23a and download traffic data"
-  echo "  $0 23a --traffic-file data.csv    # Import LION 23a with local traffic data"
+  echo "  $0           # Import default LION version ($DEFAULT_LION)"
+  echo "  $0 23a       # Import LION 23a"
 }
 
 # Parse arguments
 if [ "$#" -eq "0" ]; then
   LION=$DEFAULT_LION
-  TRAFFIC_DATA=""
-  DOWNLOAD_TRAFFIC=false
+elif [ "$1" = "--help" ]; then
+  print_usage
+  exit 0
+elif [[ "$1" == --* ]]; then
+  echo "Error: Unknown option: $1"
+  print_usage
+  exit 1
 else
   LION=$1
-  shift
-
-  # Process additional arguments
-  TRAFFIC_DATA=""
-  DOWNLOAD_TRAFFIC=false
-  
-  while [ "$#" -gt 0 ]; do
-    case "$1" in
-      --download-traffic)
-        DOWNLOAD_TRAFFIC=true
-        TRAFFIC_DATA="$TRAFFIC_DATA_PATH"
-        shift
-        ;;
-      --traffic-file)
-        if [ "$#" -gt 1 ]; then
-          TRAFFIC_DATA="$2"
-          shift 2
-        else
-          echo "Error: Missing path for --traffic-file"
-          print_usage
-          exit 1
-        fi
-        ;;
-      --help)
-        print_usage
-        exit 0
-        ;;
-      *)
-        echo "Error: Unknown option: $1"
-        print_usage
-        exit 1
-        ;;
-    esac
-  done
-fi
-
-if [[ -z "$LION" || "$LION" == --* ]]; then
-  echo "Error: Missing or invalid LION version. Provide a value like '25a' as the first argument."
-  exit 1
 fi
 
 echo "Attempting to import LION $LION"
-
-# Handle traffic data
-TRAFFIC_DATA_PREEXISTS=false
-if [ "$DOWNLOAD_TRAFFIC" = true ]; then
-  # Check if traffic data file already exists
-  if [ -f "$TRAFFIC_DATA" ]; then
-    TRAFFIC_DATA_PREEXISTS=true
-    echo "Traffic data file already exists at $TRAFFIC_DATA"
-    echo "Using existing traffic data file"
-  else
-    echo "Downloading traffic data from NYC Open Data..."
-    mkdir -p "$(dirname "$TRAFFIC_DATA")"
-    curl -o "$TRAFFIC_DATA" "$TRAFFIC_DATA_URL"
-    if [ $? -ne 0 ]; then
-      echo "Error downloading traffic data"
-      TRAFFIC_DATA=""
-    else
-      echo "Traffic data downloaded to $TRAFFIC_DATA"
-    fi
-  fi
-elif [ -n "$TRAFFIC_DATA" ]; then
-  echo "Using traffic data from $TRAFFIC_DATA"
-  if [ ! -f "$TRAFFIC_DATA" ]; then
-    echo "Warning: Traffic data file not found at $TRAFFIC_DATA"
-    TRAFFIC_DATA=""
-  fi
-fi
 
 #================================
 # Download Lion
@@ -111,7 +44,6 @@ fi
 ## ================================
 ## load Lion data with ogr2ogr
 ## ================================
-# ./scripts/wait-for-it.sh "$POSTGRES_HOST":5432 -- echo "database is up"
 
 # need to create extensions on first go
 psql --command="create extension if not exists postgis;" postgresql://$POSTGRES_USER:$POSTGRES_PASSWORD@$POSTGRES_HOST/$POSTGRES_DB
@@ -133,25 +65,5 @@ ogr2ogr -progress \
 ## ================================
 ## create routing network
 ## ================================
-# Export traffic data path if provided
-if [ -n "$TRAFFIC_DATA" ]; then
-  echo "Setting TRAFFIC_DATA_FILE environment variable to: $TRAFFIC_DATA"
-  export TRAFFIC_DATA_FILE="$TRAFFIC_DATA"
-fi
-
 echo "Running create_network.py..."
 python3 /data-imports/src/create_network.py
-
-# Cleanup env var
-if [ -n "$TRAFFIC_DATA" ]; then
-  unset TRAFFIC_DATA_FILE
-fi
-
-# Only clean up downloaded traffic data if we downloaded it in this run
-# and it didn't exist before starting the script
-if [ "$DOWNLOAD_TRAFFIC" = true ] && [ "$TRAFFIC_DATA_PREEXISTS" = false ]; then
-  if [ -n "$TRAFFIC_DATA" ] && [ -f "$TRAFFIC_DATA" ]; then
-    rm -f "$TRAFFIC_DATA"
-    echo "Temporary traffic data file removed"
-  fi
-fi
