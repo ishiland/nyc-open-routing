@@ -25,7 +25,7 @@ export const waypointPointColor = "#3b82f6"
 // 1.5-1.8 = Moderate congestion (orange)
 // 1.8-2.5 = Heavy congestion (red)
 // >2.5 = Severe congestion (dark red)
-const trafficColorScale = {
+export const trafficColorScale = {
   freeFlow: "#22c55e",      // Green
   light: "#facc15",         // Yellow
   moderate: "#f97316",      // Orange
@@ -133,6 +133,38 @@ export const getIsochroneOutlinePaint = () => ({
     "#94a3b8",
   ] as any,
   "line-width": 2,
+  "line-opacity": 0.7,
+})
+
+// Traffic color stops for legend display
+export const TRAFFIC_COLOR_STOPS = [
+  { factor: 1.0, color: trafficColorScale.freeFlow, label: "Free Flow" },
+  { factor: 1.2, color: trafficColorScale.light, label: "Light" },
+  { factor: 1.5, color: trafficColorScale.moderate, label: "Moderate" },
+  { factor: 1.8, color: trafficColorScale.heavy, label: "Heavy" },
+  { factor: 2.5, color: trafficColorScale.severe, label: "Severe" },
+] as const
+
+// Traffic layer paint for map overlay (thinner lines, lower opacity than route paint)
+export const getTrafficLayerPaint = () => ({
+  "line-width": [
+    "interpolate",
+    ["linear"],
+    ["zoom"],
+    10, 1,
+    13, 2,
+    16, 4,
+  ] as any,
+  "line-color": [
+    "interpolate",
+    ["linear"],
+    ["get", "traffic_factor"],
+    1.0, trafficColorScale.freeFlow,
+    1.2, trafficColorScale.light,
+    1.5, trafficColorScale.moderate,
+    1.8, trafficColorScale.heavy,
+    2.5, trafficColorScale.severe,
+  ] as any,
   "line-opacity": 0.7,
 })
 

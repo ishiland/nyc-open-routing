@@ -5,17 +5,17 @@
 See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Core value:** The UI must feel like a native NYC tool — compact, bold, and immediately usable
-**Current focus:** v4.0 Live Traffic — Phase 17: Live Traffic Refresh
+**Current focus:** v4.0 Live Traffic — Phase 18: Traffic Visualization
 
 ## Current Position
 
 **Milestone:** v4.0 Live Traffic
-**Phase:** 17 of 19 (Live Traffic Refresh)
-**Plan:** 2 of 2 complete
-**Status:** Phase Complete
-**Last Activity:** 2026-02-15 — Completed 17-02 Traffic API Integration
+**Phase:** 18 of 19 (Traffic Visualization)
+**Plan:** 1 of 2 complete (18-01 done, 18-02 remaining)
+**Status:** Executing
+**Last Activity:** 2026-02-15 — Completed 18-01 (Traffic Layer API)
 
-Progress: [██████████] 100%
+Progress: [█████░░░░░] 50%
 
 ## Performance Metrics
 
@@ -31,6 +31,7 @@ Progress: [██████████] 100%
 |-------|------|----------|-------|-------|
 | 17-01 | Traffic Service Core | 2min | 2 | 2 |
 | 17-02 | Traffic API Integration | 4min | 2 | 5 |
+| 18-01 | Traffic Layer API | 2min | 2 | 2 |
 
 ## Accumulated Context
 
@@ -40,6 +41,7 @@ Archived to PROJECT.md Key Decisions table.
 
 - **17-01:** Used temp tables with ON COMMIT DROP for staging; atomic update replaces reset-all-to-1.0 anti-pattern; propagation rounds configurable (5 initial, 2 recurring)
 - **17-02:** Traffic routes created in Task 1 to resolve import dependency; docker/dev/.env is gitignored so defaults come from Settings class
+- **18-01:** Direct engine call in route handler (not service class) for simple spatial query; traffic_factor > 1.0 filter excludes free-flow edges
 
 ### Pending Todos
 
@@ -52,9 +54,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 17-02-PLAN.md (Traffic API Integration) — Phase 17 complete
-Resume file: None (phase complete)
+Stopped at: Completed 18-01-PLAN.md
+Resume file: .planning/phases/18-traffic-visualization/18-02-PLAN.md
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-15 after 17-02 plan completed*
+*Last updated: 2026-02-15 after 18-01 execution complete*

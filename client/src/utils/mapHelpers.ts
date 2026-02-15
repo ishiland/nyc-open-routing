@@ -9,6 +9,7 @@ export const CUSTOM_LAYER_ORDER = [
   "isochroneFillLayer",
   "isochroneOutlineLayer",
   "isochroneEdgesLayer",
+  "trafficLayer",
   "routeHaloLayer",
   "routeLayer",
   "waypointPointLayer",
