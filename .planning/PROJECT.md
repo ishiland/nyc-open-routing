@@ -67,7 +67,10 @@ The UI must feel like a native NYC tool — compact, bold, and immediately usabl
 
 ### Active
 
-None — all milestones complete.
+- [ ] Remove duplicate Dockerfiles and stale internal artifacts
+- [ ] Fix stale docker-compose.yml comment referencing non-existent doc
+- [ ] Top-level Makefile for project-wide commands (build, test, lint, import, db)
+- [ ] Brief docs/ARCHITECTURE.md covering data flow, import pipeline, routing algorithm
 
 ### Out of Scope
 
@@ -80,7 +83,7 @@ None — all milestones complete.
 
 ## Context
 
-- **Current Milestone:** None — all milestones complete
+- **Current Milestone:** v4.2 Developer Experience
 - **Shipped:** v4.1 GitHub Polish (2026-02-15), v4.0 Live Traffic (2026-02-15), v3.0 Public Release (2026-02-14), v2.3 Ferry Route Fix (2026-02-14), v2.2 Edge Isochrones & Waypoints (2026-02-14), v2.1 Departure Time (2026-02-14), v2.0 Isochrone Reachability (2026-02-14), v1.1 UI Polish (2026-02-13), v1.0 UI Redesign (2026-02-13)
 - **Stack:** React 18 + TypeScript + MUI 7 + MapLibre GL 5 + Vite
 - **State management:** React Context API (RoutingContext, IsochroneContext, MapInstanceContext, MessageContext)
@@ -133,4 +136,4 @@ None — all milestones complete.
 | Keep _hour/_day_of_week params unused | Backward compatibility for existing API consumers | ✓ Good — no breaking changes |
 
 ---
-*Last updated: 2026-02-15 after v4.1 milestone completed*
+*Last updated: 2026-02-15 after v4.2 milestone started*
