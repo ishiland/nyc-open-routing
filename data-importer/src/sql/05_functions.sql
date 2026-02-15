@@ -266,16 +266,16 @@ BEGIN
   grouped_edges AS (
     SELECT
       MIN(swg.seq) AS seq,
-      swg.id,
+      (array_agg(swg.id ORDER BY swg.seq))[1] AS id,
       swg.street,
       SUM(swg.travel_time) AS travel_time,
       SUM(swg.distance) AS distance,
       (array_agg(swg.turn_instruction ORDER BY swg.seq))[1] AS turn_instruction,
       (array_agg(swg.turn_type ORDER BY swg.seq))[1] AS turn_type,
       1.0::NUMERIC(5,2) AS traffic_factor,
-      ST_Collect(swg.transformed_geom) AS collected_geom  -- Faster: O(n) vs O(n log n)
+      ST_Collect(swg.transformed_geom ORDER BY swg.seq) AS collected_geom
     FROM segments_with_groups swg
-    GROUP BY swg.segment_group, swg.id, swg.street
+    GROUP BY swg.segment_group, swg.street
   ),
   -- Merge collected geometries once (eliminates redundant ST_LineMerge calls)
   merged_geometries AS (
@@ -439,15 +439,15 @@ BEGIN
   grouped_edges AS (
     SELECT
       MIN(swg.seq) AS seq,
-      swg.id,
+      (array_agg(swg.id ORDER BY swg.seq))[1] AS id,
       swg.street,
       SUM(swg.travel_time) AS travel_time,
       SUM(swg.distance) AS distance,
       (array_agg(swg.turn_instruction ORDER BY swg.seq))[1] AS turn_instruction,
       (array_agg(swg.turn_type ORDER BY swg.seq))[1] AS turn_type,
-      ST_Collect(swg.transformed_geom) AS collected_geom
+      ST_Collect(swg.transformed_geom ORDER BY swg.seq) AS collected_geom
     FROM segments_with_groups swg
-    GROUP BY swg.segment_group, swg.id, swg.street
+    GROUP BY swg.segment_group, swg.street
   ),
   -- Merge collected geometries once (eliminates redundant ST_LineMerge calls)
   merged_geometries AS (
@@ -609,15 +609,15 @@ BEGIN
   grouped_edges AS (
     SELECT
       MIN(swg.seq) AS seq,
-      swg.id,
+      (array_agg(swg.id ORDER BY swg.seq))[1] AS id,
       swg.street,
       SUM(swg.travel_time) AS travel_time,
       SUM(swg.distance) AS distance,
       (array_agg(swg.turn_instruction ORDER BY swg.seq))[1] AS turn_instruction,
       (array_agg(swg.turn_type ORDER BY swg.seq))[1] AS turn_type,
-      ST_Collect(swg.transformed_geom) AS collected_geom
+      ST_Collect(swg.transformed_geom ORDER BY swg.seq) AS collected_geom
     FROM segments_with_groups swg
-    GROUP BY swg.segment_group, swg.id, swg.street
+    GROUP BY swg.segment_group, swg.street
   ),
   -- Merge collected geometries once (eliminates redundant ST_LineMerge calls)
   merged_geometries AS (
@@ -796,18 +796,16 @@ BEGIN
     grouped_edges AS (
       SELECT
         MIN(swg.seq) AS seq,
-        swg.id,
+        (array_agg(swg.id ORDER BY swg.seq))[1] AS id,
         swg.street,
         SUM(swg.travel_time) AS travel_time,
         SUM(swg.distance) AS distance,
         MAX(swg.traffic_factor) AS traffic_factor,
-        -- Use FIRST_VALUE to preserve first instruction, not MIN (which sorts lexicographically)
-        -- This prevents "Start" from being replaced by "Continue..."
         (array_agg(swg.turn_instruction ORDER BY swg.seq))[1] AS turn_instruction,
         (array_agg(swg.turn_type ORDER BY swg.seq))[1] AS turn_type,
-        ST_Collect(swg.transformed_geom) AS collected_geom
+        ST_Collect(swg.transformed_geom ORDER BY swg.seq) AS collected_geom
       FROM segments_with_groups swg
-      GROUP BY swg.segment_group, swg.id, swg.street
+      GROUP BY swg.segment_group, swg.street
     ),
     -- Merge collected geometries once (eliminates redundant ST_LineMerge calls)
     merged_geometries AS (
