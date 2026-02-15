@@ -653,15 +653,19 @@ BEGIN
 END
 $func$ LANGUAGE plpgsql;
 
--- traffic-aware driving route with turn instructions
+-- Traffic-aware driving route with turn instructions
+-- Traffic factor fallback chain (Phase 19):
+-- 1. edges.traffic_factor (live speed data from TrafficRefreshService)
+-- 2. 1.0 default (no traffic penalty)
+-- Note: Dynamic volume lookup (avg_traffic_by_segment) removed per Phase 19 audit.
 DROP FUNCTION IF EXISTS getdrivingroute_with_traffic(double precision, double precision, double precision, double precision, integer, integer);
 DROP FUNCTION IF EXISTS getdrivingroute_with_traffic(double precision, double precision, double precision, double precision);
 
 CREATE FUNCTION getdrivingroute_with_traffic(
   _start_lat FLOAT, _start_lon FLOAT,
   _end_lat FLOAT, _end_lon FLOAT,
-  _hour INTEGER DEFAULT NULL,         -- Hour of day (0-23), NULL = use static traffic_factor
-  _day_of_week INTEGER DEFAULT NULL   -- Day of week (1-7 = Mon-Sun), NULL = use static traffic_factor
+  _hour INTEGER DEFAULT NULL,         -- Kept for backward compatibility (unused)
+  _day_of_week INTEGER DEFAULT NULL   -- Kept for backward compatibility (unused)
 )
 RETURNS TABLE(
     seq INT,
@@ -678,67 +682,14 @@ $func$
 DECLARE
     start_node INT;
     end_node INT;
-    use_dynamic_traffic BOOLEAN;
-    hour_condition_sql TEXT := 'TRUE';
-    day_condition_sql TEXT := 'TRUE';
-    traffic_lookup_sql TEXT;
-    edges_sql TEXT;
 BEGIN
     -- Get start and end nodes (driveable only)
     start_node := getnearestdrivenode(_start_lon, _start_lat);
     end_node := getnearestdrivenode(_end_lon, _end_lat);
 
-    -- Determine if we're using time-based dynamic traffic or static factors
-    use_dynamic_traffic := (_hour IS NOT NULL AND _day_of_week IS NOT NULL);
-
     IF start_node IS NULL OR end_node IS NULL THEN
         RAISE EXCEPTION 'Could not find start or end node';
     END IF;
-
-    IF use_dynamic_traffic THEN
-        hour_condition_sql := format('hour_of_day = %s', _hour);
-        day_condition_sql := format('day_of_week = %s', _day_of_week);
-    END IF;
-
-    -- Traffic factor fallback chain:
-    -- 1. Dynamic lookup from avg_traffic_by_segment (volume-based, time-of-day aware)
-    -- 2. edges.traffic_factor (speed-based or static import)
-    -- 3. 1.0 (no traffic penalty)
-    traffic_lookup_sql := format($fmt$
-        COALESCE(
-            (SELECT
-                CASE
-                    WHEN avg_volume < 58 THEN 1.0
-                    WHEN avg_volume < 129 THEN 1.2
-                    WHEN avg_volume < 250 THEN 1.5
-                    WHEN avg_volume < 415 THEN 2.0
-                    ELSE 3.0
-                END
-             FROM avg_traffic_by_segment
-             WHERE segment_id = segmentid
-               AND %1$s
-               AND %2$s
-             LIMIT 1
-            ), COALESCE(traffic_factor, 1.0))$fmt$,
-        hour_condition_sql,
-        day_condition_sql
-    );
-
-    edges_sql := format($fmt$
-        SELECT id, source, target,
-            cost_drive * CASE
-                WHEN %1$s THEN %2$s
-                ELSE COALESCE(traffic_factor, 1.0)
-            END AS cost,
-            rcost_drive * CASE
-                WHEN %1$s THEN %2$s
-                ELSE COALESCE(traffic_factor, 1.0)
-            END AS reverse_cost
-        FROM edges
-        WHERE driveable = TRUE$fmt$,
-        CASE WHEN use_dynamic_traffic THEN 'TRUE' ELSE 'FALSE' END,
-        traffic_lookup_sql
-    );
 
     -- Return segments with properly processed geometries
     RETURN QUERY
@@ -748,56 +699,17 @@ BEGIN
         r.edge,
         e.join_id,
         e.street,
-        -- Calculate traffic multiplier inline, only for route edges
-        -- This eliminates the 300k-row CTE materialization
-        e.time_drive * CASE
-          WHEN use_dynamic_traffic THEN
-            COALESCE(
-              (SELECT
-                CASE
-                  WHEN avg_volume < 58 THEN 1.0
-                  WHEN avg_volume < 129 THEN 1.2
-                  WHEN avg_volume < 250 THEN 1.5
-                  WHEN avg_volume < 415 THEN 2.0
-                  ELSE 3.0
-                END
-               FROM avg_traffic_by_segment
-               WHERE segment_id = e.segmentid
-                 AND (_hour IS NULL OR hour_of_day = _hour)
-                 AND (_day_of_week IS NULL OR day_of_week = _day_of_week)
-               LIMIT 1
-              ), COALESCE(e.traffic_factor, 1.0))
-          ELSE
-            COALESCE(e.traffic_factor, 1.0)
-        END AS travel_time,
+        e.time_drive * COALESCE(e.traffic_factor, 1.0) AS travel_time,
         e.length_feet,
-        CASE
-          WHEN use_dynamic_traffic THEN
-            COALESCE(
-              (SELECT
-                CASE
-                  WHEN avg_volume < 58 THEN 1.0
-                  WHEN avg_volume < 129 THEN 1.2
-                  WHEN avg_volume < 250 THEN 1.5
-                  WHEN avg_volume < 415 THEN 2.0
-                  ELSE 3.0
-                END
-               FROM avg_traffic_by_segment
-               WHERE segment_id = e.segmentid
-                 AND (_hour IS NULL OR hour_of_day = _hour)
-                 AND (_day_of_week IS NULL OR day_of_week = _day_of_week)
-               LIMIT 1
-              ), COALESCE(e.traffic_factor, 1.0))
-          ELSE
-            COALESCE(e.traffic_factor, 1.0)
-        END AS traffic_factor,
+        COALESCE(e.traffic_factor, 1.0) AS traffic_factor,
         e.geom_4326 AS edge_geom,  -- PHASE 2: Use cached WGS84 geometry (no ST_Transform needed)
         v.geom AS node_geom
       FROM
         pgr_trsp(
-          -- Embed traffic lookup in pgr_trsp SQL for routing cost calculation
-          -- Accept 2× lookups (routing + display) as acceptable with composite index (~1ms each)
-          edges_sql,
+          'SELECT id, source, target,
+              cost_drive * COALESCE(traffic_factor, 1.0) AS cost,
+              rcost_drive * COALESCE(traffic_factor, 1.0) AS reverse_cost
+          FROM edges WHERE driveable = TRUE',
           'SELECT path, cost FROM restrictions_for_driving',
           start_node, end_node, TRUE
         ) AS r
@@ -940,14 +852,18 @@ $func$ LANGUAGE plpgsql;
 -- ============================================================================
 
 -- Driving isochrone with optional traffic
+-- Traffic factor fallback chain (Phase 19):
+-- 1. edges.traffic_factor (live speed data from TrafficRefreshService)
+-- 2. 1.0 default (no traffic penalty)
+-- Note: Dynamic volume lookup (avg_traffic_by_segment) removed per Phase 19 audit.
 DROP FUNCTION IF EXISTS getdrivingisochrone(double precision, double precision, float[], boolean, integer, integer);
 CREATE OR REPLACE FUNCTION getdrivingisochrone(
     _lon FLOAT,
     _lat FLOAT,
     _intervals FLOAT[],
     _use_traffic BOOLEAN DEFAULT FALSE,
-    _hour INT DEFAULT NULL,
-    _day_of_week INT DEFAULT NULL
+    _hour INT DEFAULT NULL,          -- Kept for backward compatibility (unused)
+    _day_of_week INT DEFAULT NULL    -- Kept for backward compatibility (unused)
 )
 RETURNS TABLE(band_index INT, minutes FLOAT, node_count INT, geom GEOMETRY) AS
 $func$
@@ -957,10 +873,6 @@ DECLARE
     bbox_buffer FLOAT;
     bbox_sql TEXT;
     edges_sql TEXT;
-    use_dynamic_traffic BOOLEAN;
-    hour_condition_sql TEXT := 'TRUE';
-    day_condition_sql TEXT := 'TRUE';
-    traffic_lookup_sql TEXT;
 BEGIN
     -- Snap origin to nearest driveable node
     start_node := getnearestdrivenode(_lon, _lat);
@@ -979,50 +891,10 @@ BEGIN
         _lon, _lat, bbox_buffer
     );
 
-    -- Determine if we're using time-based dynamic traffic
-    use_dynamic_traffic := (_use_traffic AND _hour IS NOT NULL AND _day_of_week IS NOT NULL);
-
-    IF use_dynamic_traffic THEN
-        hour_condition_sql := format('hour_of_day = %s', _hour);
-        day_condition_sql := format('day_of_week = %s', _day_of_week);
-    END IF;
-
-    -- Build edges SQL with traffic factor logic matching getdrivingroute_with_traffic
+    -- Build edges SQL with traffic factor
     IF _use_traffic THEN
-        traffic_lookup_sql := format($fmt$
-            COALESCE(
-                (SELECT
-                    CASE
-                        WHEN avg_volume < 58 THEN 1.0
-                        WHEN avg_volume < 129 THEN 1.2
-                        WHEN avg_volume < 250 THEN 1.5
-                        WHEN avg_volume < 415 THEN 2.0
-                        ELSE 3.0
-                    END
-                 FROM avg_traffic_by_segment
-                 WHERE segment_id = segmentid
-                   AND %1$s
-                   AND %2$s
-                 LIMIT 1
-                ), COALESCE(traffic_factor, 1.0))$fmt$,
-            hour_condition_sql,
-            day_condition_sql
-        );
-
-        edges_sql := format($fmt$
-            SELECT id, source, target,
-                cost_drive * CASE
-                    WHEN %1$s THEN %2$s
-                    ELSE COALESCE(traffic_factor, 1.0)
-                END AS cost,
-                rcost_drive * CASE
-                    WHEN %1$s THEN %2$s
-                    ELSE COALESCE(traffic_factor, 1.0)
-                END AS reverse_cost
-            FROM edges
-            WHERE driveable = TRUE %3$s$fmt$,
-            CASE WHEN use_dynamic_traffic THEN 'TRUE' ELSE 'FALSE' END,
-            traffic_lookup_sql,
+        edges_sql := format(
+            'SELECT id, source, target, cost_drive * COALESCE(traffic_factor, 1.0) AS cost, rcost_drive * COALESCE(traffic_factor, 1.0) AS reverse_cost FROM edges WHERE driveable = TRUE %s',
             bbox_sql
         );
     ELSE
@@ -1201,14 +1073,18 @@ $func$ LANGUAGE plpgsql;
 -- ============================================================================
 
 -- Driving edge isochrone with optional traffic
+-- Traffic factor fallback chain (Phase 19):
+-- 1. edges.traffic_factor (live speed data from TrafficRefreshService)
+-- 2. 1.0 default (no traffic penalty)
+-- Note: Dynamic volume lookup (avg_traffic_by_segment) removed per Phase 19 audit.
 DROP FUNCTION IF EXISTS getdrivingisochrone_edges(double precision, double precision, float[], boolean, integer, integer);
 CREATE OR REPLACE FUNCTION getdrivingisochrone_edges(
     _lon FLOAT,
     _lat FLOAT,
     _intervals FLOAT[],
     _use_traffic BOOLEAN DEFAULT FALSE,
-    _hour INT DEFAULT NULL,
-    _day_of_week INT DEFAULT NULL
+    _hour INT DEFAULT NULL,          -- Kept for backward compatibility (unused)
+    _day_of_week INT DEFAULT NULL    -- Kept for backward compatibility (unused)
 )
 RETURNS TABLE(edge_id INT, band_index INT, agg_cost FLOAT, street TEXT, geom GEOMETRY) AS
 $func$
@@ -1218,10 +1094,6 @@ DECLARE
     bbox_buffer FLOAT;
     bbox_sql TEXT;
     edges_sql TEXT;
-    use_dynamic_traffic BOOLEAN;
-    hour_condition_sql TEXT := 'TRUE';
-    day_condition_sql TEXT := 'TRUE';
-    traffic_lookup_sql TEXT;
 BEGIN
     -- Snap origin to nearest driveable node
     start_node := getnearestdrivenode(_lon, _lat);
@@ -1240,50 +1112,10 @@ BEGIN
         _lon, _lat, bbox_buffer
     );
 
-    -- Determine if we're using time-based dynamic traffic
-    use_dynamic_traffic := (_use_traffic AND _hour IS NOT NULL AND _day_of_week IS NOT NULL);
-
-    IF use_dynamic_traffic THEN
-        hour_condition_sql := format('hour_of_day = %s', _hour);
-        day_condition_sql := format('day_of_week = %s', _day_of_week);
-    END IF;
-
-    -- Build edges SQL with traffic factor logic matching getdrivingisochrone
+    -- Build edges SQL with traffic factor
     IF _use_traffic THEN
-        traffic_lookup_sql := format($fmt$
-            COALESCE(
-                (SELECT
-                    CASE
-                        WHEN avg_volume < 58 THEN 1.0
-                        WHEN avg_volume < 129 THEN 1.2
-                        WHEN avg_volume < 250 THEN 1.5
-                        WHEN avg_volume < 415 THEN 2.0
-                        ELSE 3.0
-                    END
-                 FROM avg_traffic_by_segment
-                 WHERE segment_id = segmentid
-                   AND %1$s
-                   AND %2$s
-                 LIMIT 1
-                ), COALESCE(traffic_factor, 1.0))$fmt$,
-            hour_condition_sql,
-            day_condition_sql
-        );
-
-        edges_sql := format($fmt$
-            SELECT id, source, target,
-                cost_drive * CASE
-                    WHEN %1$s THEN %2$s
-                    ELSE COALESCE(traffic_factor, 1.0)
-                END AS cost,
-                rcost_drive * CASE
-                    WHEN %1$s THEN %2$s
-                    ELSE COALESCE(traffic_factor, 1.0)
-                END AS reverse_cost
-            FROM edges
-            WHERE driveable = TRUE %3$s$fmt$,
-            CASE WHEN use_dynamic_traffic THEN 'TRUE' ELSE 'FALSE' END,
-            traffic_lookup_sql,
+        edges_sql := format(
+            'SELECT id, source, target, cost_drive * COALESCE(traffic_factor, 1.0) AS cost, rcost_drive * COALESCE(traffic_factor, 1.0) AS reverse_cost FROM edges WHERE driveable = TRUE %s',
             bbox_sql
         );
     ELSE
