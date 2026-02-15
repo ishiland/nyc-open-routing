@@ -1,0 +1,517 @@
+from unittest.mock import MagicMock, patch
+
+import pytest
+from fastapi import HTTPException
+
+from services.search import SearchService
+
+
+def test_routing_service_parse_error(mock_routing_service):
+    """Test RoutingService with invalid coordinates."""
+    with pytest.raises(HTTPException) as excinfo:
+        mock_routing_service.get_driving_route("invalid", "-73.9950,40.7352")
+    assert excinfo.value.status_code == 400
+    assert "Invalid coordinate format" in str(excinfo.value.detail)
+
+
+def test_routing_service_db_error(mock_routing_service, mock_db_engine):
+    """Test RoutingService with database error."""
+    # Mock the database to raise an exception
+    conn = MagicMock()
+    conn.execute.side_effect = Exception("Database error")
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with pytest.raises(HTTPException) as excinfo:
+        mock_routing_service.get_driving_route("-73.9857,40.7484", "-73.9950,40.7352")
+    assert excinfo.value.status_code == 500
+    assert "Error processing route request" in str(excinfo.value.detail)
+
+
+def test_routing_service_success(mock_routing_service, mock_db_engine):
+    """Test successful route retrieval."""
+    # Mock successful database response
+    conn = MagicMock()
+    result = MagicMock()
+    rows = [
+        MagicMock(
+            _mapping={
+                "seq": 1,
+                "street": "BROADWAY",
+                "distance": 100.5,
+                "travel_time": 30.0,
+                "traffic_factor": 1.2,
+                "geom": "0102000000020000000000000000405EC0CDCCCCCCCC104440000000000040",
+            }
+        )
+    ]
+    result.fetchall.return_value = rows
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    # Patch dump_geo where it's imported (services.routing), not where it's defined
+    with patch("services.routing.dump_geo") as mock_dump_geo:
+        mock_dump_geo.return_value = {
+            "type": "LineString",
+            "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]],
+        }
+
+        # Test the service
+        response = mock_routing_service.get_driving_route("-73.9857,40.7484", "-73.9950,40.7352")
+
+        # Verify results
+        assert len(response.features) == 1
+        assert response.features[0].properties.seq == 1
+        assert response.features[0].properties.street == "BROADWAY"
+        assert response.features[0].properties.distance == 100.5
+        assert response.features[0].properties.travel_time == 30.0
+        assert response.features[0].properties.traffic_factor == 1.2
+        assert response.features[0].geometry["type"] == "LineString"
+
+
+def test_routing_service_biking_success(mock_routing_service, mock_db_engine):
+    """Test successful biking route retrieval."""
+    # Mock successful database response
+    conn = MagicMock()
+    result = MagicMock()
+    rows = [
+        MagicMock(
+            _mapping={
+                "seq": 1,
+                "street": "9TH AVE",
+                "distance": 150.0,
+                "travel_time": 20.0,
+                "traffic_factor": None,  # Biking doesn't use traffic factor
+                "geom": "0102000000020000000000000000405EC0CDCCCCCCCC104440000000000040",
+            }
+        )
+    ]
+    result.fetchall.return_value = rows
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    # Patch the dump_geo function
+    with patch("services.routing.dump_geo") as mock_dump_geo:
+        mock_dump_geo.return_value = {
+            "type": "LineString",
+            "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]],
+        }
+
+        # Test the service
+        response = mock_routing_service.get_biking_route("-73.9857,40.7484", "-73.9950,40.7352")
+
+        # Verify results
+        assert len(response.features) == 1
+        assert response.features[0].properties.seq == 1
+        assert response.features[0].properties.street == "9TH AVE"
+        assert response.features[0].properties.distance == 150.0
+        assert response.features[0].properties.travel_time == 20.0
+        assert response.features[0].geometry["type"] == "LineString"
+
+
+def test_routing_service_walking_success(mock_routing_service, mock_db_engine):
+    """Test successful walking route retrieval."""
+    # Mock successful database response
+    conn = MagicMock()
+    result = MagicMock()
+    rows = [
+        MagicMock(
+            _mapping={
+                "seq": 1,
+                "street": "W 42ND ST",
+                "distance": 50.0,
+                "travel_time": 15.0,
+                "traffic_factor": None,  # Walking doesn't use traffic factor
+                "geom": "0102000000020000000000000000405EC0CDCCCCCCCC104440000000000040",
+            }
+        )
+    ]
+    result.fetchall.return_value = rows
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    # Patch the dump_geo function
+    with patch("services.routing.dump_geo") as mock_dump_geo:
+        mock_dump_geo.return_value = {
+            "type": "LineString",
+            "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]],
+        }
+
+        # Test the service
+        response = mock_routing_service.get_walking_route("-73.9857,40.7484", "-73.9950,40.7352")
+
+        # Verify results
+        assert len(response.features) == 1
+        assert response.features[0].properties.seq == 1
+        assert response.features[0].properties.street == "W 42ND ST"
+        assert response.features[0].properties.distance == 50.0
+        assert response.features[0].properties.travel_time == 15.0
+        assert response.features[0].geometry["type"] == "LineString"
+
+
+def test_routing_service_biking_parse_error(mock_routing_service):
+    """Test biking route with invalid coordinates."""
+    with pytest.raises(HTTPException) as excinfo:
+        mock_routing_service.get_biking_route("invalid", "-73.9950,40.7352")
+    assert excinfo.value.status_code == 400
+    assert "Invalid coordinate format" in str(excinfo.value.detail)
+
+
+def test_routing_service_walking_parse_error(mock_routing_service):
+    """Test walking route with invalid coordinates."""
+    with pytest.raises(HTTPException) as excinfo:
+        mock_routing_service.get_walking_route("-73.9857,40.7484", "invalid")
+    assert excinfo.value.status_code == 400
+    assert "Invalid coordinate format" in str(excinfo.value.detail)
+
+
+def test_routing_service_biking_db_error(mock_routing_service, mock_db_engine):
+    """Test biking route with database error."""
+    # Mock the database to raise an exception
+    conn = MagicMock()
+    conn.execute.side_effect = Exception("Database error")
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with pytest.raises(HTTPException) as excinfo:
+        mock_routing_service.get_biking_route("-73.9857,40.7484", "-73.9950,40.7352")
+    assert excinfo.value.status_code == 500
+    assert "Error processing biking route request" in str(excinfo.value.detail)
+
+
+def test_routing_service_walking_db_error(mock_routing_service, mock_db_engine):
+    """Test walking route with database error."""
+    # Mock the database to raise an exception
+    conn = MagicMock()
+    conn.execute.side_effect = Exception("Database error")
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with pytest.raises(HTTPException) as excinfo:
+        mock_routing_service.get_walking_route("-73.9857,40.7484", "-73.9950,40.7352")
+    assert excinfo.value.status_code == 500
+    assert "Error processing walking route request" in str(excinfo.value.detail)
+
+
+@pytest.mark.asyncio
+async def test_search_service_geosupport_error():
+    """Test SearchService with Geosupport error."""
+    from geosupport.error import GeosupportError
+
+    # Create mock GeosupportSuggest
+    mock_suggest = MagicMock()
+    mock_suggest.suggestions.side_effect = GeosupportError("Address not recognized")
+
+    service = SearchService(mock_suggest)
+
+    with pytest.raises(HTTPException) as excinfo:
+        await service.search_address("Invalid Address XYZ123")
+    assert excinfo.value.status_code == 400
+    assert "not recognized" in str(excinfo.value.detail).lower()
+
+
+@pytest.mark.asyncio
+async def test_search_service_success():
+    """Test successful address search using Geosupport."""
+    # Create mock suggestions data (format from geosupport-suggest library)
+    mock_suggestions = [
+        {
+            "House Number - Display Format": "260",
+            "First Street Name Normalized": "BROADWAY",
+            "First Borough Name": "MANHATTAN",
+            "Latitude": "40.7129",
+            "Longitude": "-73.9997",
+        },
+        {
+            "House Number - Display Format": "1555",
+            "First Street Name Normalized": "BROADWAY",
+            "First Borough Name": "MANHATTAN",
+            "Latitude": "40.7580",
+            "Longitude": "-73.9855",
+        },
+    ]
+
+    # Mock GeoJSON response from to_geojson
+    mock_geojson = {
+        "type": "FeatureCollection",
+        "features": [
+            {
+                "type": "Feature",
+                "properties": mock_suggestions[0],
+                "geometry": {"type": "Point", "coordinates": [-73.9997, 40.7129]},
+            },
+            {
+                "type": "Feature",
+                "properties": mock_suggestions[1],
+                "geometry": {"type": "Point", "coordinates": [-73.9855, 40.7580]},
+            },
+        ],
+    }
+
+    # Create mock GeosupportSuggest
+    mock_suggest = MagicMock()
+    mock_suggest.suggestions.return_value = mock_suggestions
+    mock_suggest.to_geojson.return_value = mock_geojson
+
+    service = SearchService(mock_suggest)
+
+    # Test the service
+    result = await service.search_address("Broadway")
+
+    # Verify results
+    assert result == mock_geojson
+    assert result["type"] == "FeatureCollection"
+    assert len(result["features"]) == 2
+    assert result["features"][0]["properties"]["First Street Name Normalized"] == "BROADWAY"
+
+    # Verify the mock was called correctly
+    mock_suggest.suggestions.assert_called_once_with("Broadway")
+
+
+def test_routing_service_day_of_week_conversion(mock_routing_service, mock_db_engine, mock_clock):
+    """Test that day_of_week is correctly converted from Python (0-6) to SQL (1-7) format."""
+    # Mock clock to return Monday (0 in Python, should be 1 in SQL)
+    mock_clock.hour = 10
+    mock_clock.day_of_week = 0  # Monday in Python (0-6)
+
+    # Mock successful database response
+    conn = MagicMock()
+    result = MagicMock()
+    rows = [
+        MagicMock(
+            _mapping={
+                "seq": 1,
+                "street": "BROADWAY",
+                "distance": 100.5,
+                "travel_time": 30.0,
+                "traffic_factor": 1.5,
+                "geom": "0102000000020000000000000000405EC0CDCCCCCCCC104440000000000040",
+            }
+        )
+    ]
+    result.fetchall.return_value = rows
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    # Patch the dump_geo function
+    with patch("services.routing.dump_geo") as mock_dump_geo:
+        mock_dump_geo.return_value = {
+            "type": "LineString",
+            "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]],
+        }
+
+        # Test with use_traffic=True but no explicit hour/day (should use clock)
+        mock_routing_service.get_driving_route(
+            "-73.9857,40.7484", "-73.9950,40.7352", use_traffic=True
+        )
+
+        # Verify the SQL function was called with converted day_of_week
+        call_args = conn.execute.call_args
+        assert call_args is not None
+
+        # Check that day_of_week parameter was 1 (Monday in SQL), not 0
+        params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
+        assert (
+            params["day_of_week"] == 1
+        ), "day_of_week should be 1 (Monday in SQL 1-7), not 0 (Python 0-6)"
+        assert params["hour"] == 10
+
+
+def test_routing_service_sunday_conversion(mock_routing_service, mock_db_engine, mock_clock):
+    """Test Sunday conversion: Python=6, SQL=7."""
+    # Mock clock to return Sunday (6 in Python, should be 7 in SQL)
+    mock_clock.hour = 14
+    mock_clock.day_of_week = 6  # Sunday in Python (0-6)
+
+    # Mock successful database response
+    conn = MagicMock()
+    result = MagicMock()
+    rows = [
+        MagicMock(
+            _mapping={
+                "seq": 1,
+                "street": "TEST",
+                "distance": 100,
+                "travel_time": 20,
+                "traffic_factor": 1.0,
+                "geom": "0102000000020000000000000000405EC0CDCCCCCCCC104440000000000040",
+            }
+        )
+    ]
+    result.fetchall.return_value = rows
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with patch("services.routing.dump_geo") as mock_dump_geo:
+        mock_dump_geo.return_value = {
+            "type": "LineString",
+            "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]],
+        }
+
+        # Test with use_traffic=True
+        mock_routing_service.get_driving_route(
+            "-73.9857,40.7484", "-73.9950,40.7352", use_traffic=True
+        )
+
+        # Verify Sunday was converted from 6 to 7
+        call_args = conn.execute.call_args
+        params = call_args[0][1] if len(call_args[0]) > 1 else call_args[1]
+        assert params["day_of_week"] == 7, "Sunday should be 7 in SQL (1-7), not 6 (Python 0-6)"
+
+
+# --- Waypoint routing service tests ---
+
+
+def test_waypoint_route_drive_two_stops(mock_routing_service, mock_db_engine):
+    """Test waypoint route with 2 waypoints in drive mode (1 leg)."""
+    conn = MagicMock()
+    result = MagicMock()
+    rows = [
+        MagicMock(
+            _mapping={
+                "seq": 1,
+                "street": "BROADWAY",
+                "distance": 500.0,
+                "travel_time": 10.0,
+                "traffic_factor": 1.2,
+                "geom": "0102000000020000000000000000405EC0CDCCCCCCCC104440000000000040",
+            }
+        )
+    ]
+    result.fetchall.return_value = rows
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with patch("services.routing.dump_geo") as mock_dump_geo:
+        mock_dump_geo.return_value = {
+            "type": "LineString",
+            "coordinates": [[-73.9857, 40.7484], [-73.9950, 40.7352]],
+        }
+
+        response = mock_routing_service.get_waypoint_route(
+            waypoints=["-73.9857,40.7484", "-73.9950,40.7352"], mode="drive"
+        )
+
+        assert len(response.legs) == 1
+        assert response.legs[0].leg == 0
+        assert response.summary.num_legs == 1
+        assert response.summary.total_distance > 0
+        assert response.summary.total_travel_time > 0
+
+
+def test_waypoint_route_drive_three_stops(mock_routing_service, mock_db_engine):
+    """Test waypoint route with 3 waypoints in drive mode (2 legs)."""
+    conn = MagicMock()
+    result = MagicMock()
+    rows = [
+        MagicMock(
+            _mapping={
+                "seq": 1,
+                "street": "5TH AVE",
+                "distance": 300.0,
+                "travel_time": 8.0,
+                "traffic_factor": 1.0,
+                "geom": "0102000000020000000000000000405EC0CDCCCCCCCC104440000000000040",
+            }
+        )
+    ]
+    result.fetchall.return_value = rows
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with patch("services.routing.dump_geo") as mock_dump_geo:
+        mock_dump_geo.return_value = {
+            "type": "LineString",
+            "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]],
+        }
+
+        response = mock_routing_service.get_waypoint_route(
+            waypoints=["-73.9857,40.7484", "-73.9950,40.7352", "-74.0060,40.7128"], mode="drive"
+        )
+
+        assert len(response.legs) == 2
+        assert response.legs[0].leg == 0
+        assert response.legs[1].leg == 1
+        assert response.summary.num_legs == 2
+
+
+def test_waypoint_route_bike(mock_routing_service, mock_db_engine):
+    """Test waypoint route with 2 waypoints in bike mode."""
+    conn = MagicMock()
+    result = MagicMock()
+    rows = [
+        MagicMock(
+            _mapping={
+                "seq": 1,
+                "street": "9TH AVE",
+                "distance": 150.0,
+                "travel_time": 20.0,
+                "traffic_factor": None,
+                "geom": "0102000000020000000000000000405EC0CDCCCCCCCC104440000000000040",
+            }
+        )
+    ]
+    result.fetchall.return_value = rows
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with patch("services.routing.dump_geo") as mock_dump_geo:
+        mock_dump_geo.return_value = {
+            "type": "LineString",
+            "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]],
+        }
+
+        response = mock_routing_service.get_waypoint_route(
+            waypoints=["-73.9857,40.7484", "-73.9950,40.7352"], mode="bike"
+        )
+
+        assert len(response.legs) == 1
+        assert len(response.legs[0].features) == 1
+        assert response.legs[0].features[0].properties.street == "9TH AVE"
+
+
+def test_waypoint_route_walk(mock_routing_service, mock_db_engine):
+    """Test waypoint route with 2 waypoints in walk mode."""
+    conn = MagicMock()
+    result = MagicMock()
+    rows = [
+        MagicMock(
+            _mapping={
+                "seq": 1,
+                "street": "W 42ND ST",
+                "distance": 50.0,
+                "travel_time": 15.0,
+                "traffic_factor": None,
+                "geom": "0102000000020000000000000000405EC0CDCCCCCCCC104440000000000040",
+            }
+        )
+    ]
+    result.fetchall.return_value = rows
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with patch("services.routing.dump_geo") as mock_dump_geo:
+        mock_dump_geo.return_value = {
+            "type": "LineString",
+            "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]],
+        }
+
+        response = mock_routing_service.get_waypoint_route(
+            waypoints=["-73.9857,40.7484", "-73.9950,40.7352"], mode="walk"
+        )
+
+        assert len(response.legs) == 1
+        assert len(response.legs[0].features) == 1
+        assert response.legs[0].features[0].properties.street == "W 42ND ST"
+
+
+def test_waypoint_route_leg_failure(mock_routing_service, mock_db_engine):
+    """Test waypoint route when a leg returns no rows (404)."""
+    conn = MagicMock()
+    result = MagicMock()
+    result.fetchall.return_value = []  # No route segments
+    conn.execute.return_value = result
+    mock_db_engine.connect.return_value.__enter__.return_value = conn
+
+    with pytest.raises(HTTPException) as excinfo:
+        mock_routing_service.get_waypoint_route(
+            waypoints=["-73.9857,40.7484", "-73.9950,40.7352"], mode="drive"
+        )
+    assert excinfo.value.status_code == 404

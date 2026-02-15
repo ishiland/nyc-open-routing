@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nyc-open-routing-api"
+version = "0.1.0"
+authors = [
+    {name = "NYC Open Routing Team"},
+]
+description = "Routing in NYC with pgRouting and authoritative NYC data"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/yourusername/nyc-open-routing"
+"Bug Tracker" = "https://github.com/yourusername/nyc-open-routing/issues"
+
+[tool.pytest]
+testpaths = ["tests"]
+python_files = "test_*.py"
+python_functions = "test_*"
+
+[tool.autopep8]
+max_line_length = 100
+ignore = "E203,W503,E402"
+
+[tool.black]
+line-length = 100
+target-version = ['py310']
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+line_length = 100 

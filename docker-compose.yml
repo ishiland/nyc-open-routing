@@ -1,9 +1,7 @@
-version: '3.5'
-
 services:
 
   db:
-    image: pgrouting/pgrouting:13-3.1-3.1.3
+    image: pgrouting/pgrouting:17-3.5-3.8
     ports:
       - 5433:5432
     env_file:
@@ -11,18 +9,38 @@ services:
     volumes:
       - postgresql:/var/lib/postgresql
       - postgresql_data:/var/lib/postgresql/data
+    command:
+      # PostgreSQL tuning for development (8-16GB RAM laptops).
+      # Production would increase these values significantly:
+      #   - shared_buffers: 2GB (vs 256MB here)
+      #   - effective_cache_size: 6GB (vs 1GB here)
+      #   - work_mem: 32MB (vs 16MB here)
+      #   - maintenance_work_mem: 512MB (vs 128MB here)
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"           # Cache more data in memory (dev: 256MB, prod: 2GB)
+      - "-c"
+      - "effective_cache_size=1GB"       # Query planner hint (dev: 1GB, prod: 6GB)
+      - "-c"
+      - "work_mem=16MB"                  # Sorting/hashing operations (dev: 16MB, prod: 32MB)
+      - "-c"
+      - "maintenance_work_mem=128MB"     # VACUUM, CREATE INDEX (dev: 128MB, prod: 512MB)
+      - "-c"
+      - "max_connections=100"            # Support connection pool + overhead (same for dev/prod)
 
   api:
     build:
       context: ./api/
       dockerfile: ../docker/dev/api.Dockerfile
+    platform: "linux/amd64"
     ports:
       - 5001:5000
     env_file:
       - ./docker/dev/.env
     volumes:
-      - ./api:/api
+      - ./api:/home/api
       - ./data-importer:/data-imports
+      - ./scripts:/scripts
     depends_on:
       - db
 
@@ -33,7 +51,7 @@ services:
     env_file:
       - ./docker/dev/.env
     ports:
-      - 3001:3000
+      - 3002:3000
     depends_on:
       - api
     volumes:

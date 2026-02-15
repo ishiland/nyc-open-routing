@@ -1,5 +1,65 @@
-.idea/
-client/node_modules/
-*.log
-__pycache__/
+# OS files
 .DS_Store
+Thumbs.db
+Desktop.ini
+._*
+
+# Editor / IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+*.egg
+.pytest_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Node / Client
+client/node_modules/
+client/dist/
+client/build/
+*.log
+
+# Environment files
+.env
+docker/dev/.env
+
+# API
+/api/gde
+
+# Data files
+*.csv
+
+# Debug / Test artifacts
+*.png
+*.jpeg
+*.jpg
+.playwright-mcp/
+
+# Exception: keep favicon in public/
+!client/public/favicon.png
+
+# Claude Code (local settings)
+.claude/
+
+# GSD planning (internal dev)
+.planning/
+
+# Internal dev docs
+CLAUDE.md
+docs/
+
+# Exception: keep README screenshots and architecture doc
+!docs/
+docs/*
+!docs/images/
+!docs/images/*.jpeg
+!docs/ARCHITECTURE.md
