@@ -1,5 +1,12 @@
 import React, { useState, useEffect } from "react"
-import { Alert, AlertTitle, Collapse, IconButton, Link, Box } from "@mui/material"
+import {
+  Alert,
+  AlertTitle,
+  Collapse,
+  IconButton,
+  Link,
+  Box,
+} from "@mui/material"
 import CloseIcon from "@mui/icons-material/Close"
 import { useLocalStorage } from "../../hooks/useLocalStorage"
 
@@ -10,7 +17,10 @@ const BANNER_STORAGE_KEY = "nyc-routing-poc-banner-dismissed"
  * Shows a POC disclaimer that can be dismissed and stays dismissed using localStorage
  */
 export const DismissibleBanner: React.FC = () => {
-  const [isDismissed, setIsDismissed] = useLocalStorage(BANNER_STORAGE_KEY, false)
+  const [isDismissed, setIsDismissed] = useLocalStorage(
+    BANNER_STORAGE_KEY,
+    false,
+  )
   const [showBanner, setShowBanner] = useState(!isDismissed)
 
   // Update showBanner when isDismissed changes
@@ -61,8 +71,8 @@ export const DismissibleBanner: React.FC = () => {
           <AlertTitle sx={{ fontWeight: 600 }}>
             NYC Open Routing - Proof of Concept
           </AlertTitle>
-          This project is a proof of concept and not intended for real-world routing
-          scenarios. For more information or to contribute, visit the{" "}
+          This project is a proof of concept and not intended for real-world
+          routing scenarios. For more information or to contribute, visit the{" "}
           <Link
             href="https://github.com/ishiland/nyc-open-routing"
             target="_blank"

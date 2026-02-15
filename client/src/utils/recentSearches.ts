@@ -36,15 +36,14 @@ export const getRecentSearches = (): RecentSearch[] => {
  */
 export const addRecentSearch = (feature: GeosupportFeature): void => {
   try {
-    const label =
-      feature.properties?.label || feature.properties?.address || ""
+    const label = feature.properties?.label || feature.properties?.address || ""
     if (!label) return
 
     const searches = getRecentSearches()
 
     // Remove existing entry with same label (case-insensitive)
     const filtered = searches.filter(
-      (s) => s.label.toLowerCase() !== label.toLowerCase(),
+      s => s.label.toLowerCase() !== label.toLowerCase(),
     )
 
     // Add new search at the beginning
@@ -77,7 +76,9 @@ export const clearRecentSearches = (): void => {
  * Get recent searches for a specific type (Start or End)
  * Returns all recent searches (they're universal across both inputs)
  */
-export const getRecentSearchesForType = (_type: "Start" | "End"): RecentSearch[] => {
+export const getRecentSearchesForType = (
+  _type: "Start" | "End",
+): RecentSearch[] => {
   // Recent searches are shared between Start and End for simplicity
   // Could be split by type in the future if needed
   return getRecentSearches()

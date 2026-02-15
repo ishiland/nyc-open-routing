@@ -214,4 +214,100 @@ def test_waypoint_route_endpoint_missing_mode():
     response = client.get(
         "/api/route/waypoints?waypoints=-73.98,40.75|-73.99,40.76"
     )
-    assert response.status_code == 422  # FastAPI validation error 
+    assert response.status_code == 422  # FastAPI validation error
+
+
+# --- Traffic tile endpoint tests ---
+
+def test_traffic_tile_invalid_z_negative():
+    """Test tile endpoint rejects negative z values."""
+    response = client.get("/api/traffic/tiles/-1/0/0.pbf")
+    assert response.status_code == 400
+    assert "z must be 0-22" in response.json()["detail"]
+
+
+def test_traffic_tile_invalid_z_too_large():
+    """Test tile endpoint rejects z > 22."""
+    response = client.get("/api/traffic/tiles/23/0/0.pbf")
+    assert response.status_code == 400
+    assert "z must be 0-22" in response.json()["detail"]
+
+
+@patch('api.routes.traffic.get_tile_cache')
+@patch('api.routes.traffic.get_db_engine')
+def test_traffic_tile_cache_hit(mock_get_engine, mock_get_cache):
+    """Test tile endpoint returns cached tile without hitting DB."""
+    mock_cache = mock_get_cache.return_value
+    mock_cache.get.return_value = b"\x1a\x00\x01"
+
+    response = client.get("/api/traffic/tiles/14/4825/6157.pbf")
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/x-protobuf"
+    assert response.headers["cache-control"] == "public, max-age=300"
+    assert response.content == b"\x1a\x00\x01"
+    mock_get_engine.assert_not_called()
+
+
+@patch('api.routes.traffic.get_tile_cache')
+@patch('api.routes.traffic.get_db_engine')
+def test_traffic_tile_cache_miss_queries_db(mock_get_engine, mock_get_cache):
+    """Test tile endpoint queries DB on cache miss and caches result."""
+    mock_cache = mock_get_cache.return_value
+    mock_cache.get.return_value = None
+
+    mock_conn = mock_get_engine.return_value.connect.return_value.__enter__.return_value
+    mock_conn.execute.return_value.fetchone.return_value = (b"\x1a\x02\x03",)
+
+    response = client.get("/api/traffic/tiles/14/4825/6157.pbf")
+
+    assert response.status_code == 200
+    assert response.content == b"\x1a\x02\x03"
+    mock_cache.set.assert_called_once_with(14, 4825, 6157, b"\x1a\x02\x03")
+
+
+@patch('api.routes.traffic.get_tile_cache')
+@patch('api.routes.traffic.get_db_engine')
+def test_traffic_tile_empty_result(mock_get_engine, mock_get_cache):
+    """Test tile endpoint returns empty bytes when no data for tile."""
+    mock_cache = mock_get_cache.return_value
+    mock_cache.get.return_value = None
+
+    mock_conn = mock_get_engine.return_value.connect.return_value.__enter__.return_value
+    mock_conn.execute.return_value.fetchone.return_value = (None,)
+
+    response = client.get("/api/traffic/tiles/14/0/0.pbf")
+
+    assert response.status_code == 200
+    assert response.content == b""
+    assert response.headers["content-type"] == "application/x-protobuf"
+
+
+@patch('api.routes.traffic.get_tile_cache')
+@patch('api.routes.traffic.get_db_engine')
+def test_traffic_tile_no_row(mock_get_engine, mock_get_cache):
+    """Test tile endpoint returns empty bytes when query returns no rows."""
+    mock_cache = mock_get_cache.return_value
+    mock_cache.get.return_value = None
+
+    mock_conn = mock_get_engine.return_value.connect.return_value.__enter__.return_value
+    mock_conn.execute.return_value.fetchone.return_value = None
+
+    response = client.get("/api/traffic/tiles/14/0/0.pbf")
+
+    assert response.status_code == 200
+    assert response.content == b""
+
+
+def test_traffic_tile_valid_z_boundary():
+    """Test tile endpoint accepts z=0 and z=22 (boundary values)."""
+    # These will fail at DB level but should pass z validation
+    with patch('api.routes.traffic.get_tile_cache') as mock_cache, \
+         patch('api.routes.traffic.get_db_engine') as mock_engine:
+        mock_cache.return_value.get.return_value = b""
+
+        response_z0 = client.get("/api/traffic/tiles/0/0/0.pbf")
+        assert response_z0.status_code == 200
+
+        response_z22 = client.get("/api/traffic/tiles/22/0/0.pbf")
+        assert response_z22.status_code == 200

@@ -1,4 +1,11 @@
-import React, { FC, Suspense, useState, useCallback, useContext, useRef } from "react"
+import React, {
+  FC,
+  Suspense,
+  useState,
+  useCallback,
+  useContext,
+  useRef,
+} from "react"
 import { IconButton, Tooltip, Box } from "@mui/material"
 import {
   ChevronLeft,
@@ -95,7 +102,9 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
   }
 
   // Tablet/Desktop layout: Collapsible sidebar + Map
-  const expandedWidth = isTabletOrBelow ? SIDEBAR_WIDTH_TABLET_PX : SIDEBAR_WIDTH_PX
+  const expandedWidth = isTabletOrBelow
+    ? SIDEBAR_WIDTH_TABLET_PX
+    : SIDEBAR_WIDTH_PX
 
   const sidebarWidth = isCollapsed ? SIDEBAR_COLLAPSED_WIDTH_PX : expandedWidth
 
@@ -153,7 +162,9 @@ export const AdaptiveLayout: FC<AdaptiveLayoutProps> = ({ sidebar, map }) => {
               height: "100%",
             }}
           >
-            <Suspense fallback={<LoadingSpinner message="Loading controls..." />}>
+            <Suspense
+              fallback={<LoadingSpinner message="Loading controls..." />}
+            >
               {sidebar}
             </Suspense>
           </div>

@@ -101,29 +101,42 @@ FROM restrictions;
 -- Logic: When edges connect at a node but are at different vertical levels,
 -- and neither is a ramp/ferry, the turn is restricted (e.g., can't turn from street to elevated highway)
 --
+-- Each edge touches two nodes (source and target) with a level at each end.
+-- We must generate restrictions for ALL edge pairs sharing a node at different
+-- levels, not just forward→forward (e1.target = e2.source). Edges can share a
+-- node via any combination: source-source, source-target, target-source, or
+-- target-target. Missing combinations cause grade separation violations.
+--
 -- Mode-specific filtering applied via views:
 -- - Driving: All driveable restrictions (this table)
 -- - Biking: Subset where both edges are bikeable
 -- - Walking: None (pedestrians can use stairs/overpasses)
 INSERT INTO public.restrictions (from_edge, to_edge, via_node)
+WITH edge_at_node AS (
+    SELECT id, source AS node_id, level_from AS level_at_node,
+           rw_type, featuretyp, driveable
+    FROM edges
+    UNION ALL
+    SELECT id, target AS node_id, level_to AS level_at_node,
+           rw_type, featuretyp, driveable
+    FROM edges
+)
 SELECT DISTINCT
-    e1.id AS from_edge,
-    e2.id AS to_edge,
-    e1.target AS via_node
-FROM edges e1
-JOIN edges e2 ON e1.target = e2.source
-WHERE e1.level_to != e2.level_from      -- Different vertical levels
-  AND e1.id != e2.id                     -- Not the same edge
-  AND e1.driveable = TRUE                -- Both edges must be driveable
-  AND e2.driveable = TRUE
-  AND e1.level_from IS NOT NULL          -- Exclude generic segments (*)
-  AND e1.level_to IS NOT NULL
-  AND e2.level_from IS NOT NULL
-  AND e2.level_to IS NOT NULL
-  AND e1.rw_type != '9'                  -- Exclude ramps (valid transitions)
-  AND e2.rw_type != '9'
-  AND e1.featuretyp != 'F'               -- Exclude ferries
-  AND e2.featuretyp != 'F';
+    a.id AS from_edge,
+    b.id AS to_edge,
+    a.node_id AS via_node
+FROM edge_at_node a
+JOIN edge_at_node b ON a.node_id = b.node_id
+WHERE a.level_at_node != b.level_at_node  -- Different vertical levels at shared node
+  AND a.id != b.id                        -- Not the same edge
+  AND a.driveable = TRUE                  -- Both edges must be driveable
+  AND b.driveable = TRUE
+  AND a.level_at_node IS NOT NULL         -- Exclude generic segments (*)
+  AND b.level_at_node IS NOT NULL
+  AND a.rw_type != '9'                   -- Exclude ramps (valid transitions)
+  AND b.rw_type != '9'
+  AND a.featuretyp != 'F'                -- Exclude ferries
+  AND b.featuretyp != 'F';
 
 ---------------------------------------------
 --      CREATE MODE-SPECIFIC VIEWS
@@ -165,12 +178,15 @@ BEGIN
     SELECT COUNT(*) INTO driving_restrictions FROM restrictions_for_driving;
     SELECT COUNT(*) INTO biking_restrictions FROM restrictions_for_biking;
 
-    -- Check for same-level restrictions (should be rare/none)
+    -- Check for same-level restrictions at the shared via_node (should be zero)
     SELECT COUNT(*) INTO same_level_count
     FROM restrictions r
     JOIN edges e1 ON r.from_edge = e1.id
     JOIN edges e2 ON r.to_edge = e2.id
-    WHERE e1.level_to = e2.level_from;
+    WHERE CASE WHEN r.via_node = e1.source THEN e1.level_from
+               WHEN r.via_node = e1.target THEN e1.level_to END
+        = CASE WHEN r.via_node = e2.source THEN e2.level_from
+               WHEN r.via_node = e2.target THEN e2.level_to END;
 
     -- Count unique restricted nodes
     SELECT COUNT(DISTINCT via_node) INTO unique_nodes FROM restrictions;

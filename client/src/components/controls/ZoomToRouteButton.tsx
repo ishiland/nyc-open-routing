@@ -29,7 +29,7 @@ export const ZoomToRouteButton: React.FC = () => {
 
     // Handle LineString coordinates (array of [lon, lat] pairs)
     const allCoords: number[][] = []
-    features.forEach((feature) => {
+    features.forEach(feature => {
       if (feature.geometry?.type === "LineString") {
         const geom = feature.geometry as GeoJSON.LineString
         const coords = geom.coordinates as number[][]
@@ -45,7 +45,7 @@ export const ZoomToRouteButton: React.FC = () => {
 
     const bounds: [[number, number], [number, number]] = [
       [Math.min(...lngs), Math.min(...lats)],
-      [Math.max(...lngs), Math.max(...lats)]
+      [Math.max(...lngs), Math.max(...lats)],
     ]
 
     // Fit map to bounds with padding

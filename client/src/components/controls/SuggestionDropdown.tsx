@@ -71,7 +71,8 @@ const SuggestionDropdown: FC<SuggestionDropdownProps> = ({
   if (!anchorEl) return null
 
   // Show recent searches if no query and not loading
-  const showRecentSearches = !query && !loading && suggestions.length === 0 && recentSearches.length > 0
+  const showRecentSearches =
+    !query && !loading && suggestions.length === 0 && recentSearches.length > 0
   const displayItems = showRecentSearches ? recentSearches : suggestions
 
   // Render suggestion content with highlighting, icon, and secondary info.
@@ -84,13 +85,20 @@ const SuggestionDropdown: FC<SuggestionDropdownProps> = ({
     const Icon = categoryInfo.hasHouseNumber ? HomeIcon : LocationOnIcon
 
     return (
-      <Box sx={{ display: "flex", alignItems: "flex-start", gap: 1.5, width: "100%" }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "flex-start",
+          gap: 1.5,
+          width: "100%",
+        }}
+      >
         <Icon
           sx={{
             fontSize: 20,
             color: "text.secondary",
             mt: 0.25,
-            flexShrink: 0
+            flexShrink: 0,
           }}
         />
         <Box sx={{ flex: 1, minWidth: 0 }}>
@@ -151,13 +159,25 @@ const SuggestionDropdown: FC<SuggestionDropdownProps> = ({
             Search failed. Please try again.
           </MenuItem>
         )}
-        {!loading && !error && !showRecentSearches && suggestions.length === 0 && (
-          <MenuItem disabled>
-            No addresses found. Try a different search.
-          </MenuItem>
-        )}
+        {!loading &&
+          !error &&
+          !showRecentSearches &&
+          suggestions.length === 0 && (
+            <MenuItem disabled>
+              No addresses found. Try a different search.
+            </MenuItem>
+          )}
         {showRecentSearches && (
-          <MenuItem disabled sx={{ py: 0.75, px: 2, fontSize: "0.75rem", fontWeight: 600, color: "text.secondary" }}>
+          <MenuItem
+            disabled
+            sx={{
+              py: 0.75,
+              px: 2,
+              fontSize: "0.75rem",
+              fontWeight: 600,
+              color: "text.secondary",
+            }}
+          >
             RECENT SEARCHES
           </MenuItem>
         )}

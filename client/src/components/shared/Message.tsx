@@ -4,7 +4,10 @@ import IconButton from "@mui/material/IconButton"
 import Snackbar from "@mui/material/Snackbar"
 import Alert, { AlertColor } from "@mui/material/Alert"
 
-import { MessageContext, MessageContextType } from "../../contexts/MessageContext"
+import {
+  MessageContext,
+  MessageContextType,
+} from "../../contexts/MessageContext"
 
 const Message: React.FC = () => {
   const { closeMessage, messageText, messageLevel, messageOpen } =

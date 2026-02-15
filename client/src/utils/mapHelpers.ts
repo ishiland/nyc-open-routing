@@ -66,10 +66,7 @@ export const removeMapLayerAndSource = (
 
     return true
   } catch (error) {
-    debug.error(
-      `Error removing layer ${layerId} or source ${sourceId}:`,
-      error,
-    )
+    debug.error(`Error removing layer ${layerId} or source ${sourceId}:`, error)
     return false
   }
 }

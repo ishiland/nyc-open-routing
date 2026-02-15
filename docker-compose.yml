@@ -9,6 +9,27 @@ services:
     volumes:
       - postgresql:/var/lib/postgresql
       - postgresql_data:/var/lib/postgresql/data
+    command:
+      # Phase 2 Database Optimization: PostgreSQL Performance Tuning
+      #
+      # These values are DEVELOPMENT-OPTIMIZED for POC/laptop environments (8-16GB RAM).
+      # For production deployment on dedicated database servers (32GB+ RAM),
+      # see docs/PERFORMANCE_OPTIMIZATION_PLAN.md Section 2.4 for recommended values:
+      #   - shared_buffers: 2GB (vs 256MB here)
+      #   - effective_cache_size: 6GB (vs 1GB here)
+      #   - work_mem: 32MB (vs 16MB here)
+      #   - maintenance_work_mem: 512MB (vs 128MB here)
+      - "postgres"
+      - "-c"
+      - "shared_buffers=256MB"           # Cache more data in memory (dev: 256MB, prod: 2GB)
+      - "-c"
+      - "effective_cache_size=1GB"       # Query planner hint (dev: 1GB, prod: 6GB)
+      - "-c"
+      - "work_mem=16MB"                  # Sorting/hashing operations (dev: 16MB, prod: 32MB)
+      - "-c"
+      - "maintenance_work_mem=128MB"     # VACUUM, CREATE INDEX (dev: 128MB, prod: 512MB)
+      - "-c"
+      - "max_connections=100"            # Support connection pool + overhead (same for dev/prod)
 
   api:
     build:
@@ -22,6 +43,7 @@ services:
     volumes:
       - ./api:/home/api
       - ./data-importer:/data-imports
+      - ./scripts:/scripts
     depends_on:
       - db
 

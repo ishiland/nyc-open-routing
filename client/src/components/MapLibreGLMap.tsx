@@ -16,7 +16,6 @@ import {
 } from "../utils/style"
 import { RoutingContext } from "../contexts/RoutingContext"
 import { IsochroneContext } from "../contexts/IsochroneContext"
-import { TrafficLayerContext } from "../contexts/TrafficLayerContext"
 import { MapInstanceContext } from "../contexts/MapInstanceContext"
 import { IMapFeature } from "../types/interfaces"
 import {
@@ -55,7 +54,6 @@ const MapLibreGLMap: React.FC = () => {
   } = useContext(RoutingContext)
 
   const { appMode, isochrone, isochroneView } = useContext(IsochroneContext)
-  const { trafficGeoJson } = useContext(TrafficLayerContext)
 
   const { setMap: setMapInstance } = useContext(MapInstanceContext)
 
@@ -79,13 +77,15 @@ const MapLibreGLMap: React.FC = () => {
 
   // Determine if route has traffic data
   const hasTrafficData = route?.features?.some(
-    (f) => f.properties?.traffic_factor !== undefined && f.properties?.traffic_factor !== null
+    f =>
+      f.properties?.traffic_factor !== undefined &&
+      f.properties?.traffic_factor !== null,
   )
 
   // Memoize paint objects to prevent unnecessary re-renders
   const routePaintStyle = useMemo(
     () => (hasTrafficData ? getTrafficRoutePaint() : getModeRoutePaint(mode)),
-    [hasTrafficData, mode]
+    [hasTrafficData, mode],
   )
 
   const routeLayerOptions = useMemo(
@@ -93,7 +93,7 @@ const MapLibreGLMap: React.FC = () => {
       type: "line" as const,
       paint: routePaintStyle,
     }),
-    [routePaintStyle]
+    [routePaintStyle],
   )
 
   const haloLayerOptions = useMemo(
@@ -101,7 +101,7 @@ const MapLibreGLMap: React.FC = () => {
       type: "line" as const,
       paint: routeHaloPaint,
     }),
-    []
+    [],
   )
 
   // Isochrone layer paint options
@@ -110,7 +110,7 @@ const MapLibreGLMap: React.FC = () => {
       type: "fill" as const,
       paint: getIsochroneFillPaint(),
     }),
-    []
+    [],
   )
 
   const isochroneOutlineOptions = useMemo(
@@ -118,7 +118,7 @@ const MapLibreGLMap: React.FC = () => {
       type: "line" as const,
       paint: getIsochroneOutlinePaint(),
     }),
-    []
+    [],
   )
 
   const isochroneEdgeOptions = useMemo(
@@ -126,24 +126,30 @@ const MapLibreGLMap: React.FC = () => {
       type: "line" as const,
       paint: getIsochroneEdgePaint(),
     }),
-    []
+    [],
   )
 
   // Polygon features: only when in polygon view
-  const isochronePolygonFeatures = appMode === "isochrone" && isochroneView === "polygon" && isochrone?.features
-    ? (isochrone.features as unknown as IMapFeature[])
-    : null
+  const isochronePolygonFeatures =
+    appMode === "isochrone" &&
+    isochroneView === "polygon" &&
+    isochrone?.features
+      ? (isochrone.features as unknown as IMapFeature[])
+      : null
 
   // Edge features: only when in edge view
-  const isochroneEdgeFeatures = appMode === "isochrone" && isochroneView === "edges" && isochrone?.features
-    ? (isochrone.features as unknown as IMapFeature[])
-    : null
+  const isochroneEdgeFeatures =
+    appMode === "isochrone" && isochroneView === "edges" && isochrone?.features
+      ? (isochrone.features as unknown as IMapFeature[])
+      : null
 
   // Route features: flatten waypoint legs or use regular route
   const routeFeatures = useMemo(() => {
     if (appMode !== "route") return null
     if (waypointRoute?.legs) {
-      return waypointRoute.legs.flatMap(leg => leg.features) as unknown as IMapFeature[]
+      return waypointRoute.legs.flatMap(
+        leg => leg.features,
+      ) as unknown as IMapFeature[]
     }
     return (route?.features || null) as IMapFeature[] | null
   }, [appMode, waypointRoute, route])
@@ -332,7 +338,16 @@ const MapLibreGLMap: React.FC = () => {
   useEffect(() => {
     if (!map) return
     enforceLayerOrder(map)
-  }, [map, isochronePolygonFeatures, isochroneEdgeFeatures, routeFeatures, startAddress, endAddress, appMode, waypointMarkerFeatures, trafficGeoJson])
+  }, [
+    map,
+    isochronePolygonFeatures,
+    isochroneEdgeFeatures,
+    routeFeatures,
+    startAddress,
+    endAddress,
+    appMode,
+    waypointMarkerFeatures,
+  ])
 
   // Debug logging for address markers
   useEffect(() => {
@@ -353,7 +368,11 @@ const MapLibreGLMap: React.FC = () => {
   const clearMap = useCallback(() => {
     if (!map) return
     removeMapLayerAndSource(map, "startPointLayer", "startPointSource")
-    removeMapLayerAndSource(map, "startPointLabelLayer", "startPointLabelSource")
+    removeMapLayerAndSource(
+      map,
+      "startPointLabelLayer",
+      "startPointLabelSource",
+    )
     removeMapLayerAndSource(map, "endPointLayer", "endPointSource")
     removeMapLayerAndSource(map, "endPointLabelLayer", "endPointLabelSource")
     removeMapLayerAndSource(map, "routeLayer", "routeSource")
@@ -361,7 +380,11 @@ const MapLibreGLMap: React.FC = () => {
     removeMapLayerAndSource(map, "waypointPointLayer", "waypointPointSource")
     removeMapLayerAndSource(map, "waypointLabelLayer", "waypointLabelSource")
     removeMapLayerAndSource(map, "isochroneFillLayer", "isochroneFillSource")
-    removeMapLayerAndSource(map, "isochroneOutlineLayer", "isochroneOutlineSource")
+    removeMapLayerAndSource(
+      map,
+      "isochroneOutlineLayer",
+      "isochroneOutlineSource",
+    )
     removeMapLayerAndSource(map, "isochroneEdgesLayer", "isochroneEdgesSource")
     resetZoom()
   }, [map, resetZoom])
@@ -382,8 +405,10 @@ const MapLibreGLMap: React.FC = () => {
         zoomToExtent(features)
       } else {
         const handler = () => zoomToExtent(features)
-        map.once('idle', handler)
-        return () => { map.off('idle', handler) }
+        map.once("idle", handler)
+        return () => {
+          map.off("idle", handler)
+        }
       }
     }
   }, [startAddress, endAddress, appMode, map, zoomToExtent])
@@ -394,16 +419,20 @@ const MapLibreGLMap: React.FC = () => {
 
     // Determine which route features to zoom to
     const features = waypointRoute?.legs
-      ? (waypointRoute.legs.flatMap(leg => leg.features) as unknown as IMapFeature[])
-      : (route?.features || null)
+      ? (waypointRoute.legs.flatMap(
+          leg => leg.features,
+        ) as unknown as IMapFeature[])
+      : route?.features || null
 
     if (features && features.length > 0) {
       if (map.loaded()) {
         zoomToExtent(features)
       } else {
         const handler = () => zoomToExtent(features)
-        map.once('idle', handler)
-        return () => { map.off('idle', handler) }
+        map.once("idle", handler)
+        return () => {
+          map.off("idle", handler)
+        }
       }
     } else if (!route && !waypointRoute) {
       clearMap()
@@ -420,8 +449,10 @@ const MapLibreGLMap: React.FC = () => {
         zoomToExtent(isoFeatures)
       } else {
         const handler = () => zoomToExtent(isoFeatures)
-        map.once('idle', handler)
-        return () => { map.off('idle', handler) }
+        map.once("idle", handler)
+        return () => {
+          map.off("idle", handler)
+        }
       }
     }
   }, [isochrone, appMode, map, zoomToExtent])

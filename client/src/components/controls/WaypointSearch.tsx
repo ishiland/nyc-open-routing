@@ -17,10 +17,7 @@ import { RoutingContext } from "../../contexts/RoutingContext"
 import { commonStyles } from "../../utils/themeUtils"
 import debug from "../../utils/debug"
 import { SEARCH_MIN_LENGTH, SEARCH_BLUR_DELAY_MS } from "../../utils/constants"
-import {
-  getAddressLabel,
-  getSuggestionId,
-} from "../../utils/suggestionHelpers"
+import { getAddressLabel, getSuggestionId } from "../../utils/suggestionHelpers"
 
 interface WaypointSearchProps {
   index: number // waypoint index in the array

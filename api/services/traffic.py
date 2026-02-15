@@ -32,10 +32,11 @@ class TrafficRefreshService:
 
     MAX_STARTUP_RETRIES = 3
 
-    def __init__(self, db_params: dict, interval_seconds: int, route_cache):
+    def __init__(self, db_params: dict, interval_seconds: int, route_cache, tile_cache=None):
         self._db_params = db_params
         self._interval_seconds = interval_seconds
         self._route_cache = route_cache
+        self._tile_cache = tile_cache
         self._data_loaded = False
         self._last_refresh_time = None
         self._last_success = None
@@ -208,6 +209,10 @@ class TrafficRefreshService:
             if self._route_cache is not None:
                 self._route_cache.clear()
                 logger.info("Route cache cleared after traffic refresh")
+
+            if self._tile_cache is not None:
+                self._tile_cache.clear()
+                logger.info("Tile cache cleared after traffic refresh")
 
             total_time = time.monotonic() - cycle_start
             logger.info(

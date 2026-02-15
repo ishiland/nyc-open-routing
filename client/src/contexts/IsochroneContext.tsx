@@ -1,4 +1,10 @@
-import React, { createContext, useState, ReactNode, useCallback, useMemo } from "react"
+import React, {
+  createContext,
+  useState,
+  ReactNode,
+  useCallback,
+  useMemo,
+} from "react"
 import { IsochroneResponse, AppMode, IsochroneView } from "../types/interfaces"
 
 export interface IsochroneContextType {
@@ -27,11 +33,16 @@ interface IsochroneContextProviderProps {
   children: ReactNode
 }
 
-export function IsochroneContextProvider({ children }: IsochroneContextProviderProps) {
+export function IsochroneContextProvider({
+  children,
+}: IsochroneContextProviderProps) {
   const [appMode, setAppModeState] = useState<AppMode>("route")
-  const [isochrone, setIsochroneState] = useState<IsochroneResponse | null>(null)
+  const [isochrone, setIsochroneState] = useState<IsochroneResponse | null>(
+    null,
+  )
   const [intervals, setIntervalsState] = useState<number[]>([5, 10, 15, 20])
-  const [isochroneView, setIsochroneViewState] = useState<IsochroneView>("polygon")
+  const [isochroneView, setIsochroneViewState] =
+    useState<IsochroneView>("polygon")
 
   const setAppMode = useCallback((mode: AppMode) => {
     setAppModeState(mode)
@@ -65,10 +76,21 @@ export function IsochroneContextProvider({ children }: IsochroneContextProviderP
       setIntervals,
       setIsochroneView,
     }),
-    [appMode, isochrone, intervals, isochroneView, setAppMode, setIsochrone, setIntervals, setIsochroneView],
+    [
+      appMode,
+      isochrone,
+      intervals,
+      isochroneView,
+      setAppMode,
+      setIsochrone,
+      setIntervals,
+      setIsochroneView,
+    ],
   )
 
   return (
-    <IsochroneContext.Provider value={value}>{children}</IsochroneContext.Provider>
+    <IsochroneContext.Provider value={value}>
+      {children}
+    </IsochroneContext.Provider>
   )
 }

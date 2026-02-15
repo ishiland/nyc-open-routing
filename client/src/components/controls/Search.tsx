@@ -28,7 +28,10 @@ import {
   getSuggestionId,
   getSuggestionKey,
 } from "../../utils/suggestionHelpers"
-import { addRecentSearch, getRecentSearchesForType } from "../../utils/recentSearches"
+import {
+  addRecentSearch,
+  getRecentSearchesForType,
+} from "../../utils/recentSearches"
 
 // Helper to map the GeoSearch API response to the expected format
 const transformSearchResult = (
@@ -75,11 +78,18 @@ const SearchComponent: FC<SearchProps> = ({ type }) => {
   const inputIdRef = useRef(`auto-suggest-${type}-${Date.now()}`)
 
   // Use autofill prevention hook
-  const { isReadOnly, handleFocus: handleAutofillFocus, randomAutoComplete } =
-    useAutofillPrevention()
+  const {
+    isReadOnly,
+    handleFocus: handleAutofillFocus,
+    randomAutoComplete,
+  } = useAutofillPrevention()
 
   // Use geolocation hook
-  const { getCurrentPosition, loading: geoLoading, error: geoError } = useGeolocation()
+  const {
+    getCurrentPosition,
+    loading: geoLoading,
+    error: geoError,
+  } = useGeolocation()
 
   const query = type === "Start" ? startAddressInput : endAddressInput
 
@@ -158,7 +168,10 @@ const SearchComponent: FC<SearchProps> = ({ type }) => {
       clearTimeout(blurTimeoutRef.current)
     }
 
-    blurTimeoutRef.current = setTimeout(() => setSearchQuery(""), SEARCH_BLUR_DELAY_MS)
+    blurTimeoutRef.current = setTimeout(
+      () => setSearchQuery(""),
+      SEARCH_BLUR_DELAY_MS,
+    )
   }
 
   // Handle "Use My Location" button click
@@ -185,7 +198,7 @@ const SearchComponent: FC<SearchProps> = ({ type }) => {
       // Error is already set in the hook, just display a message
       displayMessage(
         geoError || "Unable to get your location. Please check permissions.",
-        "error"
+        "error",
       )
     }
   }
@@ -218,9 +231,12 @@ const SearchComponent: FC<SearchProps> = ({ type }) => {
         helperText={
           query.length > 0 && query.length < SEARCH_MIN_LENGTH
             ? `Enter at least ${SEARCH_MIN_LENGTH} characters to search`
-            : query.length >= SEARCH_MIN_LENGTH && !loading && suggestions.length === 0 && data
-            ? "Try a street address (e.g., 350 5th Ave) or building number"
-            : ""
+            : query.length >= SEARCH_MIN_LENGTH &&
+                !loading &&
+                suggestions.length === 0 &&
+                data
+              ? "Try a street address (e.g., 350 5th Ave) or building number"
+              : ""
         }
         error={false}
         aria-controls={
@@ -250,12 +266,12 @@ const SearchComponent: FC<SearchProps> = ({ type }) => {
                       sx={{
                         minWidth: 44,
                         minHeight: 44,
-                        color: 'primary.main',
-                        '&:hover': {
-                          color: 'primary.dark',
+                        color: "primary.main",
+                        "&:hover": {
+                          color: "primary.dark",
                         },
-                        '&.Mui-disabled': {
-                          color: 'action.disabled',
+                        "&.Mui-disabled": {
+                          color: "action.disabled",
                         },
                       }}
                     >
@@ -279,21 +295,21 @@ const SearchComponent: FC<SearchProps> = ({ type }) => {
           },
         }}
       />
-      {((loading || error || suggestions.length > 0) &&
-        query.length >= SEARCH_MIN_LENGTH ||
+      {(((loading || error || suggestions.length > 0) &&
+        query.length >= SEARCH_MIN_LENGTH) ||
         (recentSearches.length > 0 && query.length === 0)) && (
-          <SuggestionDropdown
-            anchorEl={anchorEl}
-            type={type}
-            query={query}
-            loading={loading}
-            error={error}
-            suggestions={suggestions}
-            recentSearches={recentSearches}
-            highlightedIndex={highlightedIndex}
-            onSuggestionSelect={handleSuggestionSelect}
-          />
-        )}
+        <SuggestionDropdown
+          anchorEl={anchorEl}
+          type={type}
+          query={query}
+          loading={loading}
+          error={error}
+          suggestions={suggestions}
+          recentSearches={recentSearches}
+          highlightedIndex={highlightedIndex}
+          onSuggestionSelect={handleSuggestionSelect}
+        />
+      )}
     </Box>
   )
 }

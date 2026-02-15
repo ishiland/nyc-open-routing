@@ -17,7 +17,10 @@ export function TrafficToggle() {
   }
 
   return (
-    <Tooltip title="Include traffic conditions in route calculation" placement="right">
+    <Tooltip
+      title="Include traffic conditions in route calculation"
+      placement="right"
+    >
       <Box
         sx={{
           display: "flex",
@@ -36,7 +39,7 @@ export function TrafficToggle() {
         />
         <TrafficIcon fontSize="small" sx={{ color: "primary.main" }} />
         <Typography variant="caption" fontWeight={500}>
-          Traffic
+          Live Traffic
         </Typography>
       </Box>
     </Tooltip>

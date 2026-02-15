@@ -19,8 +19,14 @@ import { RoutingContext } from "../../contexts/RoutingContext"
  * Only visible when travel mode is "drive" and traffic is enabled.
  */
 export function TimeSelector() {
-  const { mode, useTraffic, trafficHour, trafficDayOfWeek, setTrafficHour, setTrafficDayOfWeek } =
-    useContext(RoutingContext)
+  const {
+    mode,
+    useTraffic,
+    trafficHour,
+    trafficDayOfWeek,
+    setTrafficHour,
+    setTrafficDayOfWeek,
+  } = useContext(RoutingContext)
 
   // Only show for driving mode with traffic enabled
   if (mode !== "drive" || !useTraffic) {
@@ -56,7 +62,16 @@ export function TimeSelector() {
     return `${hour - 12} PM`
   }
 
-  const dayNames = ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
+  const dayNames = [
+    "",
+    "Monday",
+    "Tuesday",
+    "Wednesday",
+    "Thursday",
+    "Friday",
+    "Saturday",
+    "Sunday",
+  ]
 
   const isUsingCurrentTime = trafficHour === null || trafficDayOfWeek === null
 
@@ -87,7 +102,12 @@ export function TimeSelector() {
           {isUsingCurrentTime ? "Set Specific Time" : "Use Current Time"}
         </Button>
 
-        <Typography variant="caption" color="text.secondary" gutterBottom display="block">
+        <Typography
+          variant="caption"
+          color="text.secondary"
+          gutterBottom
+          display="block"
+        >
           Hour: {trafficHour !== null ? formatHour(trafficHour) : "Current"}
         </Typography>
         <Slider
@@ -129,7 +149,7 @@ export function TimeSelector() {
       <Typography variant="caption" color="text.secondary">
         {isUsingCurrentTime
           ? "Routes use live traffic conditions"
-          : `Showing traffic for ${dayNames[(trafficDayOfWeek ?? 1)]} at ${formatHour((trafficHour ?? 0))}`}
+          : `Showing traffic for ${dayNames[trafficDayOfWeek ?? 1]} at ${formatHour(trafficHour ?? 0)}`}
       </Typography>
     </Box>
   )

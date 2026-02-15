@@ -32,7 +32,16 @@ const ControlsContainerComponent: React.FC<ControlsContainerProps> = ({
         <DepartureTimePicker />
         <FerryToggle />
       </Box>
-      <Box sx={{ padding: 1.5, overflowY: "auto", flexGrow: 1, bgcolor: "grey.50" }}>{children}</Box>
+      <Box
+        sx={{
+          padding: 1.5,
+          overflowY: "auto",
+          flexGrow: 1,
+          bgcolor: "grey.50",
+        }}
+      >
+        {children}
+      </Box>
     </Paper>
   )
 }

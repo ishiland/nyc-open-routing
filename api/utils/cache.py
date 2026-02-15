@@ -199,3 +199,44 @@ _route_cache = RouteCache(ttl_seconds=300, max_size=1000)
 def get_route_cache() -> RouteCache:
     """Get the global route cache instance."""
     return _route_cache
+
+
+class TileCache:
+    """In-memory tile cache with TTL. Keyed by (z, x, y) tuple."""
+
+    def __init__(self, ttl_seconds: int = 300, max_size: int = 4096):
+        self.ttl_seconds = ttl_seconds
+        self.max_size = max_size
+        self._cache: dict[tuple, bytes] = {}
+        self._timestamps: dict[tuple, float] = {}
+
+    def get(self, z: int, x: int, y: int) -> bytes | None:
+        key = (z, x, y)
+        if key not in self._cache:
+            return None
+        if time.time() - self._timestamps.get(key, 0) > self.ttl_seconds:
+            self._cache.pop(key, None)
+            self._timestamps.pop(key, None)
+            return None
+        return self._cache[key]
+
+    def set(self, z: int, x: int, y: int, data: bytes) -> None:
+        key = (z, x, y)
+        if len(self._cache) >= self.max_size and key not in self._cache:
+            oldest_key = min(self._timestamps.items(), key=lambda x: x[1])[0]
+            self._cache.pop(oldest_key, None)
+            self._timestamps.pop(oldest_key, None)
+        self._cache[key] = data
+        self._timestamps[key] = time.time()
+
+    def clear(self) -> None:
+        self._cache.clear()
+        self._timestamps.clear()
+
+
+_tile_cache = TileCache(ttl_seconds=300, max_size=4096)
+
+
+def get_tile_cache() -> TileCache:
+    """Get the global tile cache instance."""
+    return _tile_cache

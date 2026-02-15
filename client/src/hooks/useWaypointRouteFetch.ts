@@ -34,8 +34,7 @@ export const useWaypointRouteFetch = ({
   setSelectedStreet,
   displayMessage,
 }: UseWaypointRouteFetchArgs) => {
-  const [isFetchingWaypoints, setIsFetchingWaypoints] =
-    useState<boolean>(false)
+  const [isFetchingWaypoints, setIsFetchingWaypoints] = useState<boolean>(false)
 
   const fetchWaypointRoute = useCallback(async () => {
     setIsFetchingWaypoints(true)
@@ -67,10 +66,7 @@ export const useWaypointRouteFetch = ({
       // Validate all waypoint geometries
       for (const wp of waypoints) {
         const wpGeom = wp.geometry as Point
-        if (
-          wpGeom?.type !== "Point" ||
-          !wpGeom.coordinates
-        ) {
+        if (wpGeom?.type !== "Point" || !wpGeom.coordinates) {
           displayMessage("Invalid waypoint geometry.", "error")
           return
         }
@@ -99,11 +95,7 @@ export const useWaypointRouteFetch = ({
         let url = `/api/route/waypoints?waypoints=${waypointsParam}&mode=${mode}`
         if (mode === "drive") {
           url += `&use_traffic=${useTraffic}`
-          if (
-            useTraffic &&
-            trafficHour !== null &&
-            trafficDayOfWeek !== null
-          ) {
+          if (useTraffic && trafficHour !== null && trafficDayOfWeek !== null) {
             url += `&hour=${trafficHour}&day_of_week=${trafficDayOfWeek}`
           }
         }

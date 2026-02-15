@@ -63,7 +63,10 @@ const RouteListComponent: React.FC = () => {
               id="turn-by-turn-directions"
               sx={{ bgcolor: "background.paper", px: 0 }}
             >
-              <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "text.primary" }}>
+              <Typography
+                variant="subtitle2"
+                sx={{ fontWeight: 600, color: "text.primary" }}
+              >
                 Turn-by-Turn Directions
               </Typography>
             </ListSubheader>
@@ -88,9 +91,13 @@ const RouteListComponent: React.FC = () => {
                       letterSpacing: 0.5,
                     }}
                   >
-                    Leg {legIndex + 1}: {getLegLabel(legIndex, waypointRoute.legs.length)}
+                    Leg {legIndex + 1}:{" "}
+                    {getLegLabel(legIndex, waypointRoute.legs.length)}
                   </Typography>
-                  <Typography variant="caption" sx={{ display: "block", color: "text.secondary" }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ display: "block", color: "text.secondary" }}
+                  >
                     {formatDistance(leg.summary.distance)} &middot;{" "}
                     {formatLegTime(leg.summary.travel_time)}
                   </Typography>
@@ -105,7 +112,8 @@ const RouteListComponent: React.FC = () => {
                         onClick={() => handleStreetSelect(street)}
                         selected={isActive}
                         aria-label={
-                          street.properties.turn_instruction || street.properties.street
+                          street.properties.turn_instruction ||
+                          street.properties.street
                         }
                         sx={{
                           "&.Mui-selected": {
@@ -127,7 +135,8 @@ const RouteListComponent: React.FC = () => {
                         </ListItemIcon>
                         <ListItemText
                           primary={
-                            street.properties.turn_instruction || street.properties.street
+                            street.properties.turn_instruction ||
+                            street.properties.street
                           }
                           slotProps={{
                             primary: {
@@ -161,7 +170,10 @@ const RouteListComponent: React.FC = () => {
                 id="turn-by-turn-directions"
                 sx={{ bgcolor: "background.paper", px: 0 }}
               >
-                <Typography variant="subtitle2" sx={{ fontWeight: 600, color: "text.primary" }}>
+                <Typography
+                  variant="subtitle2"
+                  sx={{ fontWeight: 600, color: "text.primary" }}
+                >
                   Turn-by-Turn Directions
                 </Typography>
               </ListSubheader>
@@ -178,7 +190,8 @@ const RouteListComponent: React.FC = () => {
                     onClick={() => handleStreetSelect(street)}
                     selected={isActive}
                     aria-label={
-                      street.properties.turn_instruction || street.properties.street
+                      street.properties.turn_instruction ||
+                      street.properties.street
                     }
                     sx={{
                       "&.Mui-selected": {
@@ -200,7 +213,8 @@ const RouteListComponent: React.FC = () => {
                     </ListItemIcon>
                     <ListItemText
                       primary={
-                        street.properties.turn_instruction || street.properties.street
+                        street.properties.turn_instruction ||
+                        street.properties.street
                       }
                       slotProps={{
                         primary: {

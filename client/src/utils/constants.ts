@@ -59,4 +59,3 @@ export const BOTTOM_SHEET_DRAG_HANDLE_HEIGHT_PX = 36
 // =======================
 /** Length for random autocomplete attribute strings */
 export const RANDOM_STRING_LENGTH = 15
-

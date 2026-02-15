@@ -20,8 +20,7 @@ const Sidebar: React.FC = () => {
 
   // Disable swap when waypoints are present
   const canSwap =
-    !!(startAddress?.geometry && endAddress?.geometry) &&
-    waypoints.length === 0
+    !!(startAddress?.geometry && endAddress?.geometry) && waypoints.length === 0
 
   const handleAddWaypoint = () => {
     addWaypoint({
@@ -37,11 +36,21 @@ const Sidebar: React.FC = () => {
         <Stack spacing={1.5}>
           {appMode === "route" ? (
             <>
-              <Stack spacing={1}>
+              <Stack spacing={0.75}>
                 <Search type="Start" />
-                {/* Swap button between search inputs */}
-                <Box sx={{ display: "flex", justifyContent: "center" }}>
-                  <Tooltip title="Swap start and end addresses" placement="right">
+                {/* Swap + Add Stop row between inputs */}
+                <Box
+                  sx={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    gap: 1,
+                  }}
+                >
+                  <Tooltip
+                    title="Swap start and end addresses"
+                    placement="right"
+                  >
                     <span>
                       <IconButton
                         onClick={swapAddresses}
@@ -52,8 +61,6 @@ const Sidebar: React.FC = () => {
                           transform: "rotate(90deg)",
                           bgcolor: "action.hover",
                           transition: "all 0.2s ease-in-out",
-                          minWidth: 44,
-                          minHeight: 44,
                           "&:hover": {
                             bgcolor: "action.selected",
                             transform: "rotate(90deg) scale(1.15)",
@@ -68,14 +75,7 @@ const Sidebar: React.FC = () => {
                       </IconButton>
                     </span>
                   </Tooltip>
-                </Box>
-                {/* Waypoint search inputs */}
-                {waypoints.map((wp, i) => (
-                  <WaypointSearch key={i} index={i} waypoint={wp} />
-                ))}
-                {/* Add Stop button - only show when under the 1 intermediate waypoint limit */}
-                {waypoints.length < 1 && (
-                  <Box sx={{ display: "flex", justifyContent: "center" }}>
+                  {waypoints.length < 1 && (
                     <Button
                       size="small"
                       startIcon={<AddLocationAlt />}
@@ -85,13 +85,17 @@ const Sidebar: React.FC = () => {
                         textTransform: "none",
                         color: "text.secondary",
                         fontSize: "0.75rem",
-                        minHeight: 32,
+                        minHeight: 28,
                       }}
                     >
                       Add Stop
                     </Button>
-                  </Box>
-                )}
+                  )}
+                </Box>
+                {/* Waypoint search inputs */}
+                {waypoints.map((wp, i) => (
+                  <WaypointSearch key={i} index={i} waypoint={wp} />
+                ))}
                 <Search type="End" />
               </Stack>
               <ButtonControls />

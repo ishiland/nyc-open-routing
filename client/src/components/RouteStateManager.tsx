@@ -12,8 +12,23 @@ import { useRouteFetch } from "../hooks/useRouteFetch"
 export const RouteStateManager: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
-  const { startAddress, endAddress, mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek, setAddress, setMode, setUseTraffic, setAvoidFerries, setTrafficHour, setTrafficDayOfWeek, setRoute, setSelectedStreet } =
-    useContext(RoutingContext)
+  const {
+    startAddress,
+    endAddress,
+    mode,
+    useTraffic,
+    avoidFerries,
+    trafficHour,
+    trafficDayOfWeek,
+    setAddress,
+    setMode,
+    setUseTraffic,
+    setAvoidFerries,
+    setTrafficHour,
+    setTrafficDayOfWeek,
+    setRoute,
+    setSelectedStreet,
+  } = useContext(RoutingContext)
 
   const { displayMessage } = useContext(MessageContext)
 

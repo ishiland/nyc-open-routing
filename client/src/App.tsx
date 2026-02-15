@@ -35,7 +35,9 @@ const App: React.FC = () => {
               <RouteStateManager>
                 <MapInstanceProvider>
                   <Suspense
-                    fallback={<LoadingSpinner message="Loading application..." />}
+                    fallback={
+                      <LoadingSpinner message="Loading application..." />
+                    }
                   >
                     <AdaptiveLayout
                       sidebar={<Sidebar />}

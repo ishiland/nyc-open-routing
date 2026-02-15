@@ -26,11 +26,11 @@ export const waypointPointColor = "#3b82f6"
 // 1.8-2.5 = Heavy congestion (red)
 // >2.5 = Severe congestion (dark red)
 export const trafficColorScale = {
-  freeFlow: "#22c55e",      // Green
-  light: "#facc15",         // Yellow
-  moderate: "#f97316",      // Orange
-  heavy: "#ef4444",         // Red
-  severe: "#991b1b",        // Dark red
+  freeFlow: "#22c55e", // Green
+  light: "#facc15", // Yellow
+  moderate: "#f97316", // Orange
+  heavy: "#ef4444", // Red
+  severe: "#991b1b", // Dark red
 }
 
 // Mode-specific route paint styles
@@ -41,8 +41,10 @@ export const getModeRoutePaint = (mode: "drive" | "bike" | "walk") => {
       "interpolate",
       ["linear"],
       ["zoom"],
-      12, 3,   // At zoom 12, width = 3px
-      16, 6,   // At zoom 16, width = 6px
+      12,
+      3, // At zoom 12, width = 3px
+      16,
+      6, // At zoom 16, width = 6px
     ] as any,
     "line-opacity": 0.9,
   }
@@ -51,21 +53,21 @@ export const getModeRoutePaint = (mode: "drive" | "bike" | "walk") => {
     case "walk":
       return {
         ...baseStyle,
-        "line-color": MODE_COLORS.walk,  // Dark orange for walking
-        "line-dasharray": [2, 2] as any,  // Dotted pattern
+        "line-color": MODE_COLORS.walk, // Dark orange for walking
+        "line-dasharray": [2, 2] as any, // Dotted pattern
       }
     case "bike":
       return {
         ...baseStyle,
-        "line-color": MODE_COLORS.bike,  // Dark green for biking
-        "line-dasharray": [4, 2] as any,  // Dashed pattern
+        "line-color": MODE_COLORS.bike, // Dark green for biking
+        "line-dasharray": [4, 2] as any, // Dashed pattern
       }
     case "drive":
     default:
       return {
         ...baseStyle,
-        "line-color": MODE_COLORS.drive,  // MTA Blue for driving
-        "line-dasharray": null,  // Explicitly reset to solid line (removes dashed pattern)
+        "line-color": MODE_COLORS.drive, // MTA Blue for driving
+        "line-dasharray": null, // Explicitly reset to solid line (removes dashed pattern)
       }
   }
 }
@@ -77,25 +79,36 @@ export const routeHaloPaint = {
     "interpolate",
     ["linear"],
     ["zoom"],
-    12, 7,   // At zoom 12, width = 7px (wider than route)
-    16, 10,  // At zoom 16, width = 10px
+    12,
+    7, // At zoom 12, width = 7px (wider than route)
+    16,
+    10, // At zoom 16, width = 10px
   ] as any,
   "line-color": "#ffffff",
   "line-opacity": 0.7,
-  "line-blur": 1.5,  // Creates soft glow effect
+  "line-blur": 1.5, // Creates soft glow effect
 }
 
 // Isochrone band colors: green (5min) → yellow (10min) → orange (15min) → red (20min)
-export const ISOCHRONE_BAND_COLORS = ["#22c55e", "#facc15", "#f97316", "#ef4444"]
+export const ISOCHRONE_BAND_COLORS = [
+  "#22c55e",
+  "#facc15",
+  "#f97316",
+  "#ef4444",
+]
 
 export const getIsochroneFillPaint = () => ({
   "fill-color": [
     "match",
     ["get", "band_index"],
-    1, "#22c55e",
-    2, "#facc15",
-    3, "#f97316",
-    4, "#ef4444",
+    1,
+    "#22c55e",
+    2,
+    "#facc15",
+    3,
+    "#f97316",
+    4,
+    "#ef4444",
     "#94a3b8",
   ] as any,
   "fill-opacity": 0.25,
@@ -105,19 +118,26 @@ export const getIsochroneEdgePaint = () => ({
   "line-color": [
     "match",
     ["get", "band_index"],
-    1, "#22c55e",
-    2, "#facc15",
-    3, "#f97316",
-    4, "#ef4444",
+    1,
+    "#22c55e",
+    2,
+    "#facc15",
+    3,
+    "#f97316",
+    4,
+    "#ef4444",
     "#94a3b8",
   ] as any,
   "line-width": [
     "interpolate",
     ["linear"],
     ["zoom"],
-    10, 1,
-    13, 2,
-    16, 4,
+    10,
+    1,
+    13,
+    2,
+    16,
+    4,
   ] as any,
   "line-opacity": 0.85,
 })
@@ -126,10 +146,14 @@ export const getIsochroneOutlinePaint = () => ({
   "line-color": [
     "match",
     ["get", "band_index"],
-    1, "#22c55e",
-    2, "#facc15",
-    3, "#f97316",
-    4, "#ef4444",
+    1,
+    "#22c55e",
+    2,
+    "#facc15",
+    3,
+    "#f97316",
+    4,
+    "#ef4444",
     "#94a3b8",
   ] as any,
   "line-width": 2,
@@ -151,19 +175,27 @@ export const getTrafficLayerPaint = () => ({
     "interpolate",
     ["linear"],
     ["zoom"],
-    10, 1,
-    13, 2,
-    16, 4,
+    10,
+    1,
+    13,
+    2,
+    16,
+    4,
   ] as any,
   "line-color": [
     "interpolate",
     ["linear"],
     ["get", "traffic_factor"],
-    1.0, trafficColorScale.freeFlow,
-    1.2, trafficColorScale.light,
-    1.5, trafficColorScale.moderate,
-    1.8, trafficColorScale.heavy,
-    2.5, trafficColorScale.severe,
+    1.0,
+    trafficColorScale.freeFlow,
+    1.2,
+    trafficColorScale.light,
+    1.5,
+    trafficColorScale.moderate,
+    1.8,
+    trafficColorScale.heavy,
+    2.5,
+    trafficColorScale.severe,
   ] as any,
   "line-opacity": 0.7,
 })
@@ -176,20 +208,27 @@ export const getTrafficRoutePaint = () => ({
     "interpolate",
     ["linear"],
     ["zoom"],
-    12, 3,   // At zoom 12, width = 3px
-    16, 6,   // At zoom 16, width = 6px
+    12,
+    3, // At zoom 12, width = 3px
+    16,
+    6, // At zoom 16, width = 6px
   ] as any,
   // Color based on traffic_factor property
   "line-color": [
     "interpolate",
     ["linear"],
     ["get", "traffic_factor"],
-    1.0, trafficColorScale.freeFlow,
-    1.2, trafficColorScale.light,
-    1.5, trafficColorScale.moderate,
-    1.8, trafficColorScale.heavy,
-    2.5, trafficColorScale.severe,
+    1.0,
+    trafficColorScale.freeFlow,
+    1.2,
+    trafficColorScale.light,
+    1.5,
+    trafficColorScale.moderate,
+    1.8,
+    trafficColorScale.heavy,
+    2.5,
+    trafficColorScale.severe,
   ] as any,
   "line-opacity": 0.9,
-  "line-dasharray": null,  // Reset dashed pattern from bike/walk modes
+  "line-dasharray": null, // Reset dashed pattern from bike/walk modes
 })

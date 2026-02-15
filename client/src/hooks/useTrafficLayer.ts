@@ -1,96 +1,50 @@
-import { useContext, useEffect, useRef, useCallback } from "react"
-import maplibregl from "maplibre-gl"
+import { useContext, useEffect } from "react"
 import { TrafficLayerContext } from "../contexts/TrafficLayerContext"
 import { MapInstanceContext } from "../contexts/MapInstanceContext"
-import useGeoJsonLayer from "./useGeoJsonLayer"
 import { getTrafficLayerPaint } from "../utils/style"
-import debug from "../utils/debug"
+import { removeMapLayerAndSource, enforceLayerOrder } from "../utils/mapHelpers"
 
-const MIN_ZOOM = 12
-const DEBOUNCE_MS = 400
+const SOURCE_ID = "trafficSource"
+const LAYER_ID = "trafficLayer"
+const SOURCE_LAYER = "traffic"
 
 export function useTrafficLayer() {
   const { map } = useContext(MapInstanceContext)
-  const {
-    showTrafficLayer,
-    trafficGeoJson,
-    setTrafficGeoJson,
-    setIsLoading,
-    lastRefresh,
-  } = useContext(TrafficLayerContext)
+  const { showTrafficLayer } = useContext(TrafficLayerContext)
 
-  const abortRef = useRef<AbortController | null>(null)
+  useEffect(() => {
+    if (!map) return
 
-  // Fetch traffic data for current viewport
-  const fetchTraffic = useCallback(
-    async (mapInstance: maplibregl.Map) => {
-      if (mapInstance.getZoom() < MIN_ZOOM) {
-        setTrafficGeoJson(null)
-        return
-      }
-      const bounds = mapInstance.getBounds()
-      const bbox = `${bounds.getWest()},${bounds.getSouth()},${bounds.getEast()},${bounds.getNorth()}`
-
-      // Abort previous request
-      abortRef.current?.abort()
-      const controller = new AbortController()
-      abortRef.current = controller
-
-      setIsLoading(true)
-      try {
-        const res = await fetch(`/api/traffic/layer?bbox=${bbox}`, {
-          signal: controller.signal,
+    if (showTrafficLayer) {
+      if (!map.getSource(SOURCE_ID)) {
+        map.addSource(SOURCE_ID, {
+          type: "vector",
+          tiles: [
+            `${window.location.origin}/api/traffic/tiles/{z}/{x}/{y}.pbf`,
+          ],
+          minzoom: 8,
+          maxzoom: 18,
         })
-        if (!res.ok)
-          throw new Error(`Traffic layer fetch failed: ${res.status}`)
-        const data = await res.json()
-        setTrafficGeoJson(data)
-      } catch (err) {
-        if ((err as Error).name !== "AbortError") {
-          debug.error("[useTrafficLayer] Fetch error:", err)
-        }
-      } finally {
-        setIsLoading(false)
       }
-    },
-    [setTrafficGeoJson, setIsLoading],
-  )
-
-  // Subscribe to moveend with debounce when layer is enabled
-  useEffect(() => {
-    if (!map || !showTrafficLayer) return
-
-    let timeoutId: ReturnType<typeof setTimeout>
-
-    const handleMoveEnd = () => {
-      clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => fetchTraffic(map), DEBOUNCE_MS)
+      if (!map.getLayer(LAYER_ID)) {
+        map.addLayer({
+          id: LAYER_ID,
+          type: "line",
+          source: SOURCE_ID,
+          "source-layer": SOURCE_LAYER,
+          paint: getTrafficLayerPaint(),
+        })
+        enforceLayerOrder(map)
+      }
+    } else {
+      removeMapLayerAndSource(map, LAYER_ID, SOURCE_ID)
     }
+  }, [map, showTrafficLayer])
 
-    // Fetch immediately on enable
-    fetchTraffic(map)
-
-    map.on("moveend", handleMoveEnd)
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
-      clearTimeout(timeoutId)
-      map.off("moveend", handleMoveEnd)
-      abortRef.current?.abort()
+      if (map) removeMapLayerAndSource(map, LAYER_ID, SOURCE_ID)
     }
-  }, [map, showTrafficLayer, fetchTraffic])
-
-  // Re-fetch when lastRefresh changes (background refresh completed) and layer is visible
-  useEffect(() => {
-    if (!map || !showTrafficLayer || !lastRefresh) return
-    fetchTraffic(map)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lastRefresh]) // Intentionally narrow deps — only trigger on timestamp change
-
-  // Render the layer using useGeoJsonLayer
-  const layerData = showTrafficLayer
-    ? ((trafficGeoJson?.features ?? null) as any)
-    : null
-  useGeoJsonLayer(map, "trafficSource", "trafficLayer", layerData, {
-    type: "line",
-    paint: getTrafficLayerPaint(),
-  })
+  }, [map])
 }

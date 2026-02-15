@@ -140,14 +140,16 @@ export function RoutingContextProvider({
     }
   })
 
-  const [trafficDayOfWeek, setTrafficDayOfWeekState] = useState<number | null>(() => {
-    try {
-      const stored = localStorage.getItem("nyc-routing-traffic-day")
-      return stored ? JSON.parse(stored) : null
-    } catch {
-      return null
-    }
-  })
+  const [trafficDayOfWeek, setTrafficDayOfWeekState] = useState<number | null>(
+    () => {
+      try {
+        const stored = localStorage.getItem("nyc-routing-traffic-day")
+        return stored ? JSON.parse(stored) : null
+      } catch {
+        return null
+      }
+    },
+  )
 
   const [waypoints, setWaypointsState] = useState<IMapFeature[]>([])
   const [waypointRoute, setWaypointRouteState] =
@@ -162,11 +164,7 @@ export function RoutingContextProvider({
       const label = String(selected.properties?.label || "")
 
       if (type === "start") {
-        const isDifferent = areAddressesDifferent(
-          startAddress,
-          selected,
-          label,
-        )
+        const isDifferent = areAddressesDifferent(startAddress, selected, label)
 
         if (isDifferent) {
           setStartAddressState(selected)
@@ -249,14 +247,11 @@ export function RoutingContextProvider({
     setWaypointsState(prev => prev.filter((_, i) => i !== index))
   }, [])
 
-  const updateWaypoint = useCallback(
-    (index: number, waypoint: IMapFeature) => {
-      setWaypointsState(prev =>
-        prev.map((wp, i) => (i === index ? waypoint : wp)),
-      )
-    },
-    [],
-  )
+  const updateWaypoint = useCallback((index: number, waypoint: IMapFeature) => {
+    setWaypointsState(prev =>
+      prev.map((wp, i) => (i === index ? waypoint : wp)),
+    )
+  }, [])
 
   const clearWaypoints = useCallback(() => {
     setWaypointsState([])

@@ -20,8 +20,26 @@ import { useWaypointRouteFetch } from "../../hooks/useWaypointRouteFetch"
 import { useRouteStateSync } from "../../hooks/useRouteStateSync"
 
 export const ButtonControls: React.FC = () => {
-  const { clearAddresses, startAddress, endAddress, setRoute, setSelectedStreet, mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek, setAddress, setMode, setUseTraffic, setAvoidFerries, setTrafficHour, setTrafficDayOfWeek, waypoints, setWaypointRoute } =
-    useContext<RoutingContextType>(RoutingContext)
+  const {
+    clearAddresses,
+    startAddress,
+    endAddress,
+    setRoute,
+    setSelectedStreet,
+    mode,
+    useTraffic,
+    avoidFerries,
+    trafficHour,
+    trafficDayOfWeek,
+    setAddress,
+    setMode,
+    setUseTraffic,
+    setAvoidFerries,
+    setTrafficHour,
+    setTrafficDayOfWeek,
+    waypoints,
+    setWaypointRoute,
+  } = useContext<RoutingContextType>(RoutingContext)
 
   const { displayMessage } = useContext<MessageContextType>(MessageContext)
 
@@ -73,7 +91,13 @@ export const ButtonControls: React.FC = () => {
   // Provides better UX - similar to Google Maps behavior where mode changes immediately show new route
   useEffect(() => {
     if (startAddress?.geometry && endAddress?.geometry) {
-      const hasValidWaypoints = waypoints.length > 0 && waypoints.some(wp => wp.geometry?.type === "Point" && (wp.geometry as GeoJSON.Point).coordinates[0] !== 0)
+      const hasValidWaypoints =
+        waypoints.length > 0 &&
+        waypoints.some(
+          wp =>
+            wp.geometry?.type === "Point" &&
+            (wp.geometry as GeoJSON.Point).coordinates[0] !== 0,
+        )
       if (hasValidWaypoints) {
         fetchWaypointRoute()
       } else {
@@ -87,7 +111,13 @@ export const ButtonControls: React.FC = () => {
   }, [mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek])
 
   const routeButtonEnabled = !!(startAddress?.geometry && endAddress?.geometry)
-  const hasValidWaypoints = waypoints.length > 0 && waypoints.some(wp => wp.geometry?.type === "Point" && (wp.geometry as GeoJSON.Point).coordinates[0] !== 0)
+  const hasValidWaypoints =
+    waypoints.length > 0 &&
+    waypoints.some(
+      wp =>
+        wp.geometry?.type === "Point" &&
+        (wp.geometry as GeoJSON.Point).coordinates[0] !== 0,
+    )
 
   // Handle copy link action
   const handleCopyLink = async () => {
@@ -136,7 +166,7 @@ export const ButtonControls: React.FC = () => {
         {(isFetching || isFetchingWaypoints) && "Calculating route..."}
       </Box>
 
-      <Stack direction="row" spacing={1.5} sx={{ mb: 2 }}>
+      <Stack direction="row" spacing={1.5} sx={{ mb: 1 }}>
         <Button
           onClick={() => {
             if (hasValidWaypoints) {
@@ -149,12 +179,20 @@ export const ButtonControls: React.FC = () => {
           variant="contained"
           color="primary"
           disabled={isFetching || isFetchingWaypoints || !routeButtonEnabled}
-          startIcon={(isFetching || isFetchingWaypoints) ? <CircularProgress size={16} color="inherit" /> : <Directions />}
+          startIcon={
+            isFetching || isFetchingWaypoints ? (
+              <CircularProgress size={16} color="inherit" />
+            ) : (
+              <Directions />
+            )
+          }
           aria-label="Calculate route between selected addresses"
           fullWidth
           sx={{ minHeight: 44 }}
         >
-          {(isFetching || isFetchingWaypoints) ? "Calculating..." : "Get Directions"}
+          {isFetching || isFetchingWaypoints
+            ? "Calculating..."
+            : "Get Directions"}
         </Button>
         <Button
           onClick={reset}
@@ -175,7 +213,7 @@ export const ButtonControls: React.FC = () => {
                 minWidth: 44,
                 minHeight: 44,
                 border: 1,
-                borderColor: 'divider',
+                borderColor: "divider",
               }}
             >
               <Share fontSize="small" />

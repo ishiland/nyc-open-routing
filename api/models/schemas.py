@@ -136,14 +136,3 @@ class WaypointRouteResponse(BaseModel):
     summary: WaypointRouteSummary
 
 
-class TrafficLayerFeature(BaseModel):
-    """GeoJSON feature for a single traffic edge segment."""
-    type: Literal["Feature"] = "Feature"
-    properties: Dict[str, Any]
-    geometry: Dict[str, Any]
-
-
-class TrafficLayerResponse(BaseModel):
-    """GeoJSON FeatureCollection of traffic-impacted edges."""
-    type: Literal["FeatureCollection"] = "FeatureCollection"
-    features: List[TrafficLayerFeature]

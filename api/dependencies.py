@@ -11,7 +11,7 @@ from services.routing import RoutingService
 from services.search import SearchService
 from services.isochrone import IsochroneService
 from services.traffic import TrafficRefreshService
-from utils.cache import get_route_cache
+from utils.cache import get_route_cache, get_tile_cache
 from utils.clock import Clock
 
 
@@ -64,6 +64,7 @@ if settings.TRAFFIC_ENABLED:
         db_params=settings.DB_PARAMS,
         interval_seconds=settings.TRAFFIC_REFRESH_INTERVAL,
         route_cache=get_route_cache(),
+        tile_cache=get_tile_cache(),
     )
 
 

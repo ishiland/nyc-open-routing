@@ -95,7 +95,7 @@ const useGeoJsonLayer = (
           // Then add the layer (filter out null paint values — addLayer rejects them;
           // null is only meaningful for setPaintProperty resets on existing layers)
           const cleanPaint = Object.fromEntries(
-            Object.entries(layerOptions.paint).filter(([, v]) => v != null)
+            Object.entries(layerOptions.paint).filter(([, v]) => v != null),
           )
           const mapLayer: maplibregl.LayerSpecification = {
             id: layerId,
@@ -106,11 +106,15 @@ const useGeoJsonLayer = (
           }
 
           // Validate beforeId layer exists to prevent "Cannot add layer before non-existing layer" error
-          const safeBeforeId = beforeId && map.getLayer(beforeId) ? beforeId : undefined
+          const safeBeforeId =
+            beforeId && map.getLayer(beforeId) ? beforeId : undefined
           map.addLayer(mapLayer, safeBeforeId)
           return true
         } catch (error) {
-          console.error(`[useGeoJsonLayer] ${layerId}: Error adding layer:`, error)
+          console.error(
+            `[useGeoJsonLayer] ${layerId}: Error adding layer:`,
+            error,
+          )
           return false
         }
       }
@@ -122,11 +126,11 @@ const useGeoJsonLayer = (
     // If style wasn't loaded, wait for it
     if (!success && !map.getStyle()) {
       const handleStyleData = () => addOrUpdateLayer()
-      map.once('styledata', handleStyleData)
+      map.once("styledata", handleStyleData)
 
       // Cleanup function to remove listener if component unmounts
       return () => {
-        map.off('styledata', handleStyleData)
+        map.off("styledata", handleStyleData)
       }
     }
   }, [map, sourceId, layerId, data, layerOptions, beforeId, normalizeData])

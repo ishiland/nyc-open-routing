@@ -53,7 +53,11 @@ export const RouteSummaryCard: React.FC = () => {
       hours = hours % 12 || 12
       const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes
       const arrivalStr = `Arrive ${hours}:${formattedMinutes} ${ampm}`
-      return { totalDistance: dist, totalTime: timeStr, arrivalTime: arrivalStr }
+      return {
+        totalDistance: dist,
+        totalTime: timeStr,
+        arrivalTime: arrivalStr,
+      }
     }
     // Fall back to regular route
     if (!route?.features?.length) {
@@ -115,7 +119,13 @@ export const RouteSummaryCard: React.FC = () => {
             mb: 2,
           }}
         >
-          <Box sx={{ color: MODE_COLORS[mode], display: "flex", alignItems: "center" }}>
+          <Box
+            sx={{
+              color: MODE_COLORS[mode],
+              display: "flex",
+              alignItems: "center",
+            }}
+          >
             {getModeIcon()}
           </Box>
           <Typography variant="h6" component="h3" sx={{ fontWeight: 600 }}>
@@ -127,7 +137,11 @@ export const RouteSummaryCard: React.FC = () => {
               label="Traffic"
               size="small"
               variant="outlined"
-              sx={{ ml: "auto", borderColor: MODE_COLORS[mode], color: MODE_COLORS[mode] }}
+              sx={{
+                ml: "auto",
+                borderColor: MODE_COLORS[mode],
+                color: MODE_COLORS[mode],
+              }}
             />
           )}
         </Box>
@@ -135,7 +149,8 @@ export const RouteSummaryCard: React.FC = () => {
         {/* Leg count for waypoint routes */}
         {waypointRoute?.summary && (
           <Typography variant="body2" sx={{ mb: 1, color: "text.secondary" }}>
-            {waypointRoute.summary.num_legs} leg{waypointRoute.summary.num_legs > 1 ? "s" : ""}
+            {waypointRoute.summary.num_legs} leg
+            {waypointRoute.summary.num_legs > 1 ? "s" : ""}
           </Typography>
         )}
 
@@ -149,33 +164,45 @@ export const RouteSummaryCard: React.FC = () => {
         >
           {/* Distance */}
           <Box>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
+            <Box
+              sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}
+            >
               <Straighten fontSize="small" sx={{ color: "text.secondary" }} />
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 Distance
               </Typography>
             </Box>
-            <Typography variant="h5" sx={{ fontWeight: 600, color: "text.primary" }}>
+            <Typography
+              variant="h5"
+              sx={{ fontWeight: 600, color: "text.primary" }}
+            >
               {totalDistance}
             </Typography>
           </Box>
 
           {/* Duration */}
           <Box>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}>
+            <Box
+              sx={{ display: "flex", alignItems: "center", gap: 0.5, mb: 0.5 }}
+            >
               <AccessTime fontSize="small" sx={{ color: "text.secondary" }} />
               <Typography variant="caption" sx={{ color: "text.secondary" }}>
                 Duration
               </Typography>
             </Box>
-            <Typography variant="h5" sx={{ fontWeight: 600, color: "text.primary" }}>
+            <Typography
+              variant="h5"
+              sx={{ fontWeight: 600, color: "text.primary" }}
+            >
               {totalTime}
             </Typography>
           </Box>
         </Box>
 
         {/* Arrival Time */}
-        <Box sx={{ mt: 2, pt: 2, borderTop: "1px solid", borderColor: "divider" }}>
+        <Box
+          sx={{ mt: 2, pt: 2, borderTop: "1px solid", borderColor: "divider" }}
+        >
           <Typography variant="body2" sx={{ color: "text.secondary" }}>
             Estimated arrival: <strong>{arrivalTime}</strong>
           </Typography>

@@ -7,7 +7,10 @@ import { useState } from "react"
  * @param initialValue - The initial value if key doesn't exist
  * @returns A tuple of [value, setValue] similar to useState
  */
-export function useLocalStorage<T>(key: string, initialValue: T): [T, (value: T) => void] {
+export function useLocalStorage<T>(
+  key: string,
+  initialValue: T,
+): [T, (value: T) => void] {
   // State to store our value
   // Pass initial state function to useState so logic is only executed once
   const [storedValue, setStoredValue] = useState<T>(() => {

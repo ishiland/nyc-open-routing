@@ -11,20 +11,18 @@ import { MAP_CONTROLS_Z_INDEX } from "../../utils/constants"
  * Independent of the sidebar TrafficToggle which controls route cost calculation.
  */
 export const TrafficLayerToggle: React.FC = () => {
-  const {
-    showTrafficLayer,
-    setShowTrafficLayer,
-    lastRefresh,
-    isLoading,
-  } = useContext(TrafficLayerContext)
+  const { showTrafficLayer, setShowTrafficLayer, lastRefresh } =
+    useContext(TrafficLayerContext)
 
   const freshnessInfo = useMemo(() => {
     if (!lastRefresh) return { text: "No data", color: "text.disabled" }
     const ageMin = Math.round(
       (Date.now() - new Date(lastRefresh).getTime()) / 60000,
     )
-    if (ageMin < 5) return { text: `Updated ${ageMin} min ago`, color: "success.main" }
-    if (ageMin <= 15) return { text: `Updated ${ageMin} min ago`, color: "warning.main" }
+    if (ageMin < 5)
+      return { text: `Updated ${ageMin} min ago`, color: "success.main" }
+    if (ageMin <= 15)
+      return { text: `Updated ${ageMin} min ago`, color: "warning.main" }
     return { text: `Updated ${ageMin} min ago`, color: "error.main" }
   }, [lastRefresh])
 
@@ -40,10 +38,7 @@ export const TrafficLayerToggle: React.FC = () => {
         alignItems: "flex-start",
       }}
     >
-      <Tooltip
-        title="Show traffic conditions on map"
-        placement="right"
-      >
+      <Tooltip title="Show traffic conditions on map" placement="right">
         <Fab
           color="default"
           size="small"
@@ -53,9 +48,7 @@ export const TrafficLayerToggle: React.FC = () => {
           }
           sx={{
             bgcolor: showTrafficLayer ? "primary.main" : "background.paper",
-            color: showTrafficLayer
-              ? "primary.contrastText"
-              : "primary.main",
+            color: showTrafficLayer ? "primary.contrastText" : "primary.main",
             boxShadow: 2,
             border: "1px solid",
             borderColor: "divider",
@@ -78,8 +71,6 @@ export const TrafficLayerToggle: React.FC = () => {
             mt: 1,
             p: 1.5,
             maxWidth: 160,
-            opacity: isLoading ? 0.6 : 1,
-            transition: "opacity 0.2s",
           }}
         >
           <Typography
@@ -87,7 +78,7 @@ export const TrafficLayerToggle: React.FC = () => {
             fontWeight={600}
             sx={{ mb: 0.5, display: "block" }}
           >
-            Traffic
+            Live Traffic
           </Typography>
 
           {TRAFFIC_COLOR_STOPS.map(stop => (
@@ -116,7 +107,7 @@ export const TrafficLayerToggle: React.FC = () => {
               color: freshnessInfo.color,
             }}
           >
-            {isLoading ? "Loading..." : freshnessInfo.text}
+            {freshnessInfo.text}
           </Typography>
         </Paper>
       )}

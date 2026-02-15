@@ -10,15 +10,15 @@ import {
 } from "../../contexts/RoutingContext"
 import { a11yAxe } from "./a11y.setup"
 
-// Register toHaveNoViolations matcher with vitest
-expect.extend(vitestAxeMatchers)
-
 // Components under test
 import { TrafficToggle } from "../../components/controls/TrafficToggle"
 import { FerryToggle } from "../../components/controls/FerryToggle"
 import InfoModal from "../../components/shared/InfoModal"
 import { TravelModeSelect } from "../../components/controls/TravelModeSelect"
 import { TimeSelector } from "../../components/controls/TimeSelector"
+
+// Register toHaveNoViolations matcher with vitest
+expect.extend(vitestAxeMatchers)
 
 // Shared mock context (same pattern as Search.test.tsx)
 const mockContextValue: RoutingContextType = {

@@ -104,7 +104,9 @@ export const useRouteFetch = ({
           // Provide user-friendly error messages based on status code
           if (response.status === 404) {
             // 404 means no route found between locations (not endpoint missing)
-            throw new Error(errorText || "No route found between these locations.")
+            throw new Error(
+              errorText || "No route found between these locations.",
+            )
           } else if (response.status >= 500) {
             throw new Error("Server error. Please try again later.")
           } else {
@@ -151,7 +153,18 @@ export const useRouteFetch = ({
     } finally {
       setIsFetching(false)
     }
-  }, [startAddress, endAddress, mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek, setRoute, setSelectedStreet, displayMessage])
+  }, [
+    startAddress,
+    endAddress,
+    mode,
+    useTraffic,
+    avoidFerries,
+    trafficHour,
+    trafficDayOfWeek,
+    setRoute,
+    setSelectedStreet,
+    displayMessage,
+  ])
 
   return { fetchRoute: fetchRouteCallback, isFetching }
 }

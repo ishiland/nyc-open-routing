@@ -8,9 +8,15 @@ import ToggleButtonGroup from "@mui/material/ToggleButtonGroup"
 import ToggleButton from "@mui/material/ToggleButton"
 import { Layers } from "@mui/icons-material"
 
-import { RoutingContext, RoutingContextType } from "../../contexts/RoutingContext"
+import {
+  RoutingContext,
+  RoutingContextType,
+} from "../../contexts/RoutingContext"
 import { IsochroneContext } from "../../contexts/IsochroneContext"
-import { MessageContext, MessageContextType } from "../../contexts/MessageContext"
+import {
+  MessageContext,
+  MessageContextType,
+} from "../../contexts/MessageContext"
 import { useIsochroneFetch } from "../../hooks/useIsochroneFetch"
 import { IsochroneFeature, IsochroneView } from "../../types/interfaces"
 import { ISOCHRONE_BAND_COLORS } from "../../utils/style"
@@ -18,8 +24,13 @@ import { ISOCHRONE_BAND_COLORS } from "../../utils/style"
 export const IsochroneControls: React.FC = () => {
   const { startAddress, mode, useTraffic, trafficHour, trafficDayOfWeek } =
     useContext<RoutingContextType>(RoutingContext)
-  const { isochrone, intervals, isochroneView, setIsochrone, setIsochroneView } =
-    useContext(IsochroneContext)
+  const {
+    isochrone,
+    intervals,
+    isochroneView,
+    setIsochrone,
+    setIsochroneView,
+  } = useContext(IsochroneContext)
   const { displayMessage } = useContext<MessageContextType>(MessageContext)
 
   const { fetchIsochrone, isFetching } = useIsochroneFetch({
@@ -34,7 +45,7 @@ export const IsochroneControls: React.FC = () => {
     displayMessage,
   })
 
-  const canAnalyze = !!(startAddress?.geometry)
+  const canAnalyze = !!startAddress?.geometry
 
   const handleClear = () => {
     setIsochrone(null)
@@ -80,7 +91,13 @@ export const IsochroneControls: React.FC = () => {
           variant="contained"
           color="success"
           disabled={isFetching || !canAnalyze}
-          startIcon={isFetching ? <CircularProgress size={16} color="inherit" /> : <Layers />}
+          startIcon={
+            isFetching ? (
+              <CircularProgress size={16} color="inherit" />
+            ) : (
+              <Layers />
+            )
+          }
           aria-label="Analyze reachability from selected address"
           fullWidth
           sx={{ minHeight: 44 }}
@@ -103,16 +120,38 @@ export const IsochroneControls: React.FC = () => {
       {isochrone && isochrone.features.length > 0 && (
         <Box sx={{ mt: 1 }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-            {isochroneView === "edges" ? "Reachable streets by time" : "Reachable area by time"}
+            {isochroneView === "edges"
+              ? "Reachable streets by time"
+              : "Reachable area by time"}
           </Typography>
           <Stack spacing={0.5}>
             {isochroneView === "polygon"
               ? ([...isochrone.features] as IsochroneFeature[])
-                  .sort((a, b) => a.properties.band_index - b.properties.band_index)
+                  .sort(
+                    (a, b) => a.properties.band_index - b.properties.band_index,
+                  )
                   .map(f => (
-                    <Stack key={f.properties.band_index} direction="row" alignItems="center" spacing={1}>
-                      <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: ISOCHRONE_BAND_COLORS[f.properties.band_index - 1] || "#94a3b8", flexShrink: 0 }} />
-                      <Typography variant="body2">{f.properties.minutes} min</Typography>
+                    <Stack
+                      key={f.properties.band_index}
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                    >
+                      <Box
+                        sx={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: "50%",
+                          bgcolor:
+                            ISOCHRONE_BAND_COLORS[
+                              f.properties.band_index - 1
+                            ] || "#94a3b8",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Typography variant="body2">
+                        {f.properties.minutes} min
+                      </Typography>
                       <Typography variant="caption" color="text.secondary">
                         ({f.properties.node_count.toLocaleString()} nodes)
                       </Typography>
@@ -125,18 +164,35 @@ export const IsochroneControls: React.FC = () => {
                     const bi = f.properties.band_index
                     bandCounts.set(bi, (bandCounts.get(bi) || 0) + 1)
                   })
-                  const bands = [...bandCounts.entries()].sort((a, b) => a[0] - b[0])
+                  const bands = [...bandCounts.entries()].sort(
+                    (a, b) => a[0] - b[0],
+                  )
                   return bands.map(([bandIndex, count]) => (
-                    <Stack key={bandIndex} direction="row" alignItems="center" spacing={1}>
-                      <Box sx={{ width: 12, height: 12, borderRadius: "50%", bgcolor: ISOCHRONE_BAND_COLORS[bandIndex - 1] || "#94a3b8", flexShrink: 0 }} />
-                      <Typography variant="body2">{bandIndex * 5} min</Typography>
+                    <Stack
+                      key={bandIndex}
+                      direction="row"
+                      alignItems="center"
+                      spacing={1}
+                    >
+                      <Box
+                        sx={{
+                          width: 12,
+                          height: 12,
+                          borderRadius: "50%",
+                          bgcolor:
+                            ISOCHRONE_BAND_COLORS[bandIndex - 1] || "#94a3b8",
+                          flexShrink: 0,
+                        }}
+                      />
+                      <Typography variant="body2">
+                        {bandIndex * 5} min
+                      </Typography>
                       <Typography variant="caption" color="text.secondary">
                         ({count.toLocaleString()} streets)
                       </Typography>
                     </Stack>
                   ))
-                })()
-            }
+                })()}
           </Stack>
         </Box>
       )}

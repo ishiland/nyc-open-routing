@@ -37,7 +37,10 @@ export const BottomSheet: FC<BottomSheetProps> = ({
   const [snapPoint, setSnapPoint] = useState(initialSnapPoint)
   const [isDragging, setIsDragging] = useState(false)
   const [dragStartY, setDragStartY] = useState(0)
-  const [hasSeenSwipeHint, setHasSeenSwipeHint] = useLocalStorage("bottom-sheet-swipe-hint-seen", false)
+  const [hasSeenSwipeHint, setHasSeenSwipeHint] = useLocalStorage(
+    "bottom-sheet-swipe-hint-seen",
+    false,
+  )
   const [showSwipeHint, setShowSwipeHint] = useState(!hasSeenSwipeHint)
 
   // Hide hint after 5 seconds
@@ -52,11 +55,14 @@ export const BottomSheet: FC<BottomSheetProps> = ({
   }, [showSwipeHint, setHasSeenSwipeHint])
 
   // Handle drag start
-  const handleDragStart = useCallback((e: React.TouchEvent | React.MouseEvent) => {
-    setIsDragging(true)
-    const clientY = "touches" in e ? e.touches[0].clientY : e.clientY
-    setDragStartY(clientY)
-  }, [])
+  const handleDragStart = useCallback(
+    (e: React.TouchEvent | React.MouseEvent) => {
+      setIsDragging(true)
+      const clientY = "touches" in e ? e.touches[0].clientY : e.clientY
+      setDragStartY(clientY)
+    },
+    [],
+  )
 
   // Handle keyboard navigation on drag handle
   const handleKeyDown = useCallback(
@@ -71,7 +77,11 @@ export const BottomSheet: FC<BottomSheetProps> = ({
         case "ArrowDown": {
           e.preventDefault()
           const nextDown = getNextSnapPoint(snapPoint, "down")
-          if (nextDown === snapPoint && snapPoint === BOTTOM_SHEET_SNAP_POINTS[0] && onClose) {
+          if (
+            nextDown === snapPoint &&
+            snapPoint === BOTTOM_SHEET_SNAP_POINTS[0] &&
+            onClose
+          ) {
             onClose()
           } else {
             setSnapPoint(nextDown)
@@ -83,7 +93,8 @@ export const BottomSheet: FC<BottomSheetProps> = ({
           e.preventDefault()
           // Toggle between min and max snap points
           const min = BOTTOM_SHEET_SNAP_POINTS[0]
-          const max = BOTTOM_SHEET_SNAP_POINTS[BOTTOM_SHEET_SNAP_POINTS.length - 1]
+          const max =
+            BOTTOM_SHEET_SNAP_POINTS[BOTTOM_SHEET_SNAP_POINTS.length - 1]
           setSnapPoint(snapPoint === max ? min : max)
           break
         }
@@ -97,7 +108,8 @@ export const BottomSheet: FC<BottomSheetProps> = ({
     (e: React.TouchEvent | React.MouseEvent) => {
       if (!isDragging) return
 
-      const clientY = "changedTouches" in e ? e.changedTouches[0].clientY : e.clientY
+      const clientY =
+        "changedTouches" in e ? e.changedTouches[0].clientY : e.clientY
       const deltaY = clientY - dragStartY
 
       // Determine swipe direction based on distance

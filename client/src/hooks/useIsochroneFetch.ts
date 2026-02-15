@@ -1,7 +1,11 @@
 import { useCallback, useState } from "react"
 import { Point } from "geojson"
 
-import { IMapFeature, IsochroneResponse, IsochroneView } from "../types/interfaces"
+import {
+  IMapFeature,
+  IsochroneResponse,
+  IsochroneView,
+} from "../types/interfaces"
 import { TravelMode } from "../contexts/RoutingContext"
 import { MessageContextType } from "../contexts/MessageContext"
 
@@ -40,7 +44,10 @@ export const useIsochroneFetch = ({
 
       const startGeom = startAddress.geometry as Point
       if (startGeom?.type !== "Point" || !startGeom.coordinates) {
-        displayMessage("Invalid address geometry. Origin must be a Point with coordinates.", "error")
+        displayMessage(
+          "Invalid address geometry. Origin must be a Point with coordinates.",
+          "error",
+        )
         return
       }
 
@@ -79,7 +86,9 @@ export const useIsochroneFetch = ({
           }
 
           if (response.status === 404) {
-            throw new Error(errorText || "No reachable area found from this location.")
+            throw new Error(
+              errorText || "No reachable area found from this location.",
+            )
           } else if (response.status >= 500) {
             throw new Error("Server error. Please try again later.")
           } else {
@@ -101,9 +110,15 @@ export const useIsochroneFetch = ({
       setIsochrone(null)
       if (error instanceof Error) {
         if (error.name === "AbortError") {
-          displayMessage("Reachability calculation timed out. Please try again.", "error")
+          displayMessage(
+            "Reachability calculation timed out. Please try again.",
+            "error",
+          )
         } else if (error.message.includes("Failed to fetch")) {
-          displayMessage("Network error. Please check your connection and try again.", "error")
+          displayMessage(
+            "Network error. Please check your connection and try again.",
+            "error",
+          )
         } else {
           displayMessage(error.message, "error")
         }
@@ -113,7 +128,17 @@ export const useIsochroneFetch = ({
     } finally {
       setIsFetching(false)
     }
-  }, [startAddress, mode, intervals, isochroneView, useTraffic, trafficHour, trafficDayOfWeek, setIsochrone, displayMessage])
+  }, [
+    startAddress,
+    mode,
+    intervals,
+    isochroneView,
+    useTraffic,
+    trafficHour,
+    trafficDayOfWeek,
+    setIsochrone,
+    displayMessage,
+  ])
 
   return { fetchIsochrone, isFetching }
 }

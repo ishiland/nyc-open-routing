@@ -33,7 +33,7 @@ export const useGeolocation = () => {
       setResult({ position: null, error: null, loading: true })
 
       navigator.geolocation.getCurrentPosition(
-        (position) => {
+        position => {
           const pos = {
             latitude: position.coords.latitude,
             longitude: position.coords.longitude,
@@ -41,7 +41,7 @@ export const useGeolocation = () => {
           setResult({ position: pos, error: null, loading: false })
           resolve(pos)
         },
-        (error) => {
+        error => {
           let errorMessage: string
 
           switch (error.code) {
@@ -50,7 +50,8 @@ export const useGeolocation = () => {
                 "Location access denied. Please enable location permissions in your browser."
               break
             case error.POSITION_UNAVAILABLE:
-              errorMessage = "Location information unavailable. Please try again."
+              errorMessage =
+                "Location information unavailable. Please try again."
               break
             case error.TIMEOUT:
               errorMessage = "Location request timed out. Please try again."

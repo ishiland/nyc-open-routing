@@ -1,10 +1,10 @@
 import logging
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
+from starlette.responses import Response
 
 from dependencies import get_db_engine, get_traffic_service
-from models.schemas import TrafficLayerFeature, TrafficLayerResponse
-from utils.geo import dump_geo
+from utils.cache import get_tile_cache
 
 logger = logging.getLogger(__name__)
 
@@ -58,70 +58,57 @@ async def trigger_refresh(traffic_service=Depends(get_traffic_service)):
     return {"status": "ok", "message": "Traffic data refreshed successfully"}
 
 
-_traffic_layer_sql = text("""
-    SELECT
-        e.id,
-        e.street,
-        e.traffic_factor,
-        e.geom_4326 AS geom
-    FROM edges e
-    WHERE e.traffic_factor > 1.0
-      AND e.driveable = TRUE
-      AND e.geom_4326 && ST_MakeEnvelope(:west, :south, :east, :north, 4326)
+_tile_sql = text("""
+    WITH bounds AS (
+        SELECT ST_TileEnvelope(:z, :x, :y) AS geom
+    ),
+    mvtgeom AS (
+        SELECT
+            ST_AsMVTGeom(ST_Transform(e.geom_4326, 3857), bounds.geom) AS geom,
+            e.id,
+            e.street,
+            e.traffic_factor::double precision AS traffic_factor
+        FROM edges e, bounds
+        WHERE e.traffic_factor > 1.0
+          AND e.driveable = TRUE
+          AND e.geom_4326 && ST_Transform(bounds.geom, 4326)
+    )
+    SELECT ST_AsMVT(mvtgeom.*, 'traffic') AS mvt
+    FROM mvtgeom
+    WHERE geom IS NOT NULL
 """)
 
 
-@router.get("/layer", response_model=TrafficLayerResponse)
-def traffic_layer(
-    bbox: str = Query(..., description="Bounding box: west,south,east,north"),
-):
+@router.get("/tiles/{z}/{x}/{y}.pbf")
+def traffic_tile(z: int, x: int, y: int):
     """
-    Get traffic layer GeoJSON for the given bounding box.
+    Get a vector tile (MVT) of traffic-impacted edges.
 
-    Returns a FeatureCollection of driveable edges with traffic_factor > 1.0
-    within the viewport. Empty viewports return an empty features array.
+    Returns a protobuf-encoded tile with a 'traffic' layer containing
+    driveable edges where traffic_factor > 1.0.
     """
-    try:
-        parts = [float(x.strip()) for x in bbox.split(",")]
-        if len(parts) != 4:
-            raise ValueError()
-        west, south, east, north = parts
-    except (ValueError, TypeError):
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid bbox format. Expected: west,south,east,north",
-        )
+    if z < 0 or z > 22:
+        raise HTTPException(400, "z must be 0-22")
 
-    if not (-180 <= west <= 180 and -180 <= east <= 180):
-        raise HTTPException(status_code=400, detail="Longitude values must be between -180 and 180")
-    if not (-90 <= south <= 90 and -90 <= north <= 90):
-        raise HTTPException(status_code=400, detail="Latitude values must be between -90 and 90")
-    if west >= east or south >= north:
-        raise HTTPException(
-            status_code=400,
-            detail="Invalid bbox: west must be < east, south must be < north",
+    tile_cache = get_tile_cache()
+    cached = tile_cache.get(z, x, y)
+    if cached is not None:
+        return Response(
+            content=cached,
+            media_type="application/x-protobuf",
+            headers={"Cache-Control": "public, max-age=300"},
         )
 
     engine = get_db_engine()
     with engine.connect() as conn:
-        result = conn.execute(
-            _traffic_layer_sql,
-            {"west": west, "south": south, "east": east, "north": north},
-        )
-        rows = result.fetchall()
+        result = conn.execute(_tile_sql, {"z": z, "x": x, "y": y})
+        row = result.fetchone()
 
-    features = []
-    for row in rows:
-        row_dict = dict(row._mapping)
-        features.append(
-            TrafficLayerFeature(
-                properties={
-                    "id": row_dict["id"],
-                    "street": row_dict["street"] or "",
-                    "traffic_factor": float(row_dict["traffic_factor"]),
-                },
-                geometry=dump_geo(row_dict["geom"]),
-            )
-        )
+    mvt_bytes = bytes(row[0]) if row and row[0] else b""
+    tile_cache.set(z, x, y, mvt_bytes)
 
-    return TrafficLayerResponse(features=features)
+    return Response(
+        content=mvt_bytes,
+        media_type="application/x-protobuf",
+        headers={"Cache-Control": "public, max-age=300"},
+    )

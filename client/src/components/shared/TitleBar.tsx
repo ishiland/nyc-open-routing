@@ -26,9 +26,7 @@ const TitleBarComponent: React.FC = () => {
       {/* Use background color from theme primary */}
       <StyledAppBar position="relative" color="primary">
         <StyledToolbar variant="dense">
-          <Title variant="h6">
-            NYC Open Routing
-          </Title>
+          <Title variant="h6">NYC Open Routing</Title>
           <InfoModal />
         </StyledToolbar>
       </StyledAppBar>

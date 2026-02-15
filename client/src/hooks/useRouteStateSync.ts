@@ -93,7 +93,10 @@ export const useRouteStateSync = ({
 
     // Restore start address
     if (startParam) {
-      const feature = parseCoordinatesFromParam(startParam, startAddrParam || "Start")
+      const feature = parseCoordinatesFromParam(
+        startParam,
+        startAddrParam || "Start",
+      )
       if (feature) {
         setAddress(feature, "start")
       }
@@ -182,7 +185,15 @@ export const useRouteStateSync = ({
     if (newUrl !== window.location.pathname + window.location.search) {
       window.history.replaceState({}, "", newUrl)
     }
-  }, [startAddress, endAddress, mode, useTraffic, avoidFerries, trafficHour, trafficDayOfWeek])
+  }, [
+    startAddress,
+    endAddress,
+    mode,
+    useTraffic,
+    avoidFerries,
+    trafficHour,
+    trafficDayOfWeek,
+  ])
 
   // Function to copy current route URL to clipboard
   const copyRouteUrl = useCallback((): Promise<boolean> => {
@@ -190,7 +201,7 @@ export const useRouteStateSync = ({
     return navigator.clipboard
       .writeText(url)
       .then(() => true)
-      .catch((error) => {
+      .catch(error => {
         console.error("Failed to copy URL:", error)
         return false
       })
