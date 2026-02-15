@@ -63,10 +63,11 @@ Plans:
   1. Coverage analysis shows exactly how many edges have live speed data, static volume data, both, or neither
   2. SQL routing functions use an explicit priority chain — live speed factor first, then static volume factor (or removed), then 1.0 default — and the chain is documented
   3. A clear recommendation (keep, merge, or deprecate volume data) exists with supporting coverage numbers
-**Plans**: TBD
+**Plans:** 2 plans
 
 Plans:
-- [ ] 19-01: TBD
+- [ ] 19-01-PLAN.md — Coverage analysis SQL + audit report with recommendation (AUDIT-01, AUDIT-02, AUDIT-03)
+- [ ] 19-02-PLAN.md — Update SQL routing functions with correct fallback chain (AUDIT-04)
 
 ### Progress
 
@@ -74,7 +75,7 @@ Plans:
 |-------|---------------|--------|-----------|
 | 17. Live Traffic Refresh | 2/2 | ✓ Complete | 2026-02-15 |
 | 18. Traffic Visualization | 2/2 | ✓ Complete | 2026-02-15 |
-| 19. Volume Data Audit | 0/TBD | Not started | - |
+| 19. Volume Data Audit | 0/2 | Not started | - |
 
 ---
-*Last updated: 2026-02-15 after Phase 18 execution complete (2/2 plans, verification passed)*
+*Last updated: 2026-02-14 after Phase 19 planning complete (2 plans created)*
