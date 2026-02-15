@@ -1,4 +1,3 @@
-import pytest
 from fastapi.testclient import TestClient
 from unittest.mock import patch
 
@@ -303,7 +302,7 @@ def test_traffic_tile_valid_z_boundary():
     """Test tile endpoint accepts z=0 and z=22 (boundary values)."""
     # These will fail at DB level but should pass z validation
     with patch('api.routes.traffic.get_tile_cache') as mock_cache, \
-         patch('api.routes.traffic.get_db_engine') as mock_engine:
+         patch('api.routes.traffic.get_db_engine'):
         mock_cache.return_value.get.return_value = b""
 
         response_z0 = client.get("/api/traffic/tiles/0/0/0.pbf")

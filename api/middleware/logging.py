@@ -23,7 +23,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         # Log incoming request
         logger.info(
-            f"Request started",
+            "Request started",
             extra={
                 "correlation_id": correlation_id,
                 "method": request.method,
@@ -42,7 +42,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
             # Log response
             logger.info(
-                f"Request completed",
+                "Request completed",
                 extra={
                     "correlation_id": correlation_id,
                     "method": request.method,
@@ -59,7 +59,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
         except Exception as e:
             duration_ms = (time.time() - start_time) * 1000
             logger.error(
-                f"Request failed",
+                "Request failed",
                 extra={
                     "correlation_id": correlation_id,
                     "method": request.method,

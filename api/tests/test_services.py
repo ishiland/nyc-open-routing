@@ -1,7 +1,6 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from api.services.routing import RoutingService
 from api.services.search import SearchService
 from fastapi import HTTPException
 
@@ -286,7 +285,7 @@ def test_routing_service_day_of_week_conversion(mock_routing_service, mock_db_en
         }
 
         # Test with use_traffic=True but no explicit hour/day (should use clock)
-        features = mock_routing_service.get_driving_route(
+        mock_routing_service.get_driving_route(
             "-73.9857,40.7484",
             "-73.9950,40.7352",
             use_traffic=True

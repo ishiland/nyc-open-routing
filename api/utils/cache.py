@@ -157,39 +157,6 @@ class RouteCache:
         """Get current cache size."""
         return len(self._cache)
 
-    def invalidate(self, orig: str = None, dest: str = None, mode: str = None) -> int:
-        """
-        Invalidate cache entries matching criteria.
-
-        Args:
-            orig: Origin coordinates (optional)
-            dest: Destination coordinates (optional)
-            mode: Travel mode (optional)
-
-        Returns:
-            Number of entries invalidated
-        """
-        if orig is None and dest is None and mode is None:
-            self.clear()
-            return 0
-
-        # This is a simple implementation that requires specific keys
-        # For more advanced pattern matching, you'd need a more complex structure
-        count = 0
-        keys_to_remove = []
-
-        for key in list(self._cache.keys()):
-            # For now, only support exact match invalidation
-            # A more sophisticated implementation could parse the key
-            keys_to_remove.append(key)
-
-        for key in keys_to_remove:
-            self._cache.pop(key, None)
-            self._timestamps.pop(key, None)
-            count += 1
-
-        return count
-
 
 # Global cache instance (singleton pattern for simplicity)
 # In production with multiple workers, use Redis or similar

@@ -189,15 +189,6 @@ class TestRouteCache:
         except Exception:
             pytest.fail("Cache.set should not raise exceptions")
 
-    def test_cache_invalidate_all(self):
-        """Test invalidating all cache entries."""
-        cache = RouteCache()
-        cache.set("-73.9857,40.7484", "-73.9950,40.7352", "drive", "data1")
-        cache.set("-73.9857,40.7484", "-73.9950,40.7352", "bike", "data2")
-
-        cache.invalidate()
-        assert cache.size() == 0
-
     def test_cache_size_method(self):
         """Test size method returns correct count."""
         cache = RouteCache()
