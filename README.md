@@ -2,7 +2,7 @@
 
 Multi-modal routing for New York City using pgRouting and NYC's LION street network dataset. Supports driving, walking, and biking routes with turn-by-turn directions, isochrone analysis, and traffic-aware routing.
 
-<!-- TODO: Add hero screenshot -->
+![NYC Open Routing — Drive route with live traffic layer across Manhattan](docs/images/hero.jpeg)
 
 ![Python 3.11](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white) ![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-blue?logo=typescript&logoColor=white) ![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-336791?logo=postgresql&logoColor=white) ![pgRouting](https://img.shields.io/badge/pgRouting-3.8-green) ![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
 
@@ -16,6 +16,47 @@ Multi-modal routing for New York City using pgRouting and NYC's LION street netw
 - **Departure time selection** -- Choose hour and day of week for time-dependent traffic routing
 - **Responsive design** -- Desktop sidebar layout, tablet view, and mobile bottom sheet
 - **Shareable routes** -- Deep link URLs encode origin, destination, mode, and waypoints for sharing
+
+<table>
+<tr>
+<td width="50%">
+<img src="docs/images/routing.jpeg" alt="Multi-modal routing with turn-by-turn directions" width="100%">
+<p align="center"><strong>Multi-modal routing</strong></p>
+</td>
+<td width="50%">
+<img src="docs/images/isochrone-fill.jpeg" alt="Isochrone reachability analysis with polygon fill" width="100%">
+<p align="center"><strong>Isochrone reachability</strong></p>
+</td>
+</tr>
+<tr>
+<td width="50%">
+<img src="docs/images/waypoints.jpeg" alt="Multi-stop waypoint routing" width="100%">
+<p align="center"><strong>Multi-stop waypoints</strong></p>
+</td>
+<td width="50%">
+<img src="docs/images/traffic-layer.jpeg" alt="Live traffic layer with color-coded congestion" width="100%">
+<p align="center"><strong>Live traffic layer</strong></p>
+</td>
+</tr>
+<tr>
+<td width="50%">
+<img src="docs/images/autocomplete.jpeg" alt="NYC address autocomplete" width="100%">
+<p align="center"><strong>NYC address autocomplete</strong></p>
+</td>
+<td width="50%">
+<img src="docs/images/isochrone-edges.jpeg" alt="Edge-based isochrone with per-street rendering" width="100%">
+<p align="center"><strong>Edge-based isochrones</strong></p>
+</td>
+</tr>
+<tr>
+<td width="50%">
+<img src="docs/images/mobile.jpeg" alt="Responsive mobile layout with bottom sheet" width="100%">
+<p align="center"><strong>Responsive mobile layout</strong></p>
+</td>
+<td width="50%">
+</td>
+</tr>
+</table>
 
 ## Quick Start
 
