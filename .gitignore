@@ -47,16 +47,12 @@ docker/dev/.env
 # Exception: keep favicon in public/
 !client/public/favicon.png
 
+# Claude Code (local settings)
+.claude/
+
 # GSD planning (internal dev)
 .planning/
 
-# Claude Code
-CLAUDE.md
-
 # Internal dev docs
+CLAUDE.md
 docs/
-
-# Misc junk
-todo.md
-lion meta.md
-ROUTING_ANALYSIS.md

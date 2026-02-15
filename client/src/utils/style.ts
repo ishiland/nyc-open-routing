@@ -162,7 +162,6 @@ export const getIsochroneOutlinePaint = () => ({
 
 // Traffic color stops for legend display
 export const TRAFFIC_COLOR_STOPS = [
-  { factor: 1.0, color: trafficColorScale.freeFlow, label: "Free Flow" },
   { factor: 1.2, color: trafficColorScale.light, label: "Light" },
   { factor: 1.5, color: trafficColorScale.moderate, label: "Moderate" },
   { factor: 1.8, color: trafficColorScale.heavy, label: "Heavy" },
@@ -186,8 +185,6 @@ export const getTrafficLayerPaint = () => ({
     "interpolate",
     ["linear"],
     ["get", "traffic_factor"],
-    1.0,
-    trafficColorScale.freeFlow,
     1.2,
     trafficColorScale.light,
     1.5,
