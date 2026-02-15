@@ -84,7 +84,7 @@ docker compose exec api sh /data-imports/import-lion.sh 25a --download-traffic
 
 ## Architecture
 
-NYC Open Routing runs three Docker services. The API uses pgRouting's `pgr_trsp` algorithm against a graph built from NYC DCP's LION street network. The graph encodes per-mode edge costs (drive/bike/walk), one-way restrictions, grade-separated intersections (overpasses and underpasses), and optional traffic factors.
+NYC Open Routing runs three Docker services. The API uses pgRouting's `pgr_trsp` algorithm against a graph built from NYC DCP's LION street network. The graph encodes per-mode edge costs (drive/bike/walk), one-way restrictions, grade-separated intersections (overpasses and underpasses), and optional traffic factors. See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for details on data flow, the import pipeline, routing algorithm, and key SQL functions.
 
 | Service | Stack | Ports |
 |---------|-------|-------|
