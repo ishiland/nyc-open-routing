@@ -10,11 +10,8 @@ services:
       - postgresql:/var/lib/postgresql
       - postgresql_data:/var/lib/postgresql/data
     command:
-      # Phase 2 Database Optimization: PostgreSQL Performance Tuning
-      #
-      # These values are DEVELOPMENT-OPTIMIZED for POC/laptop environments (8-16GB RAM).
-      # For production deployment on dedicated database servers (32GB+ RAM),
-      # see docs/PERFORMANCE_OPTIMIZATION_PLAN.md Section 2.4 for recommended values:
+      # PostgreSQL tuning for development (8-16GB RAM laptops).
+      # Production would increase these values significantly:
       #   - shared_buffers: 2GB (vs 256MB here)
       #   - effective_cache_size: 6GB (vs 1GB here)
       #   - work_mem: 32MB (vs 16MB here)

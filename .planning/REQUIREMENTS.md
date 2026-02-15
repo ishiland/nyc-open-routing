@@ -9,10 +9,10 @@ Requirements for developer experience polish. Clean up cruft, improve onboarding
 
 ### Cleanup
 
-- [ ] **CLN-01**: Remove `docs/traffic-audit-report.md` (internal dev artifact, not useful to contributors)
-- [ ] **CLN-02**: Remove duplicate `client/Dockerfile` (identical to `docker/dev/client.Dockerfile`, unused by docker-compose)
-- [ ] **CLN-03**: Remove duplicate `api/Dockerfile` (near-identical to `docker/dev/api.Dockerfile`, unused by docker-compose)
-- [ ] **CLN-04**: Fix stale docker-compose.yml comment referencing non-existent `docs/PERFORMANCE_OPTIMIZATION_PLAN.md`
+- [x] **CLN-01**: Remove `docs/traffic-audit-report.md` (internal dev artifact, not useful to contributors)
+- [x] **CLN-02**: Remove duplicate `client/Dockerfile` (identical to `docker/dev/client.Dockerfile`, unused by docker-compose)
+- [x] **CLN-03**: Remove duplicate `api/Dockerfile` (near-identical to `docker/dev/api.Dockerfile`, unused by docker-compose)
+- [x] **CLN-04**: Fix stale docker-compose.yml comment referencing non-existent `docs/PERFORMANCE_OPTIMIZATION_PLAN.md`
 
 ### Developer Tooling
 
@@ -38,10 +38,10 @@ None — this is a cleanup milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CLN-01 | Phase 23 | Pending |
-| CLN-02 | Phase 23 | Pending |
-| CLN-03 | Phase 23 | Pending |
-| CLN-04 | Phase 23 | Pending |
+| CLN-01 | Phase 23 | Complete |
+| CLN-02 | Phase 23 | Complete |
+| CLN-03 | Phase 23 | Complete |
+| CLN-04 | Phase 23 | Complete |
 | DX-01 | Phase 24 | Pending |
 | DOC-01 | Phase 24 | Pending |
 
