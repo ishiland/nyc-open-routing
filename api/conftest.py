@@ -2,8 +2,16 @@ import pytest
 from unittest.mock import MagicMock
 from datetime import datetime
 
-from api.services.routing import RoutingService
-from api.utils.clock import Clock
+from services.routing import RoutingService
+from utils.clock import Clock
+from utils.cache import get_route_cache
+
+
+@pytest.fixture(autouse=True)
+def clear_route_cache():
+    """Clear the global route cache before each test to prevent cross-test contamination."""
+    get_route_cache().clear()
+
 
 @pytest.fixture
 def mock_db_engine():

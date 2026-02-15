@@ -17,7 +17,6 @@ import {
 import { useResponsive } from "../../hooks/useResponsive"
 import { LoadingSpinner } from "../shared/LoadingSpinner"
 import { BottomSheet } from "../mobile/BottomSheet"
-import Sidebar from "../Sidebar"
 import { MapInstanceContext } from "../../contexts/MapInstanceContext"
 import { RoutingContext } from "../../contexts/RoutingContext"
 import { MODE_COLORS } from "../../utils/theme"

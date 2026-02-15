@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import MagicMock, patch
 
-from api.services.search import SearchService
+from services.search import SearchService
 from fastapi import HTTPException
 
 def test_routing_service_parse_error(mock_routing_service):
@@ -44,13 +44,13 @@ def test_routing_service_success(mock_routing_service, mock_db_engine):
     conn.execute.return_value = result
     mock_db_engine.connect.return_value.__enter__.return_value = conn
     
-    # Patch the dump_geo function to return a simple geometry
-    with patch('api.utils.geo.dump_geo') as mock_dump_geo:
+    # Patch dump_geo where it's imported (services.routing), not where it's defined
+    with patch('services.routing.dump_geo') as mock_dump_geo:
         mock_dump_geo.return_value = {
             "type": "LineString",
             "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]]
         }
-        
+
         # Test the service
         response = mock_routing_service.get_driving_route("-73.9857,40.7484", "-73.9950,40.7352")
 
@@ -85,7 +85,7 @@ def test_routing_service_biking_success(mock_routing_service, mock_db_engine):
     mock_db_engine.connect.return_value.__enter__.return_value = conn
 
     # Patch the dump_geo function
-    with patch('api.utils.geo.dump_geo') as mock_dump_geo:
+    with patch('services.routing.dump_geo') as mock_dump_geo:
         mock_dump_geo.return_value = {
             "type": "LineString",
             "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]]
@@ -124,7 +124,7 @@ def test_routing_service_walking_success(mock_routing_service, mock_db_engine):
     mock_db_engine.connect.return_value.__enter__.return_value = conn
 
     # Patch the dump_geo function
-    with patch('api.utils.geo.dump_geo') as mock_dump_geo:
+    with patch('services.routing.dump_geo') as mock_dump_geo:
         mock_dump_geo.return_value = {
             "type": "LineString",
             "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]]
@@ -278,7 +278,7 @@ def test_routing_service_day_of_week_conversion(mock_routing_service, mock_db_en
     mock_db_engine.connect.return_value.__enter__.return_value = conn
 
     # Patch the dump_geo function
-    with patch('api.utils.geo.dump_geo') as mock_dump_geo:
+    with patch('services.routing.dump_geo') as mock_dump_geo:
         mock_dump_geo.return_value = {
             "type": "LineString",
             "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]]
@@ -314,7 +314,7 @@ def test_routing_service_sunday_conversion(mock_routing_service, mock_db_engine,
     conn.execute.return_value = result
     mock_db_engine.connect.return_value.__enter__.return_value = conn
 
-    with patch('api.utils.geo.dump_geo') as mock_dump_geo:
+    with patch('services.routing.dump_geo') as mock_dump_geo:
         mock_dump_geo.return_value = {"type": "LineString", "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]]}
 
         # Test with use_traffic=True
@@ -348,7 +348,7 @@ def test_waypoint_route_drive_two_stops(mock_routing_service, mock_db_engine):
     conn.execute.return_value = result
     mock_db_engine.connect.return_value.__enter__.return_value = conn
 
-    with patch('api.utils.geo.dump_geo') as mock_dump_geo:
+    with patch('services.routing.dump_geo') as mock_dump_geo:
         mock_dump_geo.return_value = {
             "type": "LineString",
             "coordinates": [[-73.9857, 40.7484], [-73.9950, 40.7352]]
@@ -386,7 +386,7 @@ def test_waypoint_route_drive_three_stops(mock_routing_service, mock_db_engine):
     conn.execute.return_value = result
     mock_db_engine.connect.return_value.__enter__.return_value = conn
 
-    with patch('api.utils.geo.dump_geo') as mock_dump_geo:
+    with patch('services.routing.dump_geo') as mock_dump_geo:
         mock_dump_geo.return_value = {
             "type": "LineString",
             "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]]
@@ -423,7 +423,7 @@ def test_waypoint_route_bike(mock_routing_service, mock_db_engine):
     conn.execute.return_value = result
     mock_db_engine.connect.return_value.__enter__.return_value = conn
 
-    with patch('api.utils.geo.dump_geo') as mock_dump_geo:
+    with patch('services.routing.dump_geo') as mock_dump_geo:
         mock_dump_geo.return_value = {
             "type": "LineString",
             "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]]
@@ -459,7 +459,7 @@ def test_waypoint_route_walk(mock_routing_service, mock_db_engine):
     conn.execute.return_value = result
     mock_db_engine.connect.return_value.__enter__.return_value = conn
 
-    with patch('api.utils.geo.dump_geo') as mock_dump_geo:
+    with patch('services.routing.dump_geo') as mock_dump_geo:
         mock_dump_geo.return_value = {
             "type": "LineString",
             "coordinates": [[-73.9857, 40.7484], [-73.9855, 40.7480]]

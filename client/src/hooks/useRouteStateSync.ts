@@ -1,12 +1,6 @@
 import { useEffect, useCallback, useRef } from "react"
 import { IMapFeature, TravelMode } from "../types/interfaces"
 
-interface RouteState {
-  startAddress: IMapFeature | null
-  endAddress: IMapFeature | null
-  mode: TravelMode
-}
-
 interface RouteStateSyncProps {
   startAddress: IMapFeature | null
   endAddress: IMapFeature | null
@@ -130,7 +124,7 @@ export const useRouteStateSync = ({
 
       // Add address label if it exists and isn't just coordinates
       const label = startAddress.properties?.label
-      if (label && !label.match(/^\([\d\.\-,\s]+\)$/)) {
+      if (label && !label.match(/^\([\d.\-,\s]+\)$/)) {
         // Clean and encode the label
         const cleanLabel = label.replace(/^(Start|End)\s*[-:]?\s*/i, "").trim()
         if (cleanLabel && cleanLabel.length > 0) {
@@ -146,7 +140,7 @@ export const useRouteStateSync = ({
 
       // Add address label if it exists and isn't just coordinates
       const label = endAddress.properties?.label
-      if (label && !label.match(/^\([\d\.\-,\s]+\)$/)) {
+      if (label && !label.match(/^\([\d.\-,\s]+\)$/)) {
         // Clean and encode the label
         const cleanLabel = label.replace(/^(Start|End)\s*[-:]?\s*/i, "").trim()
         if (cleanLabel && cleanLabel.length > 0) {

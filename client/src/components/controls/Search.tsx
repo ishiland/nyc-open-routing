@@ -26,7 +26,6 @@ import { SEARCH_MIN_LENGTH, SEARCH_BLUR_DELAY_MS } from "../../utils/constants"
 import {
   getAddressLabel,
   getSuggestionId,
-  getSuggestionKey,
 } from "../../utils/suggestionHelpers"
 import {
   addRecentSearch,

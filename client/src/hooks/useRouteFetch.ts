@@ -4,7 +4,6 @@ import { Point } from "geojson"
 import { IMapFeature, Route, RouteFeature } from "../types/interfaces"
 import { TravelMode } from "../contexts/RoutingContext"
 import { MessageContextType } from "../contexts/MessageContext"
-import debug from "../utils/debug"
 
 interface UseRouteFetchArgs {
   startAddress: IMapFeature | null
