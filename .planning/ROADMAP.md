@@ -19,7 +19,7 @@
 ### Phases
 
 - [x] **Phase 17: Live Traffic Refresh** - Background refresh service with atomic updates, configurable startup, and operational endpoints (2026-02-15)
-- [ ] **Phase 18: Traffic Visualization** - Toggleable map layer showing real-time traffic conditions on streets
+- [x] **Phase 18: Traffic Visualization** - Toggleable map layer showing real-time traffic conditions on streets (2026-02-15)
 - [ ] **Phase 19: Volume Data Audit** - Evaluate static volume data coverage and update SQL fallback chain
 
 ### Phase Details
@@ -52,8 +52,8 @@ Plans:
 **Plans:** 2 plans
 
 Plans:
-- [ ] 18-01-PLAN.md — Backend bbox-filtered traffic layer API endpoint (Pydantic models + GET /api/traffic/layer)
-- [ ] 18-02-PLAN.md — Frontend traffic layer (context, hooks, toggle/legend component, map integration)
+- [x] 18-01-PLAN.md — Backend bbox-filtered traffic layer API endpoint (Pydantic models + GET /api/traffic/layer)
+- [x] 18-02-PLAN.md — Frontend traffic layer (context, hooks, toggle/legend component, map integration)
 
 #### Phase 19: Volume Data Audit
 **Goal**: A data-driven decision on whether to keep, merge, or deprecate the static NYC DOT volume-based traffic data, with SQL routing functions updated to reflect the chosen fallback chain.
@@ -73,8 +73,8 @@ Plans:
 | Phase | Plans Complete | Status | Completed |
 |-------|---------------|--------|-----------|
 | 17. Live Traffic Refresh | 2/2 | ✓ Complete | 2026-02-15 |
-| 18. Traffic Visualization | 0/2 | Planned | - |
+| 18. Traffic Visualization | 2/2 | ✓ Complete | 2026-02-15 |
 | 19. Volume Data Audit | 0/TBD | Not started | - |
 
 ---
-*Last updated: 2026-02-14 after Phase 18 planning complete (2 plans created)*
+*Last updated: 2026-02-15 after Phase 18 execution complete (2/2 plans, verification passed)*
