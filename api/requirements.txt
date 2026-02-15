@@ -14,7 +14,7 @@ pytz==2025.2
 shapely==2.0.7
 slowapi==0.1.9
 sqlalchemy==2.0.40
-tqdm==4.67.1
+tqdm==4.67.3
 uvicorn==0.34.0
 
 # Dev / linting
