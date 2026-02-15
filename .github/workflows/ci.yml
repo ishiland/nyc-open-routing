@@ -139,6 +139,7 @@ jobs:
       uses: docker/build-push-action@v6
       with:
         context: ./api
+        file: ./docker/dev/api.Dockerfile
         push: false
         load: true
         tags: nyc-open-routing-api:test
