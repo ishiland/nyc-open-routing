@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Milestone:** v4.0 Live Traffic
 **Phase:** 19 of 19 (Volume Data Audit)
-**Plan:** 1 of 2 complete
-**Status:** Executing
-**Last Activity:** 2026-02-15 — Plan 19-01 complete (coverage audit + report)
+**Plan:** 2 of 2 complete
+**Status:** Phase Complete
+**Last Activity:** 2026-02-15 — Plan 19-02 complete (SQL function updates)
 
-Progress: [██████░░░░] 67%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -34,6 +34,7 @@ Progress: [██████░░░░] 67%
 | 18-01 | Traffic Layer API | 2min | 2 | 2 |
 | 18-02 | Traffic Visualization Frontend | 3min | 3 | 8 |
 | 19-01 | Coverage Analysis + Audit Report | 4min | 2 | 2 |
+| 19-02 | SQL Function Updates | 3min | 2 | 1 |
 
 ## Accumulated Context
 
@@ -47,6 +48,7 @@ Archived to PROJECT.md Key Decisions table.
 - [Phase 18-02]: TrafficLayerContext positioned outside RoutingContextProvider to maintain independence from routing state
 - [Phase 18-02]: MIN_ZOOM=12 and 400ms debounce prevent excessive traffic data fetches; lastRefresh polling keeps layer current
 - **19-01:** DEPRECATE volume lookup from SQL routing functions -- 2.08% unique coverage does not justify 6 CASE/WHEN blocks with hardcoded thresholds across 3 functions; keep avg_traffic_by_segment table for future use
+- **19-02:** Kept _hour/_day_of_week params for backward compat; replaced dynamic SQL construction with static SQL; traffic cost = cost_drive * COALESCE(traffic_factor, 1.0)
 
 ### Pending Todos
 
@@ -59,9 +61,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 19-01-PLAN.md — ready for 19-02-PLAN.md execution
-Resume file: .planning/phases/19-volume-data-audit/19-01-SUMMARY.md
+Stopped at: Completed 19-02-PLAN.md — Phase 19 (Volume Data Audit) complete
+Resume file: .planning/phases/19-volume-data-audit/19-02-SUMMARY.md
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-15 after Plan 19-01 execution complete*
+*Last updated: 2026-02-15 after Plan 19-02 execution complete*
