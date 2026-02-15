@@ -4,7 +4,7 @@ Multi-modal routing for New York City using pgRouting and NYC's LION street netw
 
 ![NYC Open Routing — Drive route with live traffic layer across Manhattan](docs/images/hero.jpeg)
 
-![Python 3.11](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white) ![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-blue?logo=typescript&logoColor=white) ![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-336791?logo=postgresql&logoColor=white) ![pgRouting](https://img.shields.io/badge/pgRouting-3.8-green) ![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
+![CI](https://github.com/ishiland/nyc-open-routing/actions/workflows/ci.yml/badge.svg) ![Python 3.11](https://img.shields.io/badge/Python-3.11-blue?logo=python&logoColor=white) ![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white) ![TypeScript](https://img.shields.io/badge/TypeScript-blue?logo=typescript&logoColor=white) ![PostgreSQL 17](https://img.shields.io/badge/PostgreSQL-17-336791?logo=postgresql&logoColor=white) ![pgRouting](https://img.shields.io/badge/pgRouting-3.8-green) ![License: MIT](https://img.shields.io/badge/License-MIT-yellow)
 
 ## Features
 
