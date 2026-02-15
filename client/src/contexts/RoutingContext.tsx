@@ -24,8 +24,6 @@ export interface RoutingContextType {
   selectedStreet: RouteFeature | null
   useTraffic: boolean
   avoidFerries: boolean
-  trafficHour: number | null
-  trafficDayOfWeek: number | null
 
   // Waypoint state
   waypoints: IMapFeature[]
@@ -43,8 +41,6 @@ export interface RoutingContextType {
   setSelectedStreet: (street: RouteFeature | null) => void
   setUseTraffic: (useTraffic: boolean) => void
   setAvoidFerries: (avoidFerries: boolean) => void
-  setTrafficHour: (hour: number | null) => void
-  setTrafficDayOfWeek: (day: number | null) => void
 
   // Waypoint state modifiers
   addWaypoint: (waypoint: IMapFeature) => void
@@ -68,8 +64,6 @@ export const RoutingContext = createContext<RoutingContextType>({
   selectedStreet: null,
   useTraffic: true,
   avoidFerries: false,
-  trafficHour: null,
-  trafficDayOfWeek: null,
   waypoints: [],
   waypointRoute: null,
   startAddressInput: "",
@@ -81,8 +75,6 @@ export const RoutingContext = createContext<RoutingContextType>({
   setSelectedStreet: () => {},
   setUseTraffic: () => {},
   setAvoidFerries: () => {},
-  setTrafficHour: () => {},
-  setTrafficDayOfWeek: () => {},
   addWaypoint: () => {},
   removeWaypoint: () => {},
   updateWaypoint: () => {},
@@ -129,27 +121,6 @@ export function RoutingContextProvider({
       return false
     }
   })
-
-  // Traffic time parameters (null = use current time or static factors)
-  const [trafficHour, setTrafficHourState] = useState<number | null>(() => {
-    try {
-      const stored = localStorage.getItem("nyc-routing-traffic-hour")
-      return stored ? JSON.parse(stored) : null
-    } catch {
-      return null
-    }
-  })
-
-  const [trafficDayOfWeek, setTrafficDayOfWeekState] = useState<number | null>(
-    () => {
-      try {
-        const stored = localStorage.getItem("nyc-routing-traffic-day")
-        return stored ? JSON.parse(stored) : null
-      } catch {
-        return null
-      }
-    },
-  )
 
   const [waypoints, setWaypointsState] = useState<IMapFeature[]>([])
   const [waypointRoute, setWaypointRouteState] =
@@ -198,24 +169,6 @@ export function RoutingContextProvider({
   const setAvoidFerries = useCallback((value: boolean) => {
     setAvoidFerriesState(value)
     localStorage.setItem("nyc-routing-avoid-ferries", JSON.stringify(value))
-  }, [])
-
-  const setTrafficHour = useCallback((value: number | null) => {
-    setTrafficHourState(value)
-    if (value === null) {
-      localStorage.removeItem("nyc-routing-traffic-hour")
-    } else {
-      localStorage.setItem("nyc-routing-traffic-hour", JSON.stringify(value))
-    }
-  }, [])
-
-  const setTrafficDayOfWeek = useCallback((value: number | null) => {
-    setTrafficDayOfWeekState(value)
-    if (value === null) {
-      localStorage.removeItem("nyc-routing-traffic-day")
-    } else {
-      localStorage.setItem("nyc-routing-traffic-day", JSON.stringify(value))
-    }
   }, [])
 
   const setSelectedStreet = useCallback(
@@ -299,8 +252,6 @@ export function RoutingContextProvider({
       selectedStreet,
       useTraffic,
       avoidFerries,
-      trafficHour,
-      trafficDayOfWeek,
       waypoints,
       waypointRoute,
       startAddressInput,
@@ -312,8 +263,6 @@ export function RoutingContextProvider({
       setSelectedStreet,
       setUseTraffic,
       setAvoidFerries,
-      setTrafficHour,
-      setTrafficDayOfWeek,
       addWaypoint,
       removeWaypoint,
       updateWaypoint,
@@ -332,8 +281,6 @@ export function RoutingContextProvider({
       selectedStreet,
       useTraffic,
       avoidFerries,
-      trafficHour,
-      trafficDayOfWeek,
       waypoints,
       waypointRoute,
       startAddressInput,
@@ -345,8 +292,6 @@ export function RoutingContextProvider({
       setSelectedStreet,
       setUseTraffic,
       setAvoidFerries,
-      setTrafficHour,
-      setTrafficDayOfWeek,
       addWaypoint,
       removeWaypoint,
       updateWaypoint,

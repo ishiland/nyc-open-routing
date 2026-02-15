@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from fastapi import HTTPException
 from sqlalchemy import text
@@ -15,25 +15,22 @@ from models.schemas import (
     WaypointRouteSummary,
 )
 from utils.cache import get_route_cache
-from utils.clock import Clock
 from utils.geo import dump_geo, parse_coordinates
 
 logger = logging.getLogger(__name__)
 
 
 class RoutingService:
-    def __init__(self, db_engine: Engine, sql_queries: Dict[str, str], clock: Clock):
+    def __init__(self, db_engine: Engine, sql_queries: Dict[str, str]):
         """
         Initialize the routing service.
 
         Args:
             db_engine: SQLAlchemy engine for database access
             sql_queries: Dictionary of SQL queries
-            clock: Clock instance for time-based operations
         """
         self.engine = db_engine
         self.sql_queries = sql_queries
-        self.clock = clock
         self.cache = get_route_cache()
 
     def get_driving_route(
@@ -41,8 +38,6 @@ class RoutingService:
         orig: str,
         dest: str,
         use_traffic: bool = True,
-        hour: Optional[int] = None,
-        day_of_week: Optional[int] = None,
     ) -> RouteResponse:
         """
         Get a driving route between origin and destination coordinates.
@@ -51,9 +46,6 @@ class RoutingService:
             orig: Origin coordinates in "lon,lat" format
             dest: Destination coordinates in "lon,lat" format
             use_traffic: Whether to use traffic-aware routing (default: True)
-            hour: Hour of day for time-specific traffic (0-23), None = current time or static
-            day_of_week: Day of week for time-specific traffic
-                (1-7 Mon-Sun), None = current time or static
 
         Returns:
             RouteResponse containing GeoJSON Features representing the route segments
@@ -61,19 +53,7 @@ class RoutingService:
         Raises:
             HTTPException: If coordinates are invalid or error occurs
         """
-        # Default to current time if traffic is enabled but no time specified
-        if use_traffic and hour is None and day_of_week is None:
-            hour = self.clock.hour
-            # Convert Python weekday (0=Mon, 6=Sun) to SQL weekday (1=Mon, 7=Sun)
-            day_of_week = self.clock.day_of_week + 1
-            logger.info(f"Using current time for traffic: hour={hour}, day_of_week={day_of_week}")
-
-        # Check cache first (cache key includes time parameters for time-specific routes)
-        # Time-specific routes get unique cache keys to differentiate 168 time slots
-        if hour is not None and day_of_week is not None:
-            cache_key_suffix = f"traffic-h{hour}-d{day_of_week}" if use_traffic else "no-traffic"
-        else:
-            cache_key_suffix = "traffic-static" if use_traffic else "no-traffic"
+        cache_key_suffix = "traffic" if use_traffic else "no-traffic"
 
         cached_route = self.cache.get(orig, dest, f"drive-{cache_key_suffix}")
         if cached_route is not None:
@@ -91,11 +71,10 @@ class RoutingService:
         try:
             # Choose function based on use_traffic parameter
             if use_traffic:
-                # Traffic-aware routing (dynamic time-based or static)
+                # Traffic-aware routing using static traffic factors
                 sql = text(
                     "SELECT * FROM getdrivingroute_with_traffic"
-                    "(:orig_lat, :orig_lon, :dest_lat,"
-                    " :dest_lon, :hour, :day_of_week)"
+                    "(:orig_lat, :orig_lon, :dest_lat, :dest_lon)"
                 )
                 with self.engine.connect() as conn:
                     result = conn.execute(
@@ -105,8 +84,6 @@ class RoutingService:
                             "orig_lat": orig_lat,
                             "dest_lon": dest_lon,
                             "dest_lat": dest_lat,
-                            "hour": hour,
-                            "day_of_week": day_of_week,
                         },
                     )
                     rows = result.fetchall()
@@ -127,13 +104,8 @@ class RoutingService:
                     )
                     rows = result.fetchall()
 
-            time_info = (
-                f"hour={hour}, day={day_of_week}" if hour and day_of_week else "static/current"
-            )
             logger.info(
-                f"Found {len(rows)} route segments "
-                f"(traffic={'on' if use_traffic else 'off'}, "
-                f"{time_info})"
+                f"Found {len(rows)} route segments (traffic={'on' if use_traffic else 'off'})"
             )
 
             # Validate traffic data availability
@@ -171,9 +143,7 @@ class RoutingService:
             if use_traffic and ("traffic_factor" in str(e) or "avg_traffic_by_segment" in str(e)):
                 logger.warning("Traffic data not available, falling back to non-traffic routing")
                 # Retry without traffic
-                return self.get_driving_route(
-                    orig, dest, use_traffic=False, hour=None, day_of_week=None
-                )
+                return self.get_driving_route(orig, dest, use_traffic=False)
             raise HTTPException(status_code=500, detail="Error processing route request.")
 
         # Convert to GeoJSON Features
@@ -340,8 +310,6 @@ class RoutingService:
         mode: str,
         use_traffic: bool = True,
         avoid_ferries: bool = False,
-        hour: Optional[int] = None,
-        day_of_week: Optional[int] = None,
     ) -> WaypointRouteResponse:
         """
         Get a multi-stop route through a list of waypoints.
@@ -354,8 +322,6 @@ class RoutingService:
             mode: Travel mode ('drive', 'bike', 'walk')
             use_traffic: Whether to use traffic-aware routing (drive mode only)
             avoid_ferries: Whether to avoid ferry routes (bike/walk modes)
-            hour: Hour of day for time-specific traffic (0-23)
-            day_of_week: Day of week for time-specific traffic (1-7 Mon-Sun)
 
         Returns:
             WaypointRouteResponse with per-leg features and summaries
@@ -366,10 +332,7 @@ class RoutingService:
         # Build cache key
         waypoints_str = "|".join(waypoints)
         if mode == "drive":
-            if hour is not None and day_of_week is not None:
-                cache_suffix = f"traffic-h{hour}-d{day_of_week}" if use_traffic else "no-traffic"
-            else:
-                cache_suffix = "traffic-static" if use_traffic else "no-traffic"
+            cache_suffix = "traffic" if use_traffic else "no-traffic"
             cache_key = f"waypoint-drive-{cache_suffix}"
         elif mode == "bike":
             cache_key = "waypoint-bike-no-ferry" if avoid_ferries else "waypoint-bike"
@@ -395,9 +358,7 @@ class RoutingService:
 
                 # Dispatch to existing mode-specific methods
                 if mode == "drive":
-                    leg_response = self.get_driving_route(
-                        orig, dest, use_traffic=use_traffic, hour=hour, day_of_week=day_of_week
-                    )
+                    leg_response = self.get_driving_route(orig, dest, use_traffic=use_traffic)
                 elif mode == "bike":
                     leg_response = self.get_biking_route(orig, dest, avoid_ferries=avoid_ferries)
                 elif mode == "walk":

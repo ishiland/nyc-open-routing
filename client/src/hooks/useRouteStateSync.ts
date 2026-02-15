@@ -7,22 +7,17 @@ interface RouteStateSyncProps {
   mode: TravelMode
   useTraffic: boolean
   avoidFerries: boolean
-  trafficHour: number | null
-  trafficDayOfWeek: number | null
   setAddress: (feature: IMapFeature, type: "start" | "end") => void
   setMode: (mode: TravelMode) => void
   setUseTraffic: (useTraffic: boolean) => void
   setAvoidFerries: (avoidFerries: boolean) => void
-  setTrafficHour: (hour: number | null) => void
-  setTrafficDayOfWeek: (day: number | null) => void
 }
 
 /**
  * Hook to sync routing state with URL parameters
  * Enables deep linking and route sharing
  *
- * URL format v3: /?start=-74.0060,40.7128&startAddr=Times+Square&end=-73.9352,40.7306&endAddr=Central+Park&mode=drive&traffic=true&hour=14&day=3
- * URL format v2: /?start=-74.0060,40.7128&startAddr=Times+Square&end=-73.9352,40.7306&endAddr=Central+Park&mode=bike&traffic=true
+ * URL format: /?start=-74.0060,40.7128&startAddr=Times+Square&end=-73.9352,40.7306&endAddr=Central+Park&mode=drive&traffic=true
  * Legacy format: /?start=-74.0060,40.7128&end=-73.9352,40.7306&mode=bike (still supported)
  */
 export const useRouteStateSync = ({
@@ -31,14 +26,10 @@ export const useRouteStateSync = ({
   mode,
   useTraffic,
   avoidFerries,
-  trafficHour,
-  trafficDayOfWeek,
   setAddress,
   setMode,
   setUseTraffic,
   setAvoidFerries,
-  setTrafficHour,
-  setTrafficDayOfWeek,
 }: RouteStateSyncProps) => {
   const isInitialized = useRef(false)
 
@@ -63,20 +54,6 @@ export const useRouteStateSync = ({
     // Restore traffic preference (only relevant for drive mode)
     if (trafficParam !== null) {
       setUseTraffic(trafficParam === "true")
-    }
-
-    // Restore traffic time parameters (optional, only for drive mode)
-    const hourParam = params.get("hour")
-    const dayParam = params.get("day")
-    if (hourParam !== null && dayParam !== null) {
-      const hour = parseInt(hourParam, 10)
-      const day = parseInt(dayParam, 10)
-      if (!isNaN(hour) && hour >= 0 && hour <= 23) {
-        setTrafficHour(hour)
-      }
-      if (!isNaN(day) && day >= 1 && day <= 7) {
-        setTrafficDayOfWeek(day)
-      }
     }
 
     // Restore ferry avoidance preference
@@ -157,12 +134,6 @@ export const useRouteStateSync = ({
     // Add traffic preference (only for drive mode)
     if (mode === "drive") {
       params.set("traffic", String(useTraffic))
-
-      // Add time parameters if set (only for drive mode with traffic)
-      if (useTraffic && trafficHour !== null && trafficDayOfWeek !== null) {
-        params.set("hour", String(trafficHour))
-        params.set("day", String(trafficDayOfWeek))
-      }
     }
 
     // Add ferry avoidance preference (only for bike/walk modes)
@@ -185,8 +156,6 @@ export const useRouteStateSync = ({
     mode,
     useTraffic,
     avoidFerries,
-    trafficHour,
-    trafficDayOfWeek,
   ])
 
   // Function to copy current route URL to clipboard

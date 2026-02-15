@@ -12,8 +12,6 @@ interface UseWaypointRouteFetchArgs {
   mode: TravelMode
   useTraffic: boolean
   avoidFerries: boolean
-  trafficHour: number | null
-  trafficDayOfWeek: number | null
   setWaypointRoute: (route: WaypointRouteResponse | null) => void
   setRoute: (route: null) => void // To clear regular route when using waypoints
   setSelectedStreet: (street: null) => void
@@ -27,8 +25,6 @@ export const useWaypointRouteFetch = ({
   mode,
   useTraffic,
   avoidFerries,
-  trafficHour,
-  trafficDayOfWeek,
   setWaypointRoute,
   setRoute,
   setSelectedStreet,
@@ -95,9 +91,6 @@ export const useWaypointRouteFetch = ({
         let url = `/api/route/waypoints?waypoints=${waypointsParam}&mode=${mode}`
         if (mode === "drive") {
           url += `&use_traffic=${useTraffic}`
-          if (useTraffic && trafficHour !== null && trafficDayOfWeek !== null) {
-            url += `&hour=${trafficHour}&day_of_week=${trafficDayOfWeek}`
-          }
         }
         if (mode === "bike" || mode === "walk") {
           url += `&avoid_ferries=${avoidFerries}`
@@ -175,8 +168,6 @@ export const useWaypointRouteFetch = ({
     mode,
     useTraffic,
     avoidFerries,
-    trafficHour,
-    trafficDayOfWeek,
     setWaypointRoute,
     setRoute,
     setSelectedStreet,

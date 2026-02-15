@@ -18,14 +18,10 @@ export const RouteStateManager: React.FC<{ children: React.ReactNode }> = ({
     mode,
     useTraffic,
     avoidFerries,
-    trafficHour,
-    trafficDayOfWeek,
     setAddress,
     setMode,
     setUseTraffic,
     setAvoidFerries,
-    setTrafficHour,
-    setTrafficDayOfWeek,
     setRoute,
     setSelectedStreet,
   } = useContext(RoutingContext)
@@ -42,14 +38,10 @@ export const RouteStateManager: React.FC<{ children: React.ReactNode }> = ({
     mode,
     useTraffic,
     avoidFerries,
-    trafficHour,
-    trafficDayOfWeek,
     setAddress,
     setMode,
     setUseTraffic,
     setAvoidFerries,
-    setTrafficHour,
-    setTrafficDayOfWeek,
   })
 
   // Get route fetching capability
@@ -59,8 +51,6 @@ export const RouteStateManager: React.FC<{ children: React.ReactNode }> = ({
     mode,
     useTraffic,
     avoidFerries,
-    trafficHour,
-    trafficDayOfWeek,
     setRoute,
     setSelectedStreet,
     displayMessage,
