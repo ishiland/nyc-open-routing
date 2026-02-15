@@ -49,7 +49,7 @@ class IsochroneService:
             )
 
         # Cache key
-        intervals_str = ",".join(str(int(i)) for i in intervals)
+        intervals_str = ",".join(str(i) for i in intervals)
         if mode == "drive" and use_traffic:
             cache_suffix = f"iso-traffic-h{hour}-d{day_of_week}"
         else:
@@ -173,7 +173,7 @@ class IsochroneService:
             )
 
         # Cache key (separate prefix to avoid collisions with polygon cache)
-        intervals_str = ",".join(str(int(i)) for i in intervals)
+        intervals_str = ",".join(str(i) for i in intervals)
         if mode == "drive" and use_traffic:
             cache_suffix = f"iso-edges-traffic-h{hour}-d{day_of_week}"
         else:

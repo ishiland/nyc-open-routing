@@ -470,6 +470,10 @@ class TrafficRefreshService:
                         )
                     WHERE gap_e.traffic_factor = 1.0
                       AND gap_e.driveable = TRUE
+                      AND gap_e.id NOT IN (
+                          SELECT edge_id
+                          FROM _traffic_factor_staging
+                      )
                     GROUP BY gap_e.id
                 ) neighbor
                 WHERE gap.id = neighbor.id;
