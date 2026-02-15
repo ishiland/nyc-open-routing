@@ -14,4 +14,54 @@
 
 ---
 
-*Last updated: 2026-02-15 after v4.1 milestone archived*
+## v4.2 Developer Experience
+
+**Milestone Goal:** Remove leftover cruft and add developer onboarding tools so a new contributor can clone, build, and understand the architecture quickly.
+
+### Phases
+
+- [ ] **Phase 23: Repo Cleanup** - Remove duplicate Dockerfiles, stale artifacts, and fix outdated references
+- [ ] **Phase 24: Developer Onboarding** - Top-level Makefile and architecture documentation
+
+### Phase Details
+
+#### Phase 23: Repo Cleanup
+**Goal**: The repo contains only files that are actively used, with no stale references pointing to things that don't exist
+**Depends on**: Nothing (first phase of v4.2)
+**Requirements**: CLN-01, CLN-02, CLN-03, CLN-04
+**Success Criteria** (what must be TRUE):
+  1. `docs/traffic-audit-report.md` no longer exists in the repo
+  2. `client/Dockerfile` and `api/Dockerfile` no longer exist in the repo
+  3. `docker-compose.yml` contains no comments referencing non-existent files
+  4. All services still build and start successfully with `docker-compose up`
+**Plans**: TBD
+
+Plans:
+- [ ] 23-01: Remove stale files and fix references
+
+#### Phase 24: Developer Onboarding
+**Goal**: A new contributor can build/test/lint the entire project with simple make commands and understand the system architecture from a single document
+**Depends on**: Phase 23 (clean repo before documenting)
+**Requirements**: DX-01, DOC-01
+**Success Criteria** (what must be TRUE):
+  1. Running `make build` from the repo root builds all Docker services
+  2. Running `make test` from the repo root runs both API and client test suites
+  3. Running `make lint` from the repo root lints both API and client code
+  4. `docs/ARCHITECTURE.md` exists and covers data flow, import pipeline, routing algorithm, and key SQL functions
+  5. `docs/ARCHITECTURE.md` is 1-2 pages (concise, not exhaustive)
+**Plans**: TBD
+
+Plans:
+- [ ] 24-01: Create top-level Makefile
+- [ ] 24-02: Write architecture documentation
+
+### Progress
+
+| Phase | Milestone | Plans Complete | Status | Completed |
+|-------|-----------|----------------|--------|-----------|
+| 23. Repo Cleanup | v4.2 | 0/1 | Not started | - |
+| 24. Developer Onboarding | v4.2 | 0/2 | Not started | - |
+
+---
+
+*Last updated: 2026-02-15 after v4.2 roadmap created*

@@ -38,18 +38,18 @@ None — this is a cleanup milestone.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CLN-01 | TBD | Pending |
-| CLN-02 | TBD | Pending |
-| CLN-03 | TBD | Pending |
-| CLN-04 | TBD | Pending |
-| DX-01 | TBD | Pending |
-| DOC-01 | TBD | Pending |
+| CLN-01 | Phase 23 | Pending |
+| CLN-02 | Phase 23 | Pending |
+| CLN-03 | Phase 23 | Pending |
+| CLN-04 | Phase 23 | Pending |
+| DX-01 | Phase 24 | Pending |
+| DOC-01 | Phase 24 | Pending |
 
 **Coverage:**
 - v4.2 requirements: 6 total
-- Mapped to phases: 0 (pending roadmap)
-- Unmapped: 6
+- Mapped to phases: 6
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-02-15*
-*Last updated: 2026-02-15 after initial definition*
+*Last updated: 2026-02-15 after roadmap created*
