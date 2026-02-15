@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 **Milestone:** v4.1 GitHub Polish
-**Phase:** 21-readme-polish-changelog-repo-metadata (Plan 2/2 complete)
-**Status:** Phase complete
-**Last Activity:** 2026-02-15 — Completed 21-01 (CI badge + repo metadata)
+**Phase:** Phase 22 in progress (Plan 1 of 2 complete)
+**Status:** Executing Phase 22 - Dependabot Triage
+**Last Activity:** 2026-02-15 — 22-01 complete (removed unused gunicorn dependency)
 
 ## Performance Metrics
 
@@ -33,6 +33,7 @@ Archived to PROJECT.md Key Decisions table.
 
 - 21-01: Used native GitHub Actions badge format for CI status (not shields.io wrapper)
 - 21-01: Added 12 new GitHub topics, preserved 2 existing (lion, geosupport) for 14 total
+- 22-01: Removed gunicorn entirely rather than upgrading since uvicorn is the project's ASGI server
 
 ### Pending Todos
 
@@ -45,9 +46,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 21-01-PLAN.md (CI badge + repo metadata)
-Resume file: .planning/phases/21-readme-polish-changelog-repo-metadata/21-01-SUMMARY.md
+Stopped at: Completed 22-01-PLAN.md
+Resume file: .planning/ROADMAP.md
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-15 after 21-01 plan completed*
+*Last updated: 2026-02-15 after 22-01 completed*
