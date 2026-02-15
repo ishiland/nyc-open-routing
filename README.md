@@ -48,14 +48,6 @@ Multi-modal routing for New York City using pgRouting and NYC's LION street netw
 <p align="center"><strong>Edge-based isochrones</strong></p>
 </td>
 </tr>
-<tr>
-<td width="50%">
-<img src="docs/images/mobile.jpeg" alt="Responsive mobile layout with bottom sheet" width="100%">
-<p align="center"><strong>Responsive mobile layout</strong></p>
-</td>
-<td width="50%">
-</td>
-</tr>
 </table>
 
 ## Quick Start
