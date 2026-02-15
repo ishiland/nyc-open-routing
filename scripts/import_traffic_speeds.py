@@ -306,7 +306,7 @@ def main():
                     logger.error(
                         "edges table or geom_4326 column not found. "
                         "Run the full import first: "
-                        "docker compose exec api sh /data-imports/import-lion.sh 25a"
+                        "docker compose exec api sh /data-imports/import-lion.sh 25d"
                     )
                     sys.exit(1)
 

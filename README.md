@@ -71,7 +71,7 @@ docker compose up -d
 Import the LION street network (takes 10-30 minutes on first run):
 
 ```bash
-docker compose exec api sh /data-imports/import-lion.sh 25a
+docker compose exec api sh /data-imports/import-lion.sh 25d
 ```
 
 Navigate to [http://localhost:3002](http://localhost:3002) when the import completes. Traffic data is fetched automatically at runtime by the background traffic refresh service.

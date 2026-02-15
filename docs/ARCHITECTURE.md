@@ -33,7 +33,7 @@ Address search uses NYC's Geosupport geocoder (via `python-geosupport`) to conve
 The street network is built from NYC's LION dataset (Department of City Planning). The import runs once on first setup:
 
 ```bash
-make import  # or: docker compose exec api sh /data-imports/import-lion.sh 25a
+make import  # or: docker compose exec api sh /data-imports/import-lion.sh 25d
 ```
 
 `import-lion.sh` downloads LION, loads it via `create_network.py`, then runs 9 SQL phases:

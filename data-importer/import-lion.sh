@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-DEFAULT_LION="25a"
+DEFAULT_LION="25d"
 
 
 print_usage() {
@@ -35,8 +35,8 @@ echo "Attempting to import LION $LION"
 if [ ! -d "/data-imports/data/lion_${LION}" ]; then
   echo "Downloading LION data version $LION..."
   mkdir -p "/data-imports/data/lion_${LION}"
-  # example url: https://s-media.nyc.gov/agencies/dcp/assets/files/zip/data-tools/bytes/nyclion_23a.zip
-  curl -o /data-imports/data/lion_"${LION}"/lion.zip https://s-media.nyc.gov/agencies/dcp/assets/files/zip/data-tools/bytes/nyclion_"${LION}".zip &&
+  # example url: https://s-media.nyc.gov/agencies/dcp/assets/files/zip/data-tools/bytes/lion/nyclion_25d.zip
+  curl -L -o /data-imports/data/lion_"${LION}"/lion.zip https://s-media.nyc.gov/agencies/dcp/assets/files/zip/data-tools/bytes/lion/nyclion_"${LION}".zip &&
     unzip /data-imports/data/lion_"${LION}"/lion.zip -d /data-imports/data/lion_"${LION}" &&
     rm /data-imports/data/lion_"${LION}"/lion.zip
 fi

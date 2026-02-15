@@ -38,7 +38,7 @@ format-client: ## Format client code (prettier)
 	docker compose exec client npm run format
 
 import: ## Import LION street data (first run, ~10-30 min)
-	docker compose exec api sh /data-imports/import-lion.sh 25a
+	docker compose exec api sh /data-imports/import-lion.sh 25d
 
 db: ## Open database shell (psql)
 	docker compose exec db psql -U postgres -d routing

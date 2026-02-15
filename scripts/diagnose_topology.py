@@ -673,7 +673,7 @@ def main():
             print(
                 "ERROR: Required tables (edges, edges_vertices_pgr) not found.\n"
                 "Run the LION data import first:\n"
-                "  docker compose exec api sh /data-imports/import-lion.sh 25a",
+                "  docker compose exec api sh /data-imports/import-lion.sh 25d",
                 file=sys.stderr,
             )
             conn.close()
