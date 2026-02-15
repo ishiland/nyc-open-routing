@@ -27,7 +27,7 @@ if [ ! -d "${INSTALL_DIR}/${geosupport_directory}" ]; then
   echo "Installing Geosupport version ${GEOSUPPORT} to ${INSTALL_DIR}/${geosupport_directory}..."
   # Build URL endpoint (e.g., linux_geo25a_25.1.zip)
   url_endpoint="linux_geo${GEOSUPPORT}_${GEOSUPPORT:0:2}.${version_number}.zip"
-  request_url="https://s-media.nyc.gov/agencies/dcp/assets/files/zip/data-tools/bytes/${url_endpoint}"
+  request_url="https://s-media.nyc.gov/agencies/dcp/assets/files/zip/data-tools/bytes/geosupport/${url_endpoint}"
   echo "Request URL for Geosupport: ${request_url}"
   
   curl -L -o "$INSTALL_DIR/geosupport.zip" "${request_url}" &&
