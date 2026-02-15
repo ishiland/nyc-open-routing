@@ -3,6 +3,8 @@ import React, { Suspense, lazy } from "react"
 import { ErrorBoundary } from "react-error-boundary"
 import MessageContextProvider from "./contexts/MessageContext"
 import { RoutingContextProvider } from "./contexts/RoutingContext"
+import { IsochroneContextProvider } from "./contexts/IsochroneContext"
+import { TrafficLayerContextProvider } from "./contexts/TrafficLayerContext"
 import { MapInstanceProvider } from "./contexts/MapInstanceContext"
 import { ErrorFallback } from "./components/shared/ErrorFallback"
 import { SkipLink } from "./components/shared/SkipLink"
@@ -27,20 +29,24 @@ const App: React.FC = () => {
       <SkipLink />
       <DismissibleBanner />
       <MessageContextProvider>
-        <RoutingContextProvider>
-          <RouteStateManager>
-            <MapInstanceProvider>
-              <Suspense
-                fallback={<LoadingSpinner message="Loading application..." />}
-              >
-                <AdaptiveLayout
-                  sidebar={<Sidebar />}
-                  map={<MapLibreGLMap />}
-                />
-              </Suspense>
-            </MapInstanceProvider>
-          </RouteStateManager>
-        </RoutingContextProvider>
+        <TrafficLayerContextProvider>
+          <IsochroneContextProvider>
+            <RoutingContextProvider>
+              <RouteStateManager>
+                <MapInstanceProvider>
+                  <Suspense
+                    fallback={<LoadingSpinner message="Loading application..." />}
+                  >
+                    <AdaptiveLayout
+                      sidebar={<Sidebar />}
+                      map={<MapLibreGLMap />}
+                    />
+                  </Suspense>
+                </MapInstanceProvider>
+              </RouteStateManager>
+            </RoutingContextProvider>
+          </IsochroneContextProvider>
+        </TrafficLayerContextProvider>
       </MessageContextProvider>
     </ErrorBoundary>
   )

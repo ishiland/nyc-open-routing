@@ -16,6 +16,7 @@ import {
 } from "../utils/style"
 import { RoutingContext } from "../contexts/RoutingContext"
 import { IsochroneContext } from "../contexts/IsochroneContext"
+import { TrafficLayerContext } from "../contexts/TrafficLayerContext"
 import { MapInstanceContext } from "../contexts/MapInstanceContext"
 import { IMapFeature } from "../types/interfaces"
 import {
@@ -30,6 +31,9 @@ import { removeMapLayerAndSource, enforceLayerOrder } from "../utils/mapHelpers"
 import debug from "../utils/debug"
 import { ZoomToRouteButton } from "./controls/ZoomToRouteButton"
 import { MapControls } from "./controls/MapControls"
+import { TrafficLayerToggle } from "./controls/TrafficLayerToggle"
+import { useTrafficLayer } from "../hooks/useTrafficLayer"
+import { useTrafficStatus } from "../hooks/useTrafficStatus"
 
 const styles: React.CSSProperties = {
   height: "100dvh",
@@ -51,6 +55,7 @@ const MapLibreGLMap: React.FC = () => {
   } = useContext(RoutingContext)
 
   const { appMode, isochrone, isochroneView } = useContext(IsochroneContext)
+  const { trafficGeoJson } = useContext(TrafficLayerContext)
 
   const { setMap: setMapInstance } = useContext(MapInstanceContext)
 
@@ -159,6 +164,10 @@ const MapLibreGLMap: React.FC = () => {
       },
     })) as IMapFeature[]
   }, [waypoints])
+
+  // Traffic layer (managed by hook — fetches on moveend, renders via useGeoJsonLayer)
+  useTrafficLayer()
+  useTrafficStatus()
 
   // Layer ordering: hooks are declared bottom-to-top.
   // enforceLayerOrder() (below) corrects z-order after every data change.
@@ -323,7 +332,7 @@ const MapLibreGLMap: React.FC = () => {
   useEffect(() => {
     if (!map) return
     enforceLayerOrder(map)
-  }, [map, isochronePolygonFeatures, isochroneEdgeFeatures, routeFeatures, startAddress, endAddress, appMode, waypointMarkerFeatures])
+  }, [map, isochronePolygonFeatures, isochroneEdgeFeatures, routeFeatures, startAddress, endAddress, appMode, waypointMarkerFeatures, trafficGeoJson])
 
   // Debug logging for address markers
   useEffect(() => {
@@ -428,6 +437,7 @@ const MapLibreGLMap: React.FC = () => {
     <div ref={mapContainer} style={styles}>
       <MapControls />
       <ZoomToRouteButton />
+      <TrafficLayerToggle />
     </div>
   )
 }
