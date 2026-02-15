@@ -57,10 +57,10 @@ BEGIN
 
         -- Report progress every 50K rows instead of every 10K
         IF processed % 50000 = 0 OR processed >= total_rows THEN
-            RAISE NOTICE '  Transforming geometries: % / % (%.0f%%)',
+            RAISE NOTICE '  Transforming geometries: % / % (%)',
                 LEAST(processed, total_rows),
                 total_rows,
-                (LEAST(processed, total_rows)::FLOAT / total_rows * 100);
+                ROUND(LEAST(processed, total_rows)::NUMERIC / total_rows * 100, 1) || '%';
         END IF;
     END LOOP;
 END $$;
@@ -128,8 +128,8 @@ BEGIN
     SELECT geom_4326 IS NOT NULL INTO trigger_working FROM edges WHERE id = test_id;
 
     -- Report summary
-    RAISE NOTICE 'Cached geometries: % edges transformed (%.1f%%), table size: %',
-        populated_count, pct_populated, table_size;
+    RAISE NOTICE 'Cached geometries: % edges transformed (%), table size: %',
+        populated_count, ROUND(pct_populated, 1) || '%', table_size;
 
     IF trigger_working THEN
         RAISE NOTICE 'Trigger validation: PASSED (geom_4326 auto-maintained on updates)';

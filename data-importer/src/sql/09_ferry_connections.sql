@@ -27,7 +27,7 @@
 -- Real-World Validation: The Staten Island Ferry allows bicycles as walk-on
 --                        passengers, making bike/walk routing via ferry valid.
 --
--- Related: docs/STATEN_ISLAND_CONNECTIVITY_ISSUE.md
+-- Related: See Part B comments below for SI ferry workaround details
 -- ============================================================================
 
 -- Record the max vertex ID before any changes (used at end for accessibility update)
@@ -150,9 +150,9 @@ DROP TABLE IF EXISTS ferry_node_mapping;
 -- ============================================================================
 -- Part B: Staten Island Ferry Terminal Connections
 -- ============================================================================
--- LION 25a contains a route labeled "STATEN ISLAND FERRY ROUTE" but it
+-- LION contains a route labeled "STATEN ISLAND FERRY ROUTE" but it
 -- connects Brooklyn (Red Hook) to Manhattan, not Staten Island to Manhattan.
--- No ferry routes in LION 25a reach Staten Island, leaving it isolated for
+-- No ferry routes in LION reach Staten Island, leaving it isolated for
 -- bike/walk modes. This section creates manual connections.
 -- ============================================================================
 
@@ -453,8 +453,7 @@ BEGIN
 
     RAISE NOTICE 'Staten Island Ferry: % total ferry edges, % SI terminal nodes created', ferry_edge_count, terminal_count;
     RAISE NOTICE 'Ferry topology isolation: % isolation vertices created', isolation_vertex_count;
-    RAISE NOTICE 'Note: Workaround for LION 25a data issue (40 min crossing: 25 min travel + 15 min wait)';
-    RAISE NOTICE 'See docs/STATEN_ISLAND_CONNECTIVITY_ISSUE.md for details';
+    RAISE NOTICE 'Note: SI ferry workaround for missing LION data (40 min crossing: 25 min travel + 15 min wait)';
 END $$;
 
 -- Clean up temp tables

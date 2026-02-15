@@ -108,7 +108,7 @@ BEGIN
     pct_bikeable := ROUND(100.0 * bikeable_count / total_vertices, 1);
     pct_walkable := ROUND(100.0 * walkable_count / total_vertices, 1);
 
-    RAISE NOTICE 'Vertex accessibility: % total (%.1f%% driveable, %.1f%% bikeable, %.1f%% walkable)',
-        total_vertices, pct_driveable, pct_bikeable, pct_walkable;
+    RAISE NOTICE 'Vertex accessibility: % total (% driveable, % bikeable, % walkable)',
+        total_vertices, pct_driveable || '%', pct_bikeable || '%', pct_walkable || '%';
     RAISE NOTICE 'Partial indexes created for optimized mode-specific node snapping';
 END $$;
