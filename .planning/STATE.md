@@ -10,9 +10,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 ## Current Position
 
 **Milestone:** v4.1 GitHub Polish
-**Phase:** Phase 22 in progress (Plan 1 of 2 complete)
-**Status:** Executing Phase 22 - Dependabot Triage
-**Last Activity:** 2026-02-15 — 22-01 complete (removed unused gunicorn dependency)
+**Phase:** Phase 22 complete (2 of 2 plans done)
+**Status:** Phase 22 complete
+**Last Activity:** 2026-02-15 — 22-02 complete (ESLint CRA migration, lockfile cleanup)
 
 ## Performance Metrics
 
@@ -34,6 +34,8 @@ Archived to PROJECT.md Key Decisions table.
 - 21-01: Used native GitHub Actions badge format for CI status (not shields.io wrapper)
 - 21-01: Added 12 new GitHub topics, preserved 2 existing (lion, geosupport) for 14 total
 - 22-01: Removed gunicorn entirely rather than upgrading since uvicorn is the project's ASGI server
+- 22-02: Replaced eslint-config-react-app with direct typescript-eslint + react-hooks plugins
+- 22-02: Dropped eslint-plugin-import and eslint-plugin-react to minimize transitive deps
 
 ### Pending Todos
 
@@ -46,9 +48,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Completed 22-01-PLAN.md
+Stopped at: Phase 22 complete (all plans done)
 Resume file: .planning/ROADMAP.md
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-15 after 22-01 completed*
+*Last updated: 2026-02-15 after 22-02 completed*
