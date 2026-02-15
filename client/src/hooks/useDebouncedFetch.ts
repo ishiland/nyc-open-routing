@@ -141,7 +141,6 @@ function useDebouncedFetch<T>({
       return
     }
 
-    let timeoutId: NodeJS.Timeout
     let abortController: AbortController | null = null
 
     const fetchData = async () => {
@@ -219,7 +218,7 @@ function useDebouncedFetch<T>({
     }
 
     // Set up debounce timeout
-    timeoutId = setTimeout(fetchData, delay)
+    const timeoutId = setTimeout(fetchData, delay)
 
     // Cleanup function
     return () => {
