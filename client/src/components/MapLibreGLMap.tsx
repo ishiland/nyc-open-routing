@@ -75,27 +75,6 @@ const MapLibreGLMap: React.FC = () => {
     defaultZoom: NYC_DEFAULT_ZOOM,
   })
 
-  // Determine if route has traffic data
-  const hasTrafficData = route?.features?.some(
-    f =>
-      f.properties?.traffic_factor !== undefined &&
-      f.properties?.traffic_factor !== null,
-  )
-
-  // Memoize paint objects to prevent unnecessary re-renders
-  const routePaintStyle = useMemo(
-    () => (hasTrafficData ? getTrafficRoutePaint() : getModeRoutePaint(mode)),
-    [hasTrafficData, mode],
-  )
-
-  const routeLayerOptions = useMemo(
-    () => ({
-      type: "line" as const,
-      paint: routePaintStyle,
-    }),
-    [routePaintStyle],
-  )
-
   const haloLayerOptions = useMemo(
     () => ({
       type: "line" as const,
@@ -170,6 +149,27 @@ const MapLibreGLMap: React.FC = () => {
       },
     })) as IMapFeature[]
   }, [waypoints])
+
+  // Determine if route has traffic data (checks unified routeFeatures for both
+  // regular and waypoint routes)
+  const hasTrafficData = routeFeatures?.some(
+    f =>
+      f.properties?.traffic_factor !== undefined &&
+      f.properties?.traffic_factor !== null,
+  )
+
+  const routePaintStyle = useMemo(
+    () => (hasTrafficData ? getTrafficRoutePaint() : getModeRoutePaint(mode)),
+    [hasTrafficData, mode],
+  )
+
+  const routeLayerOptions = useMemo(
+    () => ({
+      type: "line" as const,
+      paint: routePaintStyle,
+    }),
+    [routePaintStyle],
+  )
 
   // Traffic layer (managed by hook — fetches on moveend, renders via useGeoJsonLayer)
   useTrafficLayer()

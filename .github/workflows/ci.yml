@@ -6,9 +6,37 @@ on:
   pull_request:
     branches: [ master ]
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-latest
+    outputs:
+      client: ${{ steps.filter.outputs.client }}
+      api: ${{ steps.filter.outputs.api }}
+      docker: ${{ steps.filter.outputs.docker }}
+    steps:
+    - uses: actions/checkout@v4
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          client:
+            - 'client/**'
+          api:
+            - 'api/**'
+          docker:
+            - 'api/**'
+            - 'docker/**'
+            - 'docker-compose.yml'
+
   client:
     name: Client CI
+    needs: changes
+    if: needs.changes.outputs.client == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -43,6 +71,8 @@ jobs:
 
   api:
     name: API CI
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
 
     steps:
@@ -91,7 +121,8 @@ jobs:
   docker:
     name: Docker Build and Smoke Test
     runs-on: ubuntu-latest
-    needs: [api]
+    needs: [changes, api]
+    if: always() && needs.changes.outputs.docker == 'true' && needs.api.result != 'failure'
 
     steps:
     - uses: actions/checkout@v4
