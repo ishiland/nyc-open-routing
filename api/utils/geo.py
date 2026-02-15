@@ -1,13 +1,15 @@
-from shapely import wkb, geometry
-from typing import Optional, Dict, Any
+from typing import Any, Dict, Optional
+
+from shapely import geometry, wkb
+
 
 def dump_geo(data: Optional[str]) -> Optional[Dict[str, Any]]:
     """
     Convert a WKB hex string to a GeoJSON-like mapping.
-    
+
     Args:
         data: WKB hex string representing geometry
-        
+
     Returns:
         GeoJSON-compatible dictionary or None if data is None
     """
@@ -15,6 +17,7 @@ def dump_geo(data: Optional[str]) -> Optional[Dict[str, Any]]:
         return None
     p = wkb.loads(data, hex=True)
     return geometry.mapping(p)
+
 
 def parse_coordinates(coord_string: str) -> tuple[float, float]:
     """
@@ -34,7 +37,7 @@ def parse_coordinates(coord_string: str) -> tuple[float, float]:
         ValueError: If the format is invalid or coordinates are out of bounds
     """
     try:
-        lon, lat = map(float, coord_string.split(','))
+        lon, lat = map(float, coord_string.split(","))
     except ValueError:
         raise ValueError("Invalid coordinate format. Expected 'longitude,latitude'")
 
@@ -45,4 +48,4 @@ def parse_coordinates(coord_string: str) -> tuple[float, float]:
     if not (-74.3 <= lon <= -73.7):
         raise ValueError(f"Longitude {lon} is outside NYC bounds (-74.3 to -73.7)")
 
-    return lon, lat 
+    return lon, lat

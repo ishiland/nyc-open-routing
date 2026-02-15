@@ -1,10 +1,12 @@
 import logging
 import time
 import uuid
+
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
 
 logger = logging.getLogger(__name__)
+
 
 class RequestLoggingMiddleware(BaseHTTPMiddleware):
     """
@@ -30,7 +32,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                 "path": request.url.path,
                 "query_params": dict(request.query_params),
                 "client_ip": request.client.host if request.client else None,
-            }
+            },
         )
 
         # Time the request
@@ -49,7 +51,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "path": request.url.path,
                     "status_code": response.status_code,
                     "duration_ms": round(duration_ms, 2),
-                }
+                },
             )
 
             # Add correlation ID to response headers
@@ -67,6 +69,6 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "error": str(e),
                     "duration_ms": round(duration_ms, 2),
                 },
-                exc_info=True
+                exc_info=True,
             )
             raise

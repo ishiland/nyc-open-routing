@@ -51,9 +51,7 @@ class TrafficRefreshService:
             "enabled": True,
             "data_loaded": self._data_loaded,
             "last_refresh": (
-                self._last_refresh_time.isoformat()
-                if self._last_refresh_time
-                else None
+                self._last_refresh_time.isoformat() if self._last_refresh_time else None
             ),
             "last_success": self._last_success,
             "last_error": self._last_error,
@@ -88,15 +86,13 @@ class TrafficRefreshService:
         """Startup load with retry logic (up to MAX_STARTUP_RETRIES)."""
         for attempt in range(1, self.MAX_STARTUP_RETRIES + 1):
             try:
-                await asyncio.to_thread(
-                    self._do_refresh_cycle, propagation_rounds=5
-                )
+                await asyncio.to_thread(self._do_refresh_cycle, propagation_rounds=5)
                 self._data_loaded = True
                 logger.info("Initial traffic data loaded successfully")
                 return
             except Exception as e:
                 if attempt < self.MAX_STARTUP_RETRIES:
-                    delay = 2 ** attempt
+                    delay = 2**attempt
                     logger.warning(
                         f"Startup traffic load attempt {attempt} failed: "
                         f"{e}. Retrying in {delay}s..."
@@ -133,15 +129,10 @@ class TrafficRefreshService:
             # Step 1: Fetch speed data from Socrata API
             t0 = time.monotonic()
             records = self._fetch_latest_speeds()
-            logger.info(
-                f"Fetched {len(records)} speed records in "
-                f"{time.monotonic() - t0:.1f}s"
-            )
+            logger.info(f"Fetched {len(records)} speed records in " f"{time.monotonic() - t0:.1f}s")
 
             if not records:
-                logger.warning(
-                    "No speed records returned from API — skipping cycle"
-                )
+                logger.warning("No speed records returned from API — skipping cycle")
                 return
 
             # Step 2: Open connection and run all DB work in one transaction
@@ -151,30 +142,20 @@ class TrafficRefreshService:
             # Stage speed records
             t0 = time.monotonic()
             staged = self._create_speed_staging(cur, records)
-            logger.info(
-                f"Staged {staged} speed links in "
-                f"{time.monotonic() - t0:.1f}s"
-            )
+            logger.info(f"Staged {staged} speed links in " f"{time.monotonic() - t0:.1f}s")
 
             if staged == 0:
-                logger.warning(
-                    "No valid speed records after staging — skipping cycle"
-                )
+                logger.warning("No valid speed records after staging — skipping cycle")
                 conn.rollback()
                 return
 
             # Spatial match to edges
             t0 = time.monotonic()
             matched = self._match_speeds_to_edges(cur)
-            logger.info(
-                f"Matched {matched} unique edges in "
-                f"{time.monotonic() - t0:.1f}s"
-            )
+            logger.info(f"Matched {matched} unique edges in " f"{time.monotonic() - t0:.1f}s")
 
             if matched == 0:
-                logger.warning(
-                    "No edges matched — network data may not be imported"
-                )
+                logger.warning("No edges matched — network data may not be imported")
                 conn.rollback()
                 return
 
@@ -182,16 +163,13 @@ class TrafficRefreshService:
             t0 = time.monotonic()
             updated = self._apply_traffic_factors_atomic(cur)
             logger.info(
-                f"Updated {updated} edge traffic factors in "
-                f"{time.monotonic() - t0:.1f}s"
+                f"Updated {updated} edge traffic factors in " f"{time.monotonic() - t0:.1f}s"
             )
 
             # Propagate to nearby edges
             if propagation_rounds > 0:
                 t0 = time.monotonic()
-                propagated = self._propagate_traffic_factors(
-                    cur, max_rounds=propagation_rounds
-                )
+                propagated = self._propagate_traffic_factors(cur, max_rounds=propagation_rounds)
                 logger.info(
                     f"Propagated to {propagated} additional edges in "
                     f"{time.monotonic() - t0:.1f}s"
@@ -238,8 +216,7 @@ class TrafficRefreshService:
         query_params = urllib.parse.urlencode(
             {
                 "$select": (
-                    "link_id,speed,travel_time,"
-                    "link_points,link_name,borough,data_as_of"
+                    "link_id,speed,travel_time," "link_points,link_name,borough,data_as_of"
                 ),
                 "$where": "speed > '0'",
                 "$order": "data_as_of DESC",
@@ -248,10 +225,7 @@ class TrafficRefreshService:
         )
         url = f"{SOCRATA_BASE}?{query_params}"
 
-        logger.info(
-            "Fetching latest speed readings from NYC DOT "
-            "Traffic Speeds NBE..."
-        )
+        logger.info("Fetching latest speed readings from NYC DOT " "Traffic Speeds NBE...")
         req = urllib.request.Request(url)
         req.add_header("Accept", "application/json")
 
@@ -456,8 +430,7 @@ class TrafficRefreshService:
         reset_count = cur.rowcount
 
         logger.info(
-            f"Traffic factors: {updated_count} edges updated, "
-            f"{reset_count} edges reset to 1.0"
+            f"Traffic factors: {updated_count} edges updated, " f"{reset_count} edges reset to 1.0"
         )
         return updated_count + reset_count
 
@@ -505,16 +478,9 @@ class TrafficRefreshService:
             propagated = cur.rowcount
             total_propagated += propagated
             if propagated == 0:
-                logger.info(
-                    f"Propagation converged after {round_num} rounds"
-                )
+                logger.info(f"Propagation converged after {round_num} rounds")
                 break
-            logger.info(
-                f"  Round {round_num}: propagated to {propagated} edges"
-            )
+            logger.info(f"  Round {round_num}: propagated to {propagated} edges")
 
-        logger.info(
-            f"Propagated traffic_factor to {total_propagated} "
-            f"total additional edges"
-        )
+        logger.info(f"Propagated traffic_factor to {total_propagated} " f"total additional edges")
         return total_propagated

@@ -1,16 +1,20 @@
 import logging
 from typing import List, Optional
+
+from fastapi import HTTPException
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
-from fastapi import HTTPException
 
-from utils.geo import parse_coordinates, dump_geo
-from utils.clock import Clock
-from utils.cache import get_route_cache
 from models.schemas import (
-    IsochroneFeature, IsochroneBandProperties, IsochroneResponse,
-    IsochroneEdgeFeature, IsochroneEdgeProperties,
+    IsochroneBandProperties,
+    IsochroneEdgeFeature,
+    IsochroneEdgeProperties,
+    IsochroneFeature,
+    IsochroneResponse,
 )
+from utils.cache import get_route_cache
+from utils.clock import Clock
+from utils.geo import dump_geo, parse_coordinates
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +44,9 @@ class IsochroneService:
         if mode == "drive" and use_traffic and hour is None and day_of_week is None:
             hour = self.clock.hour
             day_of_week = self.clock.day_of_week + 1
-            logger.info(f"Using current time for isochrone traffic: hour={hour}, day_of_week={day_of_week}")
+            logger.info(
+                f"Using current time for isochrone traffic: hour={hour}, day_of_week={day_of_week}"
+            )
 
         # Cache key
         intervals_str = ",".join(str(int(i)) for i in intervals)
@@ -63,7 +69,9 @@ class IsochroneService:
         try:
             if mode == "drive":
                 sql = text(
-                    "SELECT * FROM getdrivingisochrone(:lon, :lat, :intervals, :use_traffic, :hour, :day_of_week)"
+                    "SELECT * FROM getdrivingisochrone"
+                    "(:lon, :lat, :intervals,"
+                    " :use_traffic, :hour, :day_of_week)"
                 )
                 params = {
                     "lon": orig_lon,
@@ -91,23 +99,34 @@ class IsochroneService:
             if len(rows) == 0:
                 raise HTTPException(
                     status_code=404,
-                    detail="No reachable area found from this location. Try a different origin or travel mode.",
+                    detail=(
+                        "No reachable area found from this location."
+                        " Try a different origin or travel mode."
+                    ),
                 )
         except HTTPException:
             raise
         except Exception as e:
             logger.error(f"Error executing isochrone query: {e}")
-            if mode == "drive" and use_traffic and (
-                "traffic_factor" in str(e) or "avg_traffic_by_segment" in str(e)
+            if (
+                mode == "drive"
+                and use_traffic
+                and ("traffic_factor" in str(e) or "avg_traffic_by_segment" in str(e))
             ):
-                logger.warning("Traffic data not available for isochrone, falling back to non-traffic")
-                return self.get_isochrone(orig, mode, intervals, use_traffic=False, hour=None, day_of_week=None)
+                logger.warning(
+                    "Traffic data not available for isochrone, falling back to non-traffic"
+                )
+                return self.get_isochrone(
+                    orig, mode, intervals, use_traffic=False, hour=None, day_of_week=None
+                )
             raise HTTPException(status_code=500, detail="Error processing isochrone request.")
 
         # Convert to response
         features = []
         for row in rows:
-            row_dict = dict(row._mapping) if hasattr(row, '_mapping') else dict(zip(result.keys(), row))
+            row_dict = (
+                dict(row._mapping) if hasattr(row, "_mapping") else dict(zip(result.keys(), row))
+            )
             feature = IsochroneFeature(
                 properties=IsochroneBandProperties(
                     band_index=row_dict["band_index"],
@@ -148,7 +167,10 @@ class IsochroneService:
         if mode == "drive" and use_traffic and hour is None and day_of_week is None:
             hour = self.clock.hour
             day_of_week = self.clock.day_of_week + 1
-            logger.info(f"Using current time for edge isochrone traffic: hour={hour}, day_of_week={day_of_week}")
+            logger.info(
+                f"Using current time for edge isochrone traffic: "
+                f"hour={hour}, day_of_week={day_of_week}"
+            )
 
         # Cache key (separate prefix to avoid collisions with polygon cache)
         intervals_str = ",".join(str(int(i)) for i in intervals)
@@ -171,7 +193,9 @@ class IsochroneService:
         try:
             if mode == "drive":
                 sql = text(
-                    "SELECT * FROM getdrivingisochrone_edges(:lon, :lat, :intervals, :use_traffic, :hour, :day_of_week)"
+                    "SELECT * FROM getdrivingisochrone_edges"
+                    "(:lon, :lat, :intervals,"
+                    " :use_traffic, :hour, :day_of_week)"
                 )
                 params = {
                     "lon": orig_lon,
@@ -199,16 +223,23 @@ class IsochroneService:
             if len(rows) == 0:
                 raise HTTPException(
                     status_code=404,
-                    detail="No reachable edges found from this location. Try a different origin or travel mode.",
+                    detail=(
+                        "No reachable edges found from this location."
+                        " Try a different origin or travel mode."
+                    ),
                 )
         except HTTPException:
             raise
         except Exception as e:
             logger.error(f"Error executing edge isochrone query: {e}")
-            if mode == "drive" and use_traffic and (
-                "traffic_factor" in str(e) or "avg_traffic_by_segment" in str(e)
+            if (
+                mode == "drive"
+                and use_traffic
+                and ("traffic_factor" in str(e) or "avg_traffic_by_segment" in str(e))
             ):
-                logger.warning("Traffic data not available for edge isochrone, falling back to non-traffic")
+                logger.warning(
+                    "Traffic data not available for edge isochrone, falling back to non-traffic"
+                )
                 return self.get_isochrone_edges(
                     orig, mode, intervals, use_traffic=False, hour=None, day_of_week=None
                 )
@@ -217,7 +248,9 @@ class IsochroneService:
         # Convert to response
         features = []
         for row in rows:
-            row_dict = dict(row._mapping) if hasattr(row, '_mapping') else dict(zip(result.keys(), row))
+            row_dict = (
+                dict(row._mapping) if hasattr(row, "_mapping") else dict(zip(result.keys(), row))
+            )
             feature = IsochroneEdgeFeature(
                 properties=IsochroneEdgeProperties(
                     edge_id=row_dict["edge_id"],

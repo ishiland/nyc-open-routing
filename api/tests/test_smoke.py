@@ -26,19 +26,20 @@ pytestmark = [pytest.mark.integration, pytest.mark.slow]
 # When running inside Docker container, use internal container name
 # When running from host, use localhost:5001
 import os
+
 API_BASE_URL = os.getenv("API_BASE_URL", "http://api:5000/api")
 
 # Well-known NYC coordinates for testing
 # Format: (lon, lat) - WGS84/EPSG:4326
 COORDINATES = {
-    "city_hall": (-74.0060, 40.7128),           # Lower Manhattan
-    "times_square": (-73.9855, 40.7580),        # Midtown Manhattan
-    "brooklyn_bridge": (-73.9969, 40.7061),     # Brooklyn Bridge (Manhattan side)
-    "dumbo": (-73.9896, 40.7033),               # DUMBO, Brooklyn
-    "queens_plaza": (-73.9374, 40.7489),        # Queens Plaza
-    "grand_central": (-73.9772, 40.7527),       # Grand Central Terminal
-    "union_square": (-73.9903, 40.7359),        # Union Square
-    "greenwich_village": (-74.0014, 40.7336),   # Greenwich Village
+    "city_hall": (-74.0060, 40.7128),  # Lower Manhattan
+    "times_square": (-73.9855, 40.7580),  # Midtown Manhattan
+    "brooklyn_bridge": (-73.9969, 40.7061),  # Brooklyn Bridge (Manhattan side)
+    "dumbo": (-73.9896, 40.7033),  # DUMBO, Brooklyn
+    "queens_plaza": (-73.9374, 40.7489),  # Queens Plaza
+    "grand_central": (-73.9772, 40.7527),  # Grand Central Terminal
+    "union_square": (-73.9903, 40.7359),  # Union Square
+    "greenwich_village": (-74.0014, 40.7336),  # Greenwich Village
 }
 
 
@@ -63,7 +64,9 @@ def validate_route_response(response_data: dict) -> None:
     for i, feature in enumerate(features):
         # Validate type field (required by GeoJSON spec)
         assert "type" in feature, f"Feature {i} missing 'type'"
-        assert feature["type"] == "Feature", f"Feature {i} type should be 'Feature', got {feature.get('type')}"
+        assert (
+            feature["type"] == "Feature"
+        ), f"Feature {i} type should be 'Feature', got {feature.get('type')}"
 
         # Validate properties
         assert "properties" in feature, f"Feature {i} missing 'properties'"
@@ -78,8 +81,12 @@ def validate_route_response(response_data: dict) -> None:
         # Type validation
         assert isinstance(props["seq"], int), f"Feature {i} seq should be int"
         # distance and travel_time may be None for synthetic segments (e.g., ferry connections)
-        assert isinstance(props["distance"], (int, float, type(None))), f"Feature {i} distance should be numeric or None"
-        assert isinstance(props["travel_time"], (int, float, type(None))), f"Feature {i} travel_time should be numeric or None"
+        assert isinstance(
+            props["distance"], (int, float, type(None))
+        ), f"Feature {i} distance should be numeric or None"
+        assert isinstance(
+            props["travel_time"], (int, float, type(None))
+        ), f"Feature {i} travel_time should be numeric or None"
 
         # Value validation (skip for None values like ferry segments)
         if props["distance"] is not None:
@@ -91,7 +98,10 @@ def validate_route_response(response_data: dict) -> None:
         assert "geometry" in feature, f"Feature {i} missing 'geometry'"
         geom = feature["geometry"]
         assert "type" in geom, f"Feature {i} geometry missing 'type'"
-        assert geom["type"] in ["LineString", "MultiLineString"], f"Feature {i} has invalid geometry type"
+        assert geom["type"] in [
+            "LineString",
+            "MultiLineString",
+        ], f"Feature {i} has invalid geometry type"
         assert "coordinates" in geom, f"Feature {i} geometry missing 'coordinates'"
 
 
@@ -105,11 +115,17 @@ class TestBasicRouteSmoke:
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "drive"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "drive",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
@@ -125,11 +141,17 @@ class TestBasicRouteSmoke:
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "bike"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "bike",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
@@ -140,11 +162,17 @@ class TestBasicRouteSmoke:
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "walk"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "walk",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
@@ -160,11 +188,17 @@ class TestTrafficToggle:
         # Default should use traffic if available
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "drive"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "drive",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
@@ -183,19 +217,23 @@ class TestTrafficToggle:
                 "orig": f"{orig_lon},{orig_lat}",
                 "dest": f"{dest_lon},{dest_lat}",
                 "mode": "drive",
-                "use_traffic": "false"
+                "use_traffic": "false",
             },
-            timeout=10
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
         # traffic_factor should be 1.0 for non-traffic routing
         first_segment = data["features"][0]["properties"]
         assert "traffic_factor" in first_segment, "traffic_factor field should be present"
-        assert first_segment["traffic_factor"] == 1.0, "traffic_factor should be 1.0 when use_traffic=false"
+        assert (
+            first_segment["traffic_factor"] == 1.0
+        ), "traffic_factor should be 1.0 when use_traffic=false"
 
     def test_traffic_factor_values(self):
         """Test that traffic_factor values are valid and consistent."""
@@ -209,9 +247,9 @@ class TestTrafficToggle:
                 "orig": f"{orig_lon},{orig_lat}",
                 "dest": f"{dest_lon},{dest_lat}",
                 "mode": "drive",
-                "use_traffic": "true"
+                "use_traffic": "true",
             },
-            timeout=10
+            timeout=10,
         )
 
         # Get route without traffic
@@ -221,9 +259,9 @@ class TestTrafficToggle:
                 "orig": f"{orig_lon},{orig_lat}",
                 "dest": f"{dest_lon},{dest_lat}",
                 "mode": "drive",
-                "use_traffic": "false"
+                "use_traffic": "false",
             },
-            timeout=10
+            timeout=10,
         )
 
         assert response_with_traffic.status_code == 200
@@ -238,14 +276,21 @@ class TestTrafficToggle:
         for feature in data_with_traffic["features"]:
             props = feature["properties"]
             assert "traffic_factor" in props, "traffic_factor field should be present"
-            assert isinstance(props["traffic_factor"], (int, float)), "traffic_factor should be numeric"
-            assert props["traffic_factor"] in VALID_TRAFFIC_FACTORS, \
-                f"traffic_factor should be one of {VALID_TRAFFIC_FACTORS}, got {props['traffic_factor']}"
+            assert isinstance(
+                props["traffic_factor"], (int, float)
+            ), "traffic_factor should be numeric"
+            assert props["traffic_factor"] in VALID_TRAFFIC_FACTORS, (
+                f"traffic_factor should be one of"
+                f" {VALID_TRAFFIC_FACTORS},"
+                f" got {props['traffic_factor']}"
+            )
 
         # Without traffic, all factors should be 1.0
         for feature in data_without_traffic["features"]:
             props = feature["properties"]
-            assert props["traffic_factor"] == 1.0, "traffic_factor should always be 1.0 when use_traffic=false"
+            assert (
+                props["traffic_factor"] == 1.0
+            ), "traffic_factor should always be 1.0 when use_traffic=false"
 
 
 class TestCrossBoroughRouting:
@@ -258,11 +303,17 @@ class TestCrossBoroughRouting:
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "drive"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "drive",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
@@ -276,11 +327,17 @@ class TestCrossBoroughRouting:
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "drive"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "drive",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
@@ -296,11 +353,17 @@ class TestEdgeCases:
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "walk"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "walk",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
@@ -314,13 +377,15 @@ class TestEdgeCases:
         response = requests.get(
             f"{API_BASE_URL}/route",
             params={"orig": f"{lon},{lat}", "dest": f"{lon},{lat}", "mode": "drive"},
-            timeout=10
+            timeout=10,
         )
 
         # This could return 200 with empty route or 404 - either is acceptable
         # Just ensure it doesn't crash with 500
-        assert response.status_code in [200, 404], \
-            f"Expected 200 or 404, got {response.status_code}: {response.text}"
+        assert response.status_code in [
+            200,
+            404,
+        ], f"Expected 200 or 404, got {response.status_code}: {response.text}"
 
 
 class TestErrorHandling:
@@ -334,18 +399,24 @@ class TestErrorHandling:
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "drive"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "drive",
+            },
+            timeout=10,
         )
 
         # Should return 400 (bad request) for out-of-bounds coordinates
-        assert response.status_code == 400, \
-            f"Expected 400 for out-of-bounds coordinates, got {response.status_code}"
+        assert (
+            response.status_code == 400
+        ), f"Expected 400 for out-of-bounds coordinates, got {response.status_code}"
 
         # Error message should mention coordinates or bounds
         error_detail = response.json().get("detail", "")
-        assert any(word in error_detail.lower() for word in ["coordinate", "bound", "range", "invalid"]), \
-            f"Error message should mention invalid coordinates: {error_detail}"
+        assert any(
+            word in error_detail.lower() for word in ["coordinate", "bound", "range", "invalid"]
+        ), f"Error message should mention invalid coordinates: {error_detail}"
 
 
 class TestFerryRouting:
@@ -374,18 +445,25 @@ class TestFerryRouting:
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "bike"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "bike",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
         # Verify the route includes the Staten Island Ferry
         street_names = [feature["properties"]["street"] for feature in data["features"]]
-        assert any("STATEN ISLAND FERRY" in street.upper() for street in street_names), \
-            "Route should include Staten Island Ferry segment"
+        assert any(
+            "STATEN ISLAND FERRY" in street.upper() for street in street_names
+        ), "Route should include Staten Island Ferry segment"
 
     def test_staten_island_ferry_walk_route(self):
         """
@@ -400,26 +478,34 @@ class TestFerryRouting:
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "walk"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "walk",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
         # Verify the route includes the ferry
         street_names = [feature["properties"]["street"] for feature in data["features"]]
-        assert any("STATEN ISLAND FERRY" in street.upper() for street in street_names), \
-            "Route should include Staten Island Ferry segment"
+        assert any(
+            "STATEN ISLAND FERRY" in street.upper() for street in street_names
+        ), "Route should include Staten Island Ferry segment"
 
         # Verify travel time is substantial (ferry crossing is ~40 minutes)
         # Find the ferry segment and check its travel time
         for feature in data["features"]:
             if "STATEN ISLAND FERRY" in feature["properties"]["street"].upper():
                 travel_time = feature["properties"]["travel_time"]
-                assert travel_time > 30, \
-                    f"Ferry crossing should take >30 minutes, got {travel_time} minutes"
+                assert (
+                    travel_time > 30
+                ), f"Ferry crossing should take >30 minutes, got {travel_time} minutes"
                 break
 
     def test_staten_island_ferry_not_in_drive_mode(self):
@@ -431,27 +517,35 @@ class TestFerryRouting:
         """
         # Staten Island interior to Manhattan
         orig_lon, orig_lat = (-74.179451, 40.559705)  # Staten Island
-        dest_lon, dest_lat = (-74.0060, 40.7128)      # Manhattan City Hall
+        dest_lon, dest_lat = (-74.0060, 40.7128)  # Manhattan City Hall
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "drive"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "drive",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
         # Verify the route does NOT include the Staten Island Ferry
         street_names = [feature["properties"]["street"] for feature in data["features"]]
-        assert not any("STATEN ISLAND FERRY" in street.upper() for street in street_names), \
-            "Drive mode should NOT use Staten Island Ferry"
+        assert not any(
+            "STATEN ISLAND FERRY" in street.upper() for street in street_names
+        ), "Drive mode should NOT use Staten Island Ferry"
 
         # Route should use a bridge or highway
         route_text = " ".join(street_names).upper()
-        assert any(keyword in route_text for keyword in ["BRIDGE", "EXPRESSWAY", "HIGHWAY", "VERRAZANO"]), \
-            "Drive route should use bridges/highways, not ferry"
+        assert any(
+            keyword in route_text for keyword in ["BRIDGE", "EXPRESSWAY", "HIGHWAY", "VERRAZANO"]
+        ), "Drive route should use bridges/highways, not ferry"
 
     def test_governors_island_area_walk_route(self):
         """
@@ -467,11 +561,17 @@ class TestFerryRouting:
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "walk"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "walk",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
@@ -491,11 +591,17 @@ class TestFerryRouting:
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "bike"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "bike",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
@@ -516,11 +622,17 @@ class TestFerryRouting:
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "bike"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "bike",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 
@@ -540,11 +652,17 @@ class TestFerryRouting:
 
         response = requests.get(
             f"{API_BASE_URL}/route",
-            params={"orig": f"{orig_lon},{orig_lat}", "dest": f"{dest_lon},{dest_lat}", "mode": "walk"},
-            timeout=10
+            params={
+                "orig": f"{orig_lon},{orig_lat}",
+                "dest": f"{dest_lon},{dest_lat}",
+                "mode": "walk",
+            },
+            timeout=10,
         )
 
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}: {response.text}"
+        assert (
+            response.status_code == 200
+        ), f"Expected 200, got {response.status_code}: {response.text}"
         data = response.json()
         validate_route_response(data)
 

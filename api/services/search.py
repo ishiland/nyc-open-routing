@@ -1,10 +1,11 @@
 import logging
 import time
 from typing import Any, Dict, List
-from fastapi import HTTPException
-from suggest import GeosupportSuggest
-from geosupport.error import GeosupportError
+
 import anyio
+from fastapi import HTTPException
+from geosupport.error import GeosupportError
+from suggest import GeosupportSuggest
 
 from config.settings import settings
 from utils.retry import retry_with_backoff
@@ -42,19 +43,16 @@ class SearchService:
         try:
             # Call Geosupport with retry logic in thread pool (blocking operation)
             # This prevents blocking the async event loop
-            suggestions = await anyio.to_thread.run_sync(
-                self._search_with_retry,
-                address
-            )
+            suggestions = await anyio.to_thread.run_sync(self._search_with_retry, address)
 
             # Convert to GeoJSON format
             result = self.suggest.to_geojson(suggestions)
 
             # Add 'label' field for frontend compatibility (alias for 'address')
             # Frontend Search component expects 'label' property
-            for feature in result.get('features', []):
-                if 'properties' in feature and 'address' in feature['properties']:
-                    feature['properties']['label'] = feature['properties']['address']
+            for feature in result.get("features", []):
+                if "properties" in feature and "address" in feature["properties"]:
+                    feature["properties"]["label"] = feature["properties"]["address"]
 
             elapsed_time = time.time() - start_time
             logger.info(
@@ -76,22 +74,20 @@ class SearchService:
             elapsed_time = time.time() - start_time
             logger.error(f"Geosupport timeout after {elapsed_time:.3f}s: {e}")
             raise HTTPException(
-                status_code=504,
-                detail="Address search timed out. Please try again."
+                status_code=504, detail="Address search timed out. Please try again."
             )
 
         except Exception as e:
             elapsed_time = time.time() - start_time
             logger.error(f"Unexpected error after {elapsed_time:.3f}s during address search: {e}")
             raise HTTPException(
-                status_code=500,
-                detail="Error processing address search. Please try again."
+                status_code=500, detail="Error processing address search. Please try again."
             )
 
     @retry_with_backoff(
         max_retries=settings.SEARCH_MAX_RETRIES,
         backoff_base=settings.SEARCH_RETRY_BACKOFF_BASE,
-        exceptions=(GeosupportError,)
+        exceptions=(GeosupportError,),
     )
     def _search_with_retry(self, address: str) -> List[Dict[str, Any]]:
         """

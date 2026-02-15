@@ -1,9 +1,12 @@
-from pydantic import BaseModel, ConfigDict
-from typing import Dict, Any, Optional, List, Literal, Union
 from enum import Enum
+from typing import Any, Dict, List, Literal, Optional, Union
+
+from pydantic import BaseModel, ConfigDict
+
 
 class TravelMode(str, Enum):
     """Travel mode options for routing."""
+
     DRIVE = "drive"
     BIKE = "bike"
     WALK = "walk"
@@ -11,12 +14,14 @@ class TravelMode(str, Enum):
 
 class IsochroneView(str, Enum):
     """Isochrone visualization type."""
+
     POLYGON = "polygon"
     EDGES = "edges"
 
 
 class IsochroneBandProperties(BaseModel):
     """Properties for a single isochrone band."""
+
     band_index: int
     minutes: float
     mode: str
@@ -25,6 +30,7 @@ class IsochroneBandProperties(BaseModel):
 
 class IsochroneFeature(BaseModel):
     """GeoJSON feature for an isochrone band polygon."""
+
     type: Literal["Feature"] = "Feature"
     properties: IsochroneBandProperties
     geometry: Dict[str, Any]
@@ -32,6 +38,7 @@ class IsochroneFeature(BaseModel):
 
 class IsochroneEdgeProperties(BaseModel):
     """Properties for a single isochrone edge segment."""
+
     edge_id: int
     band_index: int
     agg_cost: float
@@ -40,6 +47,7 @@ class IsochroneEdgeProperties(BaseModel):
 
 class IsochroneEdgeFeature(BaseModel):
     """GeoJSON feature for an isochrone edge LineString."""
+
     type: Literal["Feature"] = "Feature"
     properties: IsochroneEdgeProperties
     geometry: Dict[str, Any]
@@ -47,11 +55,14 @@ class IsochroneEdgeFeature(BaseModel):
 
 class IsochroneResponse(BaseModel):
     """Response model for the isochrone endpoint."""
+
     features: List[Union[IsochroneFeature, IsochroneEdgeFeature]]
     origin: Dict[str, Any]
 
+
 class Properties(BaseModel):
     """Properties of a route segment feature."""
+
     seq: int
     street: Optional[str] = None
     distance: Optional[float] = None  # in feet
@@ -71,14 +82,18 @@ class Properties(BaseModel):
     # 'straight', 'slight-left', 'left', 'sharp-left',
     # 'slight-right', 'right', 'sharp-right', 'u-turn', 'continue'
 
+
 class Feature(BaseModel):
     """GeoJSON feature representation."""
+
     type: Literal["Feature"] = "Feature"
     properties: Properties
     geometry: Dict[str, Any]
 
+
 class RouteResponse(BaseModel):
     """Response model for the route endpoint."""
+
     features: List[Feature]
 
     model_config = ConfigDict(
@@ -94,15 +109,12 @@ class RouteResponse(BaseModel):
                             "travel_time": 45.2,
                             "turn_instruction": "Turn right onto MAIN ST",
                             "turn_type": "right",
-                            "traffic_factor": 1.2
+                            "traffic_factor": 1.2,
                         },
                         "geometry": {
                             "type": "LineString",
-                            "coordinates": [
-                                [-73.98, 40.75],
-                                [-73.97, 40.76]
-                            ]
-                        }
+                            "coordinates": [[-73.98, 40.75], [-73.97, 40.76]],
+                        },
                     }
                 ]
             }
@@ -112,12 +124,14 @@ class RouteResponse(BaseModel):
 
 class LegSummary(BaseModel):
     """Summary statistics for a single waypoint-to-waypoint leg."""
+
     distance: float
     travel_time: float
 
 
 class LegResponse(BaseModel):
     """A single waypoint-to-waypoint route segment."""
+
     leg: int
     summary: LegSummary
     features: List[Feature]
@@ -125,6 +139,7 @@ class LegResponse(BaseModel):
 
 class WaypointRouteSummary(BaseModel):
     """Overall summary for a multi-stop waypoint route."""
+
     total_distance: float
     total_travel_time: float
     num_legs: int
@@ -132,7 +147,6 @@ class WaypointRouteSummary(BaseModel):
 
 class WaypointRouteResponse(BaseModel):
     """Response model for the waypoint routing endpoint."""
+
     legs: List[LegResponse]
     summary: WaypointRouteSummary
-
-

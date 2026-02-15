@@ -1,15 +1,16 @@
-from typing import Dict
-from sqlalchemy import create_engine
-from sqlalchemy.engine import Engine
 import pathlib
+from typing import Dict
+
 import pytz
 from geosupport import Geosupport
+from sqlalchemy import create_engine
+from sqlalchemy.engine import Engine
 from suggest import GeosupportSuggest
 
 from config.settings import settings
+from services.isochrone import IsochroneService
 from services.routing import RoutingService
 from services.search import SearchService
-from services.isochrone import IsochroneService
 from services.traffic import TrafficRefreshService
 from utils.cache import get_route_cache, get_tile_cache
 from utils.clock import Clock
@@ -46,7 +47,7 @@ _db_engine = create_engine(
     echo=False,
 )
 _sql_queries = load_sql_queries()
-_clock = Clock(tz=pytz.timezone('America/New_York'))
+_clock = Clock(tz=pytz.timezone("America/New_York"))
 
 # Geosupport instances (singleton pattern for performance)
 _geosupport = Geosupport()

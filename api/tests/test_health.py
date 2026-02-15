@@ -1,9 +1,9 @@
 from unittest.mock import MagicMock
+
 from fastapi.testclient import TestClient
 
-from api.main import app
 from api.dependencies import get_db_engine
-
+from api.main import app
 
 client = TestClient(app)
 

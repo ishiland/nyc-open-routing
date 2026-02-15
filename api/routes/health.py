@@ -1,9 +1,10 @@
+import logging
+
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.engine import Engine
-from sqlalchemy import text
 from geosupport import Geosupport
 from geosupport.error import GeosupportError
-import logging
+from sqlalchemy import text
+from sqlalchemy.engine import Engine
 
 from dependencies import get_db_engine, get_geosupport, get_traffic_service
 
@@ -47,9 +48,7 @@ def readiness_check(
         "status": "ready",
         "database": "unknown",
         "geosupport": "unknown",
-        "traffic_data_loaded": (
-            traffic_service.data_loaded if traffic_service else None
-        ),
+        "traffic_data_loaded": (traffic_service.data_loaded if traffic_service else None),
     }
     errors = []
 

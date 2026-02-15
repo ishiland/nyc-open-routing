@@ -1,4 +1,5 @@
 import logging
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import text
 from starlette.responses import Response
@@ -58,7 +59,8 @@ async def trigger_refresh(traffic_service=Depends(get_traffic_service)):
     return {"status": "ok", "message": "Traffic data refreshed successfully"}
 
 
-_tile_sql = text("""
+_tile_sql = text(
+    """
     WITH bounds AS (
         SELECT ST_TileEnvelope(:z, :x, :y) AS geom
     ),
@@ -76,7 +78,8 @@ _tile_sql = text("""
     SELECT ST_AsMVT(mvtgeom.*, 'traffic') AS mvt
     FROM mvtgeom
     WHERE geom IS NOT NULL
-""")
+"""
+)
 
 
 @router.get("/tiles/{z}/{x}/{y}.pbf")

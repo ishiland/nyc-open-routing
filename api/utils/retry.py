@@ -1,7 +1,7 @@
-import time
 import logging
+import time
 from functools import wraps
-from typing import Callable, Type, Tuple, Any
+from typing import Any, Callable, Tuple, Type
 
 logger = logging.getLogger(__name__)
 
@@ -9,7 +9,7 @@ logger = logging.getLogger(__name__)
 def retry_with_backoff(
     max_retries: int = 3,
     backoff_base: float = 1.0,
-    exceptions: Tuple[Type[Exception], ...] = (Exception,)
+    exceptions: Tuple[Type[Exception], ...] = (Exception,),
 ):
     """
     Decorator that retries a function with exponential backoff.
@@ -22,6 +22,7 @@ def retry_with_backoff(
     Returns:
         Decorated function that will retry on failure
     """
+
     def decorator(func: Callable) -> Callable:
         @wraps(func)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -34,10 +35,11 @@ def retry_with_backoff(
                     last_exception = e
 
                     if attempt < max_retries:
-                        delay = backoff_base * (2 ** attempt)
+                        delay = backoff_base * (2**attempt)
                         logger.warning(
-                            f"Attempt {attempt + 1}/{max_retries + 1} failed for {func.__name__}: {e}. "
-                            f"Retrying in {delay}s..."
+                            f"Attempt {attempt + 1}/{max_retries + 1}"
+                            f" failed for {func.__name__}: {e}."
+                            f" Retrying in {delay}s..."
                         )
                         time.sleep(delay)
                     else:
@@ -49,4 +51,5 @@ def retry_with_backoff(
             raise last_exception
 
         return wrapper
+
     return decorator

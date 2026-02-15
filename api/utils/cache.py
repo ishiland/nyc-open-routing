@@ -5,10 +5,10 @@ This provides basic LRU caching to avoid redundant database queries
 for frequently requested routes.
 """
 
-import time
-import logging
-from typing import Any, Optional
 import hashlib
+import logging
+import time
+from typing import Any, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +56,7 @@ class RouteCache:
             Normalized coordinate string
         """
         try:
-            lon, lat = coord.split(',')
+            lon, lat = coord.split(",")
             lon_norm = f"{float(lon):.6f}"
             lat_norm = f"{float(lat):.6f}"
             return f"{lon_norm},{lat_norm}"

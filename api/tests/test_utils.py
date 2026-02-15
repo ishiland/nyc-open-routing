@@ -1,5 +1,6 @@
 import pytest
-from api.utils.geo import parse_coordinates, dump_geo
+
+from api.utils.geo import dump_geo, parse_coordinates
 
 
 class TestParseCoordinates:
@@ -135,8 +136,9 @@ class TestDumpGeo:
     def test_dump_geo_linestring(self):
         """Test dump_geo with LineString WKB hex string."""
         # WKB hex for LINESTRING(-73.9857 40.7484, -73.9855 40.7480)
-        wkb_hex = "010200000002000000713D0AD7A3705EC048E17A14AE4744409A9999999970" \
-                  "5EC0713D0AD7A3474440"
+        wkb_hex = (
+            "010200000002000000713D0AD7A3705EC048E17A14AE4744409A9999999970" "5EC0713D0AD7A3474440"
+        )
         result = dump_geo(wkb_hex)
 
         assert result is not None

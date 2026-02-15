@@ -1,5 +1,7 @@
-import pytest
 import time
+
+import pytest
+
 from api.utils.cache import RouteCache, get_route_cache
 
 
@@ -155,12 +157,10 @@ class TestRouteCache:
         cache = RouteCache()
         test_data = [{"seq": 1}]
 
-        cache.set("-73.9857,40.7484", "-73.9950,40.7352", "drive", test_data,
-                  hour=12, day=1)
+        cache.set("-73.9857,40.7484", "-73.9950,40.7352", "drive", test_data, hour=12, day=1)
 
         # Different kwarg order should still hit
-        result = cache.get("-73.9857,40.7484", "-73.9950,40.7352", "drive",
-                          day=1, hour=12)
+        result = cache.get("-73.9857,40.7484", "-73.9950,40.7352", "drive", day=1, hour=12)
         assert result == test_data
 
     def test_cache_normalize_invalid_coordinates(self):
@@ -207,6 +207,7 @@ class TestTileCache:
     def test_tile_cache_init_defaults(self):
         """Test tile cache initialization with default values."""
         from api.utils.cache import TileCache
+
         cache = TileCache()
         assert cache.ttl_seconds == 300
         assert cache.max_size == 4096
@@ -214,6 +215,7 @@ class TestTileCache:
     def test_tile_cache_init_custom(self):
         """Test tile cache initialization with custom values."""
         from api.utils.cache import TileCache
+
         cache = TileCache(ttl_seconds=60, max_size=100)
         assert cache.ttl_seconds == 60
         assert cache.max_size == 100
@@ -221,6 +223,7 @@ class TestTileCache:
     def test_tile_cache_set_and_get(self):
         """Test basic set and get operations."""
         from api.utils.cache import TileCache
+
         cache = TileCache()
         tile_data = b"\x1a\x00\x01\x02"
 
@@ -232,12 +235,14 @@ class TestTileCache:
     def test_tile_cache_miss(self):
         """Test cache miss returns None."""
         from api.utils.cache import TileCache
+
         cache = TileCache()
         assert cache.get(14, 4825, 6157) is None
 
     def test_tile_cache_different_tiles(self):
         """Test that different z/x/y coords are cached separately."""
         from api.utils.cache import TileCache
+
         cache = TileCache()
 
         cache.set(14, 4825, 6157, b"tile1")
@@ -251,6 +256,7 @@ class TestTileCache:
     def test_tile_cache_ttl_expiration(self):
         """Test that entries expire after TTL."""
         from api.utils.cache import TileCache
+
         cache = TileCache(ttl_seconds=1)
 
         cache.set(14, 4825, 6157, b"tile_data")
@@ -262,6 +268,7 @@ class TestTileCache:
     def test_tile_cache_lru_eviction(self):
         """Test that oldest entries are evicted when cache is full."""
         from api.utils.cache import TileCache
+
         cache = TileCache(max_size=3)
 
         cache.set(14, 1, 1, b"tile1")
@@ -280,6 +287,7 @@ class TestTileCache:
     def test_tile_cache_update_existing(self):
         """Test updating existing key doesn't increase cache size."""
         from api.utils.cache import TileCache
+
         cache = TileCache()
 
         cache.set(14, 4825, 6157, b"old")
@@ -291,6 +299,7 @@ class TestTileCache:
     def test_tile_cache_clear(self):
         """Test clearing all entries."""
         from api.utils.cache import TileCache
+
         cache = TileCache()
 
         cache.set(14, 1, 1, b"t1")
@@ -304,6 +313,7 @@ class TestTileCache:
     def test_tile_cache_empty_bytes(self):
         """Test caching empty byte strings (empty tiles)."""
         from api.utils.cache import TileCache
+
         cache = TileCache()
 
         cache.set(14, 0, 0, b"")
@@ -334,12 +344,14 @@ class TestGlobalCacheInstance:
     def test_get_tile_cache_returns_instance(self):
         """Test that get_tile_cache returns a TileCache instance."""
         from api.utils.cache import TileCache, get_tile_cache
+
         cache = get_tile_cache()
         assert isinstance(cache, TileCache)
 
     def test_get_tile_cache_singleton(self):
         """Test that get_tile_cache returns the same instance."""
         from api.utils.cache import get_tile_cache
+
         cache1 = get_tile_cache()
         cache2 = get_tile_cache()
         assert cache1 is cache2
@@ -347,6 +359,7 @@ class TestGlobalCacheInstance:
     def test_tile_cache_default_config(self):
         """Test that global tile cache has expected defaults."""
         from api.utils.cache import get_tile_cache
+
         cache = get_tile_cache()
         assert cache.ttl_seconds == 300
         assert cache.max_size == 4096
