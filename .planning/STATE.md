@@ -11,9 +11,9 @@ See: .planning/PROJECT.md (updated 2026-02-15)
 
 **Milestone:** v4.0 Live Traffic
 **Phase:** 19 of 19 (Volume Data Audit)
-**Plan:** —
-**Status:** Ready to plan
-**Last Activity:** 2026-02-15 — Phase 18 complete (2 plans, verification passed)
+**Plan:** 1 of 2 complete
+**Status:** Executing
+**Last Activity:** 2026-02-15 — Plan 19-01 complete (coverage audit + report)
 
 Progress: [██████░░░░] 67%
 
@@ -33,6 +33,7 @@ Progress: [██████░░░░] 67%
 | 17-02 | Traffic API Integration | 4min | 2 | 5 |
 | 18-01 | Traffic Layer API | 2min | 2 | 2 |
 | 18-02 | Traffic Visualization Frontend | 3min | 3 | 8 |
+| 19-01 | Coverage Analysis + Audit Report | 4min | 2 | 2 |
 
 ## Accumulated Context
 
@@ -45,6 +46,7 @@ Archived to PROJECT.md Key Decisions table.
 - **18-01:** Direct engine call in route handler (not service class) for simple spatial query; traffic_factor > 1.0 filter excludes free-flow edges
 - [Phase 18-02]: TrafficLayerContext positioned outside RoutingContextProvider to maintain independence from routing state
 - [Phase 18-02]: MIN_ZOOM=12 and 400ms debounce prevent excessive traffic data fetches; lastRefresh polling keeps layer current
+- **19-01:** DEPRECATE volume lookup from SQL routing functions -- 2.08% unique coverage does not justify 6 CASE/WHEN blocks with hardcoded thresholds across 3 functions; keep avg_traffic_by_segment table for future use
 
 ### Pending Todos
 
@@ -57,9 +59,9 @@ None.
 ## Session Continuity
 
 Last session: 2026-02-15
-Stopped at: Phase 18 executed and verified — ready for Phase 19 planning
-Resume file: .planning/ROADMAP.md
+Stopped at: Completed 19-01-PLAN.md — ready for 19-02-PLAN.md execution
+Resume file: .planning/phases/19-volume-data-audit/19-01-SUMMARY.md
 
 ---
 *Created: 2026-02-12*
-*Last updated: 2026-02-15 after Phase 18 execution complete*
+*Last updated: 2026-02-15 after Plan 19-01 execution complete*
