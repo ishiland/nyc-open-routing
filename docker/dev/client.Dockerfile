@@ -1,5 +1,5 @@
 # base image
-FROM node:23.10.0-alpine
+FROM node:25.7.0-alpine
 
 ADD package.json /package.json
 
