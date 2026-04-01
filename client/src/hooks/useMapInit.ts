@@ -1,6 +1,6 @@
 // useMapInit.ts
 
-import { useEffect, RefObject, useRef } from "react"
+import { useEffect, useState, RefObject, useRef } from "react"
 import maplibregl from "maplibre-gl"
 import debug from "../utils/debug"
 import {
@@ -29,7 +29,7 @@ const useMapInit = (
     onMapLoad,
   }: UseMapInitOptions = {},
 ): maplibregl.Map | null => {
-  // Use ref instead of state to avoid re-renders
+  const [mapInstance, setMapInstance] = useState<maplibregl.Map | null>(null)
   const mapRef = useRef<maplibregl.Map | null>(null)
   const styleLoadTimeoutRef = useRef<ReturnType<typeof setTimeout>>()
 
@@ -84,6 +84,7 @@ const useMapInit = (
 
       mapInstance = new maplibregl.Map(mapOptions)
       mapRef.current = mapInstance
+      setMapInstance(mapInstance)
 
       // Add custom transform request handler
       mapInstance.setTransformRequest((url, resourceType) => {
@@ -165,11 +166,12 @@ const useMapInit = (
       if (mapInstance) {
         mapInstance.remove()
         mapRef.current = null
+        setMapInstance(null)
       }
     }
   }, [containerRef, initialCenter, initialZoom, onMapLoad])
 
-  return mapRef.current
+  return mapInstance
 }
 
 export default useMapInit

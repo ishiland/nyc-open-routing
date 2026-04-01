@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import {
   SEARCH_READONLY_DELAY_MS,
   RANDOM_STRING_LENGTH,
@@ -13,10 +13,11 @@ const useAutofillPrevention = () => {
   const [isReadOnly, setIsReadOnly] = useState(true)
 
   // Generate a random autocomplete value to prevent browser autofill
-  const randomAutoComplete = useRef(
-    `field-${Math.random()
-      .toString(36)
-      .substring(2, RANDOM_STRING_LENGTH + 2)}`,
+  const [randomAutoComplete] = useState(
+    () =>
+      `field-${Math.random()
+        .toString(36)
+        .substring(2, RANDOM_STRING_LENGTH + 2)}`,
   )
 
   // Remove readonly after mount to prevent autofill
@@ -43,7 +44,7 @@ const useAutofillPrevention = () => {
   return {
     isReadOnly,
     handleFocus,
-    randomAutoComplete: randomAutoComplete.current,
+    randomAutoComplete,
   }
 }
 

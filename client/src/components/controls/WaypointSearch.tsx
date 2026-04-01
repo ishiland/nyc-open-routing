@@ -60,7 +60,7 @@ const WaypointSearchComponent: React.FC<WaypointSearchProps> = ({
   const inputRef = useRef<HTMLInputElement | null>(null)
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
   const blurTimeoutRef = useRef<NodeJS.Timeout>()
-  const inputIdRef = useRef(`auto-suggest-waypoint-${index}-${Date.now()}`)
+  const inputId = `auto-suggest-waypoint-${index}`
 
   const [inputValue, setInputValue] = useState<string>(
     (waypoint.properties?.label as string) || "",
@@ -162,7 +162,7 @@ const WaypointSearchComponent: React.FC<WaypointSearchProps> = ({
           inputRef.current = node
           setAnchorEl(node)
         }}
-        id={inputIdRef.current}
+        id={inputId}
         value={inputValue}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
