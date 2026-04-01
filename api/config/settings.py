@@ -87,6 +87,13 @@ class Settings(BaseSettings):
                     "level": self.LOG_LEVEL,
                 },
             },
+            "loggers": {
+                "geosupport.geosupport": {
+                    "level": "WARNING",
+                    "handlers": ["console"],
+                    "propagate": False,
+                },
+            },
             "root": {
                 "handlers": ["console"],
                 "level": self.LOG_LEVEL,
