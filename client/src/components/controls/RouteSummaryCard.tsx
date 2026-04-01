@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from "react"
+import React, { useContext } from "react"
 import { Card, CardContent, Typography, Box, Chip } from "@mui/material"
 import {
   DirectionsCar,
@@ -30,45 +30,33 @@ import {
 export const RouteSummaryCard: React.FC = () => {
   const { route, mode, useTraffic, waypointRoute } = useContext(RoutingContext)
 
-  // Memoize expensive calculations
-  const { totalDistance, totalTime, arrivalTime } = useMemo(() => {
-    // Prefer waypoint route summary if available
-    if (waypointRoute?.summary) {
-      const dist = formatDistance(waypointRoute.summary.total_distance)
-      const time = waypointRoute.summary.total_travel_time
-      let timeStr = ""
-      if (time > 60) {
-        const hrs = Math.floor(time / 60)
-        const mins = Math.floor(time % 60)
-        timeStr = `${hrs} hr ${mins} min`
-      } else {
-        timeStr = `${Math.floor(time)} min`
-      }
-      // Arrival time
-      const now = new Date()
-      const arrival = new Date(now.getTime() + time * 60000)
-      let hours = arrival.getHours()
-      const minutes = arrival.getMinutes()
-      const ampm = hours >= 12 ? "PM" : "AM"
-      hours = hours % 12 || 12
-      const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes
-      const arrivalStr = `Arrive ${hours}:${formattedMinutes} ${ampm}`
-      return {
-        totalDistance: dist,
-        totalTime: timeStr,
-        arrivalTime: arrivalStr,
-      }
+  // Compute route summary values
+  let totalDistance = ""
+  let totalTime = ""
+  let arrivalTime = ""
+  if (waypointRoute?.summary) {
+    totalDistance = formatDistance(waypointRoute.summary.total_distance)
+    const time = waypointRoute.summary.total_travel_time
+    if (time > 60) {
+      const hrs = Math.floor(time / 60)
+      const mins = Math.floor(time % 60)
+      totalTime = `${hrs} hr ${mins} min`
+    } else {
+      totalTime = `${Math.floor(time)} min`
     }
-    // Fall back to regular route
-    if (!route?.features?.length) {
-      return { totalDistance: "", totalTime: "", arrivalTime: "" }
-    }
-    return {
-      totalDistance: formatTotalRouteDistance(route.features),
-      totalTime: formatTotalRouteTime(route.features),
-      arrivalTime: formatArrivalTime(route.features),
-    }
-  }, [route?.features, waypointRoute?.summary])
+    const now = new Date()
+    const arrival = new Date(now.getTime() + time * 60000)
+    let hours = arrival.getHours()
+    const minutes = arrival.getMinutes()
+    const ampm = hours >= 12 ? "PM" : "AM"
+    hours = hours % 12 || 12
+    const formattedMinutes = minutes < 10 ? `0${minutes}` : minutes
+    arrivalTime = `Arrive ${hours}:${formattedMinutes} ${ampm}`
+  } else if (route?.features?.length) {
+    totalDistance = formatTotalRouteDistance(route.features)
+    totalTime = formatTotalRouteTime(route.features)
+    arrivalTime = formatArrivalTime(route.features)
+  }
 
   // Don't render if no route
   if (!route?.features?.length && !waypointRoute?.summary) {

@@ -1,4 +1,4 @@
-import React, { useContext, useMemo } from "react"
+import React, { useContext, useState, useEffect } from "react"
 import { Box, Fab, Tooltip, Typography, Paper } from "@mui/material"
 import LayersIcon from "@mui/icons-material/Layers"
 import { TrafficLayerContext } from "../../contexts/TrafficLayerContext"
@@ -14,16 +14,40 @@ export const TrafficLayerToggle: React.FC = () => {
   const { showTrafficLayer, setShowTrafficLayer, lastRefresh } =
     useContext(TrafficLayerContext)
 
-  const freshnessInfo = useMemo(() => {
-    if (!lastRefresh) return { text: "No data", color: "text.disabled" }
-    const ageMin = Math.round(
-      (Date.now() - new Date(lastRefresh).getTime()) / 60000,
-    )
-    if (ageMin < 5)
-      return { text: `Updated ${ageMin} min ago`, color: "success.main" }
-    if (ageMin <= 15)
-      return { text: `Updated ${ageMin} min ago`, color: "warning.main" }
-    return { text: `Updated ${ageMin} min ago`, color: "error.main" }
+  const [freshnessInfo, setFreshnessInfo] = useState({
+    text: "No data",
+    color: "text.disabled",
+  })
+
+  useEffect(() => {
+    const update = () => {
+      if (!lastRefresh) {
+        setFreshnessInfo({ text: "No data", color: "text.disabled" })
+        return
+      }
+      const ageMin = Math.round(
+        (Date.now() - new Date(lastRefresh).getTime()) / 60000,
+      )
+      if (ageMin < 5) {
+        setFreshnessInfo({
+          text: `Updated ${ageMin} min ago`,
+          color: "success.main",
+        })
+      } else if (ageMin <= 15) {
+        setFreshnessInfo({
+          text: `Updated ${ageMin} min ago`,
+          color: "warning.main",
+        })
+      } else {
+        setFreshnessInfo({
+          text: `Updated ${ageMin} min ago`,
+          color: "error.main",
+        })
+      }
+    }
+    update()
+    const interval = setInterval(update, 60000)
+    return () => clearInterval(interval)
   }, [lastRefresh])
 
   return (

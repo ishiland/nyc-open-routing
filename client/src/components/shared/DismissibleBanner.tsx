@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"
+import React, { useState } from "react"
 import {
   Alert,
   AlertTitle,
@@ -22,11 +22,6 @@ export const DismissibleBanner: React.FC = () => {
     false,
   )
   const [showBanner, setShowBanner] = useState(!isDismissed)
-
-  // Update showBanner when isDismissed changes
-  useEffect(() => {
-    setShowBanner(!isDismissed)
-  }, [isDismissed])
 
   const handleDismiss = () => {
     setShowBanner(false)

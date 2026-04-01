@@ -74,7 +74,7 @@ const SearchComponent: FC<SearchProps> = ({ type }) => {
   const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
   const [recentSearches, setRecentSearches] = useState<GeosupportFeature[]>([])
   const blurTimeoutRef = useRef<NodeJS.Timeout>()
-  const inputIdRef = useRef(`auto-suggest-${type}-${Date.now()}`)
+  const inputId = `auto-suggest-${type}`
 
   // Use autofill prevention hook
   const {
@@ -221,7 +221,7 @@ const SearchComponent: FC<SearchProps> = ({ type }) => {
           inputRef.current = node
           setAnchorEl(node)
         }}
-        id={inputIdRef.current}
+        id={inputId}
         value={query}
         onChange={handleInputChange}
         onKeyDown={handleKeyDown}
