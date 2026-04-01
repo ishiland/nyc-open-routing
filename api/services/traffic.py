@@ -30,7 +30,7 @@ DEFAULT_POSTED_SPEED = 25
 class TrafficRefreshService:
     """Manages background TRANSCOM speed data refresh cycle."""
 
-    MAX_STARTUP_RETRIES = 3
+    MAX_STARTUP_RETRIES = 5
 
     def __init__(self, db_params: dict, interval_seconds: int, route_cache, tile_cache=None):
         self._db_params = db_params
@@ -84,6 +84,8 @@ class TrafficRefreshService:
 
     async def _initial_load(self):
         """Startup load with retry logic (up to MAX_STARTUP_RETRIES)."""
+        logger.info("Waiting 5s for database extensions to initialize...")
+        await asyncio.sleep(5)
         for attempt in range(1, self.MAX_STARTUP_RETRIES + 1):
             try:
                 await asyncio.to_thread(self._do_refresh_cycle, propagation_rounds=5)
