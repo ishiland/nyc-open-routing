@@ -285,8 +285,7 @@ class TrafficRefreshService:
 
         Returns count of inserted records.
         """
-        cur.execute(
-            """
+        cur.execute("""
             CREATE TEMP TABLE IF NOT EXISTS _traffic_speeds (
                 id SERIAL PRIMARY KEY,
                 link_id BIGINT,
@@ -296,8 +295,7 @@ class TrafficRefreshService:
                 borough TEXT,
                 geom GEOMETRY(LINESTRING, 4326)
             ) ON COMMIT DROP;
-            """
-        )
+            """)
         cur.execute("TRUNCATE _traffic_speeds;")
 
         inserted = 0
@@ -338,8 +336,7 @@ class TrafficRefreshService:
 
         Returns count of unique matched edges.
         """
-        cur.execute(
-            f"""
+        cur.execute(f"""
             CREATE TEMP TABLE _speed_edge_mapping ON COMMIT DROP AS
             SELECT DISTINCT ON (ts.link_id, e.id)
                 ts.link_id,
@@ -363,8 +360,7 @@ class TrafficRefreshService:
             ORDER BY
                 ts.link_id, e.id,
                 ST_Distance(e.geom_4326::geography, ts.geom::geography);
-            """
-        )
+            """)
 
         cur.execute(
             "SELECT COUNT(*), COUNT(DISTINCT edge_id), "
@@ -387,8 +383,7 @@ class TrafficRefreshService:
         Returns total count of updated rows.
         """
         # Compute factors into staging table
-        cur.execute(
-            f"""
+        cur.execute(f"""
             CREATE TEMP TABLE _traffic_factor_staging ON COMMIT DROP AS
             SELECT
                 edge_id,
@@ -398,28 +393,24 @@ class TrafficRefreshService:
                 ), {MAX_FACTOR})::numeric(5,2) AS traffic_factor
             FROM _speed_edge_mapping
             GROUP BY edge_id;
-            """
-        )
+            """)
 
         # Record edge count
         cur.execute("SELECT COUNT(*) FROM _traffic_factor_staging;")
         self._edge_count = cur.fetchone()[0]
 
         # Apply only changed values (incremental update)
-        cur.execute(
-            """
+        cur.execute("""
             UPDATE edges e
             SET traffic_factor = ts.traffic_factor
             FROM _traffic_factor_staging ts
             WHERE e.id = ts.edge_id
               AND e.traffic_factor IS DISTINCT FROM ts.traffic_factor;
-            """
-        )
+            """)
         updated_count = cur.rowcount
 
         # Reset edges no longer covered by sensors
-        cur.execute(
-            """
+        cur.execute("""
             UPDATE edges
             SET traffic_factor = 1.0
             WHERE traffic_factor IS DISTINCT FROM 1.0
@@ -427,8 +418,7 @@ class TrafficRefreshService:
               AND id NOT IN (
                   SELECT edge_id FROM _traffic_factor_staging
               );
-            """
-        )
+            """)
         reset_count = cur.rowcount
 
         logger.info(
@@ -452,8 +442,7 @@ class TrafficRefreshService:
         """
         total_propagated = 0
         for round_num in range(1, max_rounds + 1):
-            cur.execute(
-                """
+            cur.execute("""
                 UPDATE edges gap
                 SET traffic_factor = neighbor.avg_factor
                 FROM (
@@ -479,8 +468,7 @@ class TrafficRefreshService:
                     GROUP BY gap_e.id
                 ) neighbor
                 WHERE gap.id = neighbor.id;
-                """
-            )
+                """)
             propagated = cur.rowcount
             total_propagated += propagated
             if propagated == 0:
