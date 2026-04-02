@@ -1,4 +1,4 @@
-FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.2
+FROM ghcr.io/osgeo/gdal:ubuntu-small-3.12.3
 
 ARG PYTHON_VERSION=3.11
 ARG DEBIAN_FRONTEND=noninteractive
