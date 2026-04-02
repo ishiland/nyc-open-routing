@@ -882,8 +882,8 @@ BEGIN
     -- Max cost is the largest interval
     max_cost := (SELECT MAX(v) FROM unnest(_intervals) AS v);
 
-    -- Bounding box pre-filter: ~1500 m/min for driving, minimum 5000m
-    bbox_buffer := GREATEST(max_cost * 1500, 5000);
+    -- Bounding box pre-filter: ~2500 m/min for driving (accounts for highways/expressways), minimum 5000m
+    bbox_buffer := GREATEST(max_cost * 2500, 5000);
     bbox_sql := format(
         'AND the_geom && ST_Expand(ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 2263), %s)',
         _lon, _lat, bbox_buffer
@@ -959,8 +959,8 @@ BEGIN
 
     max_cost := (SELECT MAX(v) FROM unnest(_intervals) AS v);
 
-    -- Bounding box pre-filter: ~500 m/min for biking, minimum 5000m
-    bbox_buffer := GREATEST(max_cost * 500, 5000);
+    -- Bounding box pre-filter: ~800 m/min for biking (accounts for bike lanes/downhills), minimum 5000m
+    bbox_buffer := GREATEST(max_cost * 800, 5000);
 
     edges_sql := format(
         'SELECT id, source, target, cost_bike AS cost, rcost_bike AS reverse_cost FROM edges WHERE bikeable = TRUE AND the_geom && ST_Expand(ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 2263), %s)',
@@ -1103,8 +1103,8 @@ BEGIN
     -- Max cost is the largest interval
     max_cost := (SELECT MAX(v) FROM unnest(_intervals) AS v);
 
-    -- Bounding box pre-filter: ~1500 m/min for driving, minimum 5000m
-    bbox_buffer := GREATEST(max_cost * 1500, 5000);
+    -- Bounding box pre-filter: ~2500 m/min for driving (accounts for highways/expressways), minimum 5000m
+    bbox_buffer := GREATEST(max_cost * 2500, 5000);
     bbox_sql := format(
         'AND the_geom && ST_Expand(ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 2263), %s)',
         _lon, _lat, bbox_buffer
@@ -1182,8 +1182,8 @@ BEGIN
 
     max_cost := (SELECT MAX(v) FROM unnest(_intervals) AS v);
 
-    -- Bounding box pre-filter: ~500 m/min for biking, minimum 5000m
-    bbox_buffer := GREATEST(max_cost * 500, 5000);
+    -- Bounding box pre-filter: ~800 m/min for biking (accounts for bike lanes/downhills), minimum 5000m
+    bbox_buffer := GREATEST(max_cost * 800, 5000);
 
     edges_sql := format(
         'SELECT id, source, target, cost_bike AS cost, rcost_bike AS reverse_cost FROM edges WHERE bikeable = TRUE AND the_geom && ST_Expand(ST_Transform(ST_SetSRID(ST_MakePoint(%s, %s), 4326), 2263), %s)',
