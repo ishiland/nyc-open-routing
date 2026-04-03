@@ -1,4 +1,4 @@
-fastapi==0.115.12
+fastapi==0.135.3
 geosupport-suggest==0.1.0
 python-geosupport==1.1.0
 httpx==0.28.1
