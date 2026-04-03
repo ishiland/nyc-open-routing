@@ -20,4 +20,4 @@ uvicorn==0.34.0
 # Dev / linting
 black==26.3.1
 flake8==7.3.0
-isort==7.0.0
+isort==8.0.1
