@@ -8,7 +8,7 @@
     "@emotion/react": "^11.14.0",
     "@emotion/styled": "^11.14.0",
     "@fontsource-variable/inter": "^5.2.8",
-    "@mui/icons-material": "^7.0.1",
+    "@mui/icons-material": "^7.3.9",
     "@mui/material": "^7.0.1",
     "@turf/helpers": "^7.2.0",
     "autosuggest-highlight": "^3.3.4",
