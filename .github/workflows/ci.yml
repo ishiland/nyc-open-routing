@@ -117,7 +117,7 @@ jobs:
           --ignore=tests/test_smoke.py
 
     - name: Upload coverage report
-      uses: codecov/codecov-action@v5
+      uses: codecov/codecov-action@v7
       with:
         file: ./api/coverage.xml
         flags: api
