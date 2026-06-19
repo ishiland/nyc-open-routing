@@ -19,7 +19,7 @@ jobs:
       api: ${{ steps.filter.outputs.api }}
       docker: ${{ steps.filter.outputs.docker }}
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
     - uses: dorny/paths-filter@v3
       id: filter
       with:
@@ -40,7 +40,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Set up Node.js
       uses: actions/setup-node@v6
@@ -76,7 +76,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Set up Python
       uses: actions/setup-python@v6
@@ -130,7 +130,7 @@ jobs:
     if: always() && needs.changes.outputs.docker == 'true' && needs.api.result != 'failure'
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - name: Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
